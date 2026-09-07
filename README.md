@@ -17,6 +17,10 @@ con.sql("SELECT * FROM sage_x3.SORDER LIMIT 5")
 Everything is seeded (`SEED = 20260905`), so re-running the generator reproduces
 the same data exactly.
 
+**Looking for the pictures?** [`docs/atlas.md`](docs/atlas.md) is all 17 pipeline
+and data-model diagrams on one page, captioned. GitHub renders them inline.
+[`docs/README.md`](docs/README.md) indexes the rest of the documentation.
+
 ---
 
 ## 1. Fidelity — read this before you trust anything

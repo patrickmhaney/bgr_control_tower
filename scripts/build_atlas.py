@@ -1,6 +1,10 @@
 """Build the shareable diagram atlas from the diagrams committed in docs/.
 
-    python scripts/build_atlas.py [output.html]
+    python scripts/build_atlas.py [output.html|output.md]
+
+The output format follows the extension: .md emits Markdown whose ```mermaid
+fences GitHub renders natively, so the atlas is readable from the repository
+without building anything. .html emits the standalone styled page.
 
 The Mermaid source is read out of docs/data_model.md and docs/ingestion.md
 rather than copied, so the shared page cannot drift from the repository. The
@@ -158,9 +162,72 @@ def esc(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def check(cache: dict, filename: str, index: int, expected: str) -> str:
+    """Fetch a diagram, asserting it is still the one the caption was written for."""
+    source = cache[filename][index]
+    if expected not in source:
+        raise SystemExit(
+            f"docs/{filename} block {index} no longer contains {expected!r}. "
+            f"The diagrams moved; update FIGURES in scripts/build_atlas.py."
+        )
+    return source
+
+
+def render_markdown(cache: dict, figures_by_section: list) -> tuple[str, int]:
+    """Emit the atlas as Markdown. GitHub renders ```mermaid fences natively, so
+    the diagrams are readable in the repository with nothing installed."""
+    out = ["# Control Tower Atlas", ""]
+    out.append("Seventeen diagrams of the pipeline, each with the one thing worth "
+               "looking at. The Mermaid source is read out of `docs/data_model.md` "
+               "and `docs/ingestion.md`, so this page cannot drift from the "
+               "repository.")
+    out.append("")
+    out.append(" | ".join(f"**{n}** {label}" for n, label in FACTS))
+    out.append("")
+    out.append("## Contents")
+    out.append("")
+    for i, (mark, heading, _, _) in enumerate(figures_by_section, start=1):
+        out.append(f"- [{mark} {heading}](#s{i})")
+    out.append("")
+
+    figure_number = 0
+    for section_index, (mark, heading, intro, figs) in enumerate(figures_by_section, start=1):
+        out.append(f'<a id="s{section_index}"></a>')
+        out.append("")
+        out.append(f"## {mark} {heading}")
+        out.append("")
+        out.append(intro)
+        out.append("")
+        for position, (filename, index, expected, title, caption, note) in enumerate(figs, start=1):
+            source = check(cache, filename, index, expected)
+            figure_number += 1
+            out.append(f"### Fig {section_index}.{position} — {title}")
+            out.append("")
+            out.append(f"*{caption}*")
+            out.append("")
+            out.append("```mermaid")
+            out.append(source)
+            out.append("```")
+            out.append("")
+            out.append(f"**What to look at.** {note}")
+            out.append("")
+    out.append("---")
+    out.append("")
+    out.append("Rebuild this page with `python scripts/build_atlas.py docs/atlas.md`.")
+    out.append("")
+    return "\n".join(out), figure_number
+
+
 def main() -> int:
     out_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "atlas.html")
     cache = {"data_model.md": blocks("data_model.md"), "ingestion.md": blocks("ingestion.md")}
+
+    if out_path.endswith(".md"):
+        page, figure_number = render_markdown(cache, FIGURES)
+        with open(out_path, "w") as fh:
+            fh.write(page)
+        print(f"{figure_number} figures -> {os.path.relpath(out_path, ROOT)}")
+        return 0
 
     sections_html, nav_html = [], []
     figure_number = 0
@@ -170,12 +237,7 @@ def main() -> int:
         )
         items = []
         for filename, index, expected, title, caption, note in figures:
-            source = cache[filename][index]
-            if expected not in source:
-                raise SystemExit(
-                    f"docs/{filename} block {index} no longer contains {expected!r}. "
-                    f"The diagrams moved; update FIGURES in scripts/build_atlas.py."
-                )
+            source = check(cache, filename, index, expected)
             figure_number += 1
             items.append(f"""
         <figure class="fig" id="fig{figure_number}">

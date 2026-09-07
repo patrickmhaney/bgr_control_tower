@@ -2,6 +2,7 @@
 
 | Document | Read it for |
 |---|---|
+| [atlas.md](atlas.md) | **The diagrams.** All 17 ingestion and data-model diagrams on one page, each with a caption and the one thing worth looking at. GitHub renders them inline - nothing to run. |
 | [running_it.md](running_it.md) | **Hands on.** How to run the pipeline, step through it, and query the result. Start here if you want to poke at the data. |
 | [architecture.md](architecture.md) | **Start here.** The model, the metric-addition runbook, entity resolution, and what is generated vs hand-written. |
 | [ingestion.md](ingestion.md) | Source systems to raw: the extraction spec, per-system difficulty, and the pitfalls that actually bit during the build. |
@@ -23,6 +24,7 @@
 | `scripts/update_build_stats.py` | Rewrite the generated build statistics in the docs. `--check` in CI. |
 | `scripts/regenerate.py` | Run every generator in dependency order. `--check` is the CI guard against stale generated files. |
 | `scripts/verify_ingestion.py` | Prove the pipeline is lossless by building both ways and diffing. |
+| `scripts/build_atlas.py` | Rebuilds the diagram atlas from the Mermaid in these docs. `docs/atlas.md` for the Markdown page, `atlas.html` for the standalone styled one. |
 | `scripts/profile_sources.py` | Reproduces every number quoted in the feasibility audit. Read-only, no dbt needed. |
 | `scripts/generate_staging.py` | Regenerates the 46 staging models from the column spec. |
 | `scripts/compile_metrics.py` | Compiles the metric registry into 8 artefacts. `--check` validates without writing. |

@@ -37,6 +37,8 @@ STEPS = [
     ("schema contract", ["scripts/freeze_schema_contract.py"]),
     ("metric artefacts", ["scripts/compile_metrics.py"]),
     ("process views", ["scripts/generate_process_views.py"]),
+    # Reads the Mermaid out of docs/, so it is stale whenever a diagram is edited.
+    ("diagram atlas", ["scripts/build_atlas.py", "docs/atlas.md"]),
 ]
 
 #: These need a built warehouse, so they are not part of the default chain -
