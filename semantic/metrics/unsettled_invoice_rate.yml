@@ -1,0 +1,43 @@
+name: unsettled_invoice_rate
+label: Unsettled Invoice Rate
+status: active
+is_data_quality: true
+
+description: >
+  The share of invoice lines with no settlement date. This is the mandatory
+  companion to the DSO proxy: the proxy is computed over settled invoices only,
+  so this figure is the size of what it excludes. Published on its own, the
+  proxy looks better than reality by exactly this much.
+
+grain: One sales invoice line.
+
+base_model: fct_invoice_line
+
+numerator:
+  agg: count
+  column: invoice_number
+  filter: {column: is_unsettled, op: is_true}
+  label: Unsettled lines
+
+denominator:
+  agg: count
+  column: invoice_number
+  label: Invoice lines
+
+filters: []
+
+dimensions: [date, customer, site]
+
+format: percent
+decimals: 1
+direction: lower_is_better
+
+owner: TBD
+owner_proposed: Controller
+
+lineage_notes: >
+  sage_x3.SINVOICEV.PAYDAT_0 carrying the 1753-01-01 sentinel, nulled in
+  staging and surfaced as fct_invoice_line.is_unsettled. 1,335 of 9,767 lines
+  (13.7%), from 492 of 3,564 invoices (13.8%).
+
+blocked_reason: null

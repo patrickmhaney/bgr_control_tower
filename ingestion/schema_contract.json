@@ -1,0 +1,1792 @@
+{
+ "sage_x3": {
+  "COMPANY": {
+   "CPY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CPYNAM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CRY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LEG_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CPYLOG_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "FACILITY": {
+   "FCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "FCYSHO_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "FCYNAM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LEGCPY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CRY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CTY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SAT_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "FCYSTO_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "FCYSAL_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "FCYPUR_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "APLSTD": {
+   "CHAPTER_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CODE_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "LANNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TEXTE_0": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "ATEXTRA": {
+   "CODFIC_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ZONE_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LANNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "IDENT1_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "IDENT2_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TEXTE_0": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "REPRESENT": {
+   "REPNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "REPNAM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "FCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "REPTYP_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "BPADDRESS": {
+   "BPATYP_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "BPANUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPAADD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPADES_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ADDLIG_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ADDLIG_1": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CTY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SAT_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POSCOD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CRY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TEL_0": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "BPSUPPLIER": {
+   "BPSNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPSNAM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PTE_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LTI_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ACCCOD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "BPARTNER": {
+   "BPRNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPRNAM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPRNAM_1": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCFLG_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "BPSFLG_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CRY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPRLOG_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "ITMFACILIT": {
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "REOMODE_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "SAFSTO_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "REOMINQTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "REOMAXQTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "LTISUP_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ABCCLS_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "STOCK": {
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LOT_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LOC_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTYSTU_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "STA_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "OWNER_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "ITMMASTER": {
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMDES1_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMDES2_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TCLCOD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TSICOD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TSICOD_1": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TSICOD_2": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STU_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "BASPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "PURBASPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "EANCOD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMWEI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "CREDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "UPDDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "BPCUSTOMER": {
+   "BPCNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCNAM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCGRU_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PTE_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCSNC_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "OSTCTL_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ACCCOD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "REP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "REP_1": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CREDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "UPDDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "SORDER": {
+   "SOHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SALFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCORD_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCINV_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ORDDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "SHIDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ORDSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "REP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "REP_1": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TOTLINAMT_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "ORDINVSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CREDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "UPDDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "SINVOICEV": {
+   "NUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SIVTYP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "INVDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "BPR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SALFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "AMTNOTLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTTAXLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTATILIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "INVSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "PAYDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "ACCDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "PORDER": {
+   "POHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPSNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ORDDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "ORDSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "GACCENTRY": {
+   "NUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "TYP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "JOU_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CPY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "FCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ACCDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "DES_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "VCRNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "STOJOU": {
+   "ROWID": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "IPTDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "TRSTYP_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "QTYSTU_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "VCRNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "VCRTYP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LOT_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "SORDERQ": {
+   "SOHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SOPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "SOQSEQ_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "DEMDLVDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "SHTQTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "UOM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "SORDERP": {
+   "SOHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SOPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "SOPSEQ_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMDES1_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "GROPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "NETPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "DISCRGVAL1_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTNOTLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "VAT1_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "SINVOICED": {
+   "NUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SIDLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMDES1_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "NETPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTNOTLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "SOHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SOPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "PORDERQ": {
+   "POHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "POQSEQ_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTYUOM_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "EXTRCPDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "RCPQTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "RCPDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "NETPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "GACCENTRYD": {
+   "NUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ACC_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SNS_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "AMTCUR_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTLOC_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "BPR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CPY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "FCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "DSP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ACCDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   }
+  }
+ },
+ "hubspot": {
+  "company": {
+   "id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "domain": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "industry": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "country": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "numberofemployees": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "annualrevenue": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hubspot_owner_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "createdate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "hs_lastmodifieddate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "archived": {
+    "data_type": "bool",
+    "nullable": true
+   }
+  },
+  "contact": {
+   "id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "email": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "firstname": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "lastname": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "jobtitle": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "phone": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "lifecyclestage": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hs_lead_status": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hubspot_owner_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "associatedcompanyid": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "createdate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "lastmodifieddate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "archived": {
+    "data_type": "bool",
+    "nullable": true
+   }
+  },
+  "deal": {
+   "id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dealname": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "amount": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dealstage": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "pipeline": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "closedate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "createdate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "hs_lastmodifieddate": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "hubspot_owner_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dealtype": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hs_is_closed_won": {
+    "data_type": "bool",
+    "nullable": true
+   },
+   "hs_deal_stage_probability": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "erp_order_number": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "associated_company_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "archived": {
+    "data_type": "bool",
+    "nullable": true
+   }
+  },
+  "deal_stage_history": {
+   "deal_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "stage": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "changed_at": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "changed_by_owner_id": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "association": {
+   "from_object_type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "from_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "to_object_type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "to_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "association_type": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "engagement": {
+   "id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "created_at": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "owner_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "associated_deal_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "associated_company_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "body_preview": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "owner": {
+   "id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "email": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "first_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "last_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "user_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "archived": {
+    "data_type": "bool",
+    "nullable": true
+   },
+   "created_at": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "updated_at": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "pipeline_stage": {
+   "pipeline_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "pipeline_label": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "stage_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "stage_label": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "display_order": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "is_closed": {
+    "data_type": "bool",
+    "nullable": true
+   },
+   "is_closed_won": {
+    "data_type": "bool",
+    "nullable": true
+   }
+  }
+ },
+ "paycom": {
+  "employee": {
+   "employee_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ee_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "legal_first_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "legal_last_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "preferred_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "work_email": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hire_date": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "rehire_date": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "termination_date": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "employment_status": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "department_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "department_desc": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "location_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "position_title": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "pay_type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "annual_salary": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hourly_rate": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ssn_last4": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "manager_ee_id": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "check": {
+   "check_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "employee_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "check_date": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "period_start": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "period_end": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "check_number": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "gross_pay": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "net_pay": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "check_type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "location_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "department_code": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "earning_detail": {
+   "check_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "employee_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "earning_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "earning_desc": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "hours": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "amount": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "labor_allocation_code": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "deduction_detail": {
+   "check_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "employee_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "deduction_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ee_amount": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "er_amount": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "tax_detail": {
+   "check_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "employee_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "tax_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ee_amount": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "er_amount": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "gl_mapping": {
+   "code_type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "description": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "gl_account": {
+    "data_type": "text",
+    "nullable": true
+   }
+  }
+ },
+ "netstock": {
+  "item_location": {
+   "item_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "location_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "description": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "abc_class": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "xyz_class": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "policy": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "lead_time_days": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "safety_stock_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "reorder_point_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "min_order_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "supplier_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "on_hand_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "on_order_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "excess_value": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "stockout_risk": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "last_sync_at": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "forecast": {
+   "item_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "location_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "period_start": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "period_type": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "forecast_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "forecast_method": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "generated_at": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "forecast_accuracy": {
+   "item_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "location_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "period_start": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "forecast_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "actual_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "abs_pct_error": {
+    "data_type": "double",
+    "nullable": true
+   }
+  },
+  "replenishment_recommendation": {
+   "recommendation_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "item_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "location_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "recommended_qty": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "recommended_order_date": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "required_date": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "supplier_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "status": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "erp_po_number": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "generated_at": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "supplier": {
+   "supplier_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "supplier_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "lead_time_days": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "min_order_value": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "source_system": {
+    "data_type": "text",
+    "nullable": true
+   }
+  }
+ },
+ "pangea": {
+  "shipment": {
+   "shipment_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "reference_number": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "customer_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "carrier_scac": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "service_level": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "mode": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "origin_site_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dest_city": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dest_state": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dest_postal": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "dest_country": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ship_date": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "estimated_delivery_date": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "delivered_date": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "status": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "weight_lb": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "piece_count": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "total_cost_usd": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "created_at": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "charge": {
+   "shipment_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "charge_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "amount_usd": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "currency": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "tracking_event": {
+   "shipment_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "event_seq": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "event_code": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "event_description": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "event_ts": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "event_location": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "shipment_leg": {
+   "shipment_id": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "leg_seq": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "mode": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "carrier_scac": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "origin": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "destination": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "depart_ts": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "arrive_ts": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "carrier": {
+   "scac": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "carrier_name": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "mode": {
+    "data_type": "text",
+    "nullable": true
+   }
+  }
+ }
+}

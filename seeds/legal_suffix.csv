@@ -1,0 +1,9 @@
+suffix,jurisdiction,note
+INC,US/CA,Incorporated
+LLC,US,Limited liability company
+LTD,UK/CA,Limited
+CORP,US,Corporation
+CO,US,Company
+GROUP,generic,Common trading suffix rather than a legal form
+COMPANY,generic,Spelled-out form of CO
+ULC,CA,Unlimited liability company

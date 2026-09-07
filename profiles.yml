@@ -1,0 +1,24 @@
+# BGR_CONTROL_TOWER_HOME lets dbt run from any working directory. It defaults to
+# '.', which is correct when you run from the project root. A scheduler or CI
+# job that runs from elsewhere must set it, or dbt will create a stray
+# warehouse.duckdb in its working directory and fail to find raw.duckdb.
+bgr_control_tower:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('BGR_CONTROL_TOWER_HOME', '.') }}/warehouse.duckdb"
+      threads: 8
+      extensions:
+        - httpfs
+      attach:
+        # The output of the ingestion pipeline. This is what dbt reads.
+        - path: "{{ env_var('BGR_CONTROL_TOWER_HOME', '.') }}/raw.duckdb"
+          alias: raw
+          read_only: true
+        # The original source database, kept attached only so the pipeline's
+        # output can be diffed against it. Select it with
+        # `--vars '{source_database: mock_sources}'`.
+        - path: "{{ env_var('BGR_CONTROL_TOWER_HOME', '.') }}/mock_sources.duckdb"
+          alias: mock_sources
+          read_only: true

@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: hubspot
+    database: "{{ var('source_database') }}"
+    schema: hubspot
+    description: >
+      HubSpot CRM as a Fivetran/Airbyte landing. Properties arrive as strings,
+      associations are a separate many-to-many, and deleted records arrive as
+      `archived = true` rather than disappearing.
+    tables:
+      - name: company
+        description: >
+          Company object. 12 archived rows. `name` is the only candidate link
+          to X3 BPCUSTOMER and the names have drifted.
+      - name: contact
+        description: Contact object. 23 archived rows and ~40 near-duplicates with mangled emails.
+      - name: deal
+        description: >
+          Deal object. `amount` and `hs_deal_stage_probability` are varchar.
+          `erp_order_number` is the CRM-to-ERP handoff and it is dirty - see
+          int_deal_erp_order_number.
+      - name: deal_stage_history
+        description: One row per deal stage change.
+      - name: association
+        description: Deal/contact/company many-to-many.
+      - name: engagement
+        description: Calls, emails, meetings.
+      - name: owner
+        description: >
+          HubSpot owner. `email` matches Paycom `work_email` exactly, which
+          makes it the highest-confidence employee link in the estate.
+      - name: pipeline_stage
+        description: Pipeline x stage reference, with is_closed / is_closed_won.

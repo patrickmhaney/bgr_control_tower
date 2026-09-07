@@ -1,0 +1,124 @@
+version: 2
+
+models:
+  - name: stg_paycom__employee
+    description: >
+      "Grain: one row per employee. Every date and amount arrives as a string
+      because Paycom is a report export, not a queryable system - the casts
+      here are the whole point of the model."
+    columns:
+      - name: employee_code
+        tests: [unique, not_null]
+      - name: hire_date
+        description: Parsed from a MM/DD/YYYY string. try_strptime - unparseable becomes null.
+      - name: payroll_location_code
+        description: >
+          DAL-01 / RNO-01 / TOR-01. Does not match X3 FACILITY.FCY_0 - resolve
+          through seeds/site_code_crosswalk.csv.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('site_code_crosswalk')
+                field: paycom_location_code
+      - name: work_email
+        description: >
+          Matches hubspot.owner.email exactly and is the highest-confidence
+          identity key between systems - but it is NOT unique in Paycom. 12
+          emails appear twice, always with the same name and a different
+          employee_code. These are duplicate employee records, not two people:
+          the roster holds 150 rows for 138 distinct people. Deduplication
+          happens in int_employee_xref, not here.
+        tests:
+          - unique:
+              config:
+                severity: warn
+                # 12 known duplicate-person rows. Errors above 15 - a rise
+                # means the Paycom roster is accumulating duplicates faster
+                # than anyone is cleaning them up, which is worth stopping for.
+                error_if: ">15"
+                warn_if: ">0"
+      - name: full_name_normalized
+        description: >
+          Upper-cased "FIRST LAST". Not unique for the same reason work_email
+          is not - the same 12 people appear twice. int_employee_xref carries
+          a confidence column rather than assuming either is a key.
+
+  - name: stg_paycom__check
+    description: "Grain: one row per employee and pay period (biweekly)."
+    columns:
+      - name: check_id
+        tests: [unique, not_null]
+      - name: employee_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_paycom__employee')
+                field: employee_code
+      - name: check_date
+        description: >
+          Parsed from MM/DD/YYYY. In the raw export min() and max() return
+          01/02/2026 and 12/20/2024 because they are string comparisons - a
+          good illustration of why the cast belongs in staging.
+        tests: [not_null]
+
+  - name: stg_paycom__earning_detail
+    description: "Grain: one row per check and earning code."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [check_id, earning_code]
+    columns:
+      - name: check_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_paycom__check')
+                field: check_id
+      - name: labor_allocation_code
+        description: >
+          "<location>-<department>", e.g. DAL-01-200 = Dallas Warehouse. The
+          only cost allocation dimension available in the estate, and the one
+          a fully-loaded Cost Per Order would have to use.
+
+  - name: stg_paycom__deduction_detail
+    description: "Grain: one row per check and deduction code."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [check_id, deduction_code]
+
+  - name: stg_paycom__tax_detail
+    description: "Grain: one row per check and tax code."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [check_id, tax_code]
+
+  - name: stg_paycom__gl_mapping
+    description: >
+      "Grain: one row per payroll code. Maps earning and deduction codes to GL
+      accounts."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [code_type, payroll_code]
+    columns:
+      - name: gl_account_code
+        description: >
+          Accounts 50100-50140 and 21500-21700. **None of these exist in
+          sage_x3.GACCENTRYD**, which only carries 11100, 22300 and 41000.
+          The README's join map draws this as a solid line; it is not one in
+          this extract. The relationship test below is expected to fail
+          against all 11 rows and is set to warn so the gap stays visible.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__gaccentryd')
+                field: gl_account_code
+              config:
+                severity: warn
+                # Expected to warn on all 11 rows: payroll is not posted to
+                # the GL in this extract. Errors above 11 - that would mean
+                # something changed and is worth stopping for.
+                error_if: ">11"
+                warn_if: ">0"

@@ -1,0 +1,82 @@
+# Base model registry.
+#
+# Binds each fact in marts/core to the conformed dimensions it can be sliced
+# by, and names the degenerate attributes that live on the fact itself. A
+# metric declares a base_model and a list of dimensions; the compiler resolves
+# the dimension to a column through this file.
+#
+# This indirection is what makes "add a metric" cheap. A new metric on an
+# existing fact needs a definition and nothing else - the joins are already
+# described here.
+
+version: 1
+
+models:
+
+  fct_shipment:
+    label: Shipment
+    grain: One shipment.
+    description: >
+      Shipment header from Pangea, enriched with charge totals, tracking
+      milestones and the resolved X3 order and customer.
+    dimensions:
+      date: ship_date_key
+      customer: customer_key
+      site: site_code
+      carrier: carrier_scac
+    degenerate:
+      service_level: service_level
+      transport_mode: transport_mode
+      shipment_status: shipment_status
+      destination_state: destination_state
+      customer_resolution_method: customer_resolution_method
+
+  fct_shipment_event:
+    label: Shipment Event
+    grain: One tracking event on one shipment.
+    description: Event-level tracking stream. Milestone and dwell analysis.
+    dimensions:
+      date: event_date_key
+      customer: customer_key
+      site: site_code
+      carrier: carrier_scac
+    degenerate:
+      event_code: event_code
+      service_level: service_level
+
+  fct_sales_order_line:
+    label: Sales Order Line
+    grain: One sales order line.
+    description: X3 order lines, quantity and price sides rejoined.
+    dimensions:
+      date: order_date_key
+      customer: customer_key
+      site: site_code
+      item: item_code
+    degenerate:
+      order_status: order_status
+      document_currency_code: document_currency_code
+
+  fct_invoice_line:
+    label: Invoice Line
+    grain: One sales invoice line.
+    description: X3 invoice lines with settlement dates. Reconciles to GL 41000.
+    dimensions:
+      date: invoice_date_key
+      customer: customer_key
+      site: site_code
+      item: item_code
+    degenerate:
+      payment_term_code: payment_term_code
+      document_currency_code: document_currency_code
+
+  dim_customer:
+    label: Customer
+    grain: One conformed customer.
+    description: >
+      Registered as a base model so that entity-resolution quality can be
+      published as a metric rather than living in a slide.
+    dimensions: {}
+    degenerate:
+      source_scope: source_scope
+      match_method: match_method

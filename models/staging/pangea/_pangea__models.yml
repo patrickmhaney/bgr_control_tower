@@ -1,0 +1,139 @@
+version: 2
+
+models:
+  - name: stg_pangea__shipment
+    description: "Grain: one row per shipment."
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: reference_number
+        description: >
+          Carries the X3 sales order number on 2,998 of 3,509 shipments
+          (85.4%). 247 are null and 264 carry a CUST-PO-##### customer PO that
+          matches nothing in X3. Padding is not a factor - trimmed and
+          untrimmed give the same result.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__sorder')
+                field: sales_order_number
+              config:
+                severity: warn
+                # Dashed line in the README join map. 511 of 3,509 shipments
+                # do not resolve to an order (247 null + 264 customer PO).
+                # Errors above 600 - that would mean the handoff has degraded
+                # beyond the level this design was validated against.
+                error_if: ">600"
+                warn_if: ">0"
+      - name: carrier_scac
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pangea__carrier')
+                field: carrier_scac
+      - name: origin_site_code
+        description: Matches X3 FACILITY.FCY_0 directly on all rows.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__facility')
+                field: site_code
+      - name: customer_name
+        description: >
+          Matches BPCUSTOMER.BPCNAM_0 on all 220 distinct values. Not in the
+          README join map, and a better customer key for the 15% of shipments
+          that carry no order reference.
+      - name: carrier_promised_delivery_date
+        description: >
+          Source `estimated_delivery_date`. Renamed because "estimated" hides
+          that this is a promise the carrier can be held to, and the naming
+          matters when the alternative basis (customer request date) is one
+          var away.
+      - name: delivered_date
+        description: >
+          Null on 128 shipments - 109 EXCEPTION and 19 IN_TRANSIT. These are
+          excluded from On-Time Delivery, which means a failed shipment
+          currently cannot hurt the metric. Flagged in open question 1.
+      - name: header_cost_usd
+        description: >
+          Source `total_cost_usd`. Renamed to make it impossible to reach for
+          by accident - it disagrees with the charge lines on every one of the
+          3,509 shipments and is 9.9% higher in aggregate. Cost metrics use the
+          charge lines.
+
+  - name: stg_pangea__shipment_leg
+    description: "Grain: one row per shipment and leg sequence."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [shipment_id, leg_sequence]
+    columns:
+      - name: shipment_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_pangea__shipment')
+                field: shipment_id
+
+  - name: stg_pangea__tracking_event
+    description: >
+      "Grain: one row per shipment and event sequence. 316 of 24,504 rows
+      (1.29%) have a timestamp earlier than the previous event by sequence, so
+      milestones must be derived by event_code and never by min/max of
+      event_at."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [shipment_id, event_sequence]
+    columns:
+      - name: shipment_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_pangea__shipment')
+                field: shipment_id
+      - name: event_at
+        description: >
+          Source column is `event_ts`. Named `event_at` rather than
+          `event_date` because it is a DATE only in this mock - a real Pangea
+          feed sends a timestamp, and this is the one model where intra-day
+          ordering matters. The day the type changes, a name ending in
+          `_date` becomes a lie in exactly the wrong place.
+      - name: event_code
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['PU', 'DP', 'AR', 'IT', 'OD', 'DL', 'EX']
+
+  - name: stg_pangea__charge
+    description: "Grain: one row per shipment and charge code."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [shipment_id, charge_code]
+    columns:
+      - name: shipment_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pangea__shipment')
+                field: shipment_id
+      - name: charge_amount_usd
+        description: >
+          Already USD in the source. FREIGHT is present on every shipment;
+          FUEL on 3,174; DETENTION, LIFTGATE and RESIDENTIAL are sparse
+          accessorials.
+        tests: [not_null]
+      - name: currency_code
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['USD']
+
+  - name: stg_pangea__carrier
+    description: "Grain: one row per carrier SCAC."
+    columns:
+      - name: carrier_scac
+        tests: [unique, not_null]

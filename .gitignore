@@ -1,0 +1,54 @@
+# --- Python ---------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- dbt ------------------------------------------------------------------
+target/
+dbt_packages/
+logs/
+# dbt writes an anonymous install id here; it is per-machine, not per-project.
+.user.yml
+
+# --- Pipeline data --------------------------------------------------------
+# Everything below is produced by `generate_mock_sources.py` and the ingestion
+# and dbt runs. The one deliberate exception is mock_sources.duckdb, the shipped
+# source data, which is committed on purpose - see docs/running_it.md.
+raw.duckdb
+warehouse.duckdb
+*.duckdb.wal
+*.duckdb.tmp/
+landing/
+ingestion/_state/
+exports/
+atlas.html
+
+# --- Secrets and local config ---------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# --- Editors and OS -------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db

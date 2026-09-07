@@ -1,0 +1,283 @@
+version: 2
+
+# Every conformed dimension except dim_date carries a single UNKNOWN member,
+# and every fact coalesces its foreign keys to it. Without one an unresolved
+# key lands as null: `relationships` ignores nulls so it still passes,
+# `not_null` on the fact starts failing the build, and Power BI collects the
+# rows on a blank member that reads to a user as real. With one, both tests
+# keep passing and start meaning "every fact is attributable".
+#
+# dim_date is the exception on purpose - see the header of dim_date.sql.
+
+models:
+  - name: dim_date
+    description: >
+      "Grain: one row per calendar day, 2024-01-01 to 2027-12-31 (1,461 rows).
+      Fiscal periods are calendar periods offset by
+      var('fiscal_year_start_month'), currently 1, because nothing in any
+      source describes a fiscal calendar. If Finance runs 4-4-5 or 13 periods
+      the offset is not enough and this needs a seeded period table - see open
+      question 4."
+    columns:
+      - name: date_key
+        description: Integer YYYYMMDD. The join key on every fact.
+        tests: [unique, not_null]
+      - name: date_day
+        tests: [unique, not_null]
+      - name: fiscal_equals_calendar
+        description: >
+          True while the assumption holds. Present so a report can show that
+          the fiscal calendar is assumed rather than confirmed.
+      - name: is_past_as_of_build
+        description: >
+          Deliberately not called `is_past`. It is computed at build time, so
+          it is correct on build day and drifts afterwards. Power BI should
+          compute this against TODAY() rather than read the column; the name
+          and built_on_date make the staleness visible.
+      - name: built_on_date
+        description: The date this table was materialised. Companion to is_past_as_of_build.
+
+  - name: dim_site
+    description: >
+      "Grain: one row per site (3 sites plus an UNKNOWN member, 4 rows). Conformed across X3, Paycom and
+      Netstock. The Paycom code arrives through seeds/site_code_crosswalk.csv
+      because no source relates DAL-01 to US001 and deriving it would mean
+      inventing it."
+    columns:
+      - name: site_code
+        description: X3 FCY_0. The conformed site key.
+        tests: [unique, not_null]
+      - name: paycom_location_code
+        description: >
+          Null on the UNKNOWN member, which by construction maps to no payroll
+          location. The test scopes past it rather than being deleted.
+        tests:
+          - unique
+          - not_null:
+              config:
+                where: "site_code <> 'UNKNOWN'"
+
+  - name: dim_carrier
+    description: >
+      "Grain: one row per carrier SCAC (7 carriers plus an UNKNOWN member,
+      8 rows)."
+    columns:
+      - name: carrier_scac
+        tests: [unique, not_null]
+      - name: is_active_carrier
+        description: Has at least one shipment in the window. All 7 are active.
+
+  - name: dim_item
+    description: >
+      "Grain: one row per item (420 items plus an UNKNOWN member, 421 rows). X3 is the master; Netstock planning
+      attributes are joined at item level. 418 of 420 items are planned in
+      Netstock. Note that Netstock's grain is item x location, so the
+      item-level ABC class here is the strongest class the item holds at any
+      location - stated because collapsing a per-location classification to one
+      letter is a choice, not a fact."
+    columns:
+      - name: item_code
+        tests: [unique, not_null]
+      - name: item_status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Active', 'Not usable', 'Obsolete']
+
+  - name: dim_customer
+    description: >
+      "Grain: one row per conformed customer (251 customers plus an UNKNOWN
+      member, 252 rows). Conformed across X3
+      and HubSpot under the survivorship rule in open question 7: X3 wins
+      financial attributes, HubSpot wins firmographics.
+
+      source_scope makes the entity resolution result readable straight off the
+      dimension - 197 both, 23 erp_only, 31 crm_only. The 31 unmatched CRM
+      companies (11.9%) are kept in the dimension rather than dropped, because
+      dropping them would make the unmatched rate look like zero."
+    columns:
+      - name: customer_key
+        description: >
+          'X3-' + customer code for ERP-backed customers, 'HS-' + company id
+          for CRM-only ones. Facts always carry the X3 form.
+        tests: [unique, not_null]
+      - name: customer_code
+        description: X3 BPCNUM_0. Null for CRM-only rows.
+      - name: source_scope
+        description: >
+          both 197, erp_only 23, crm_only 31, plus the single 'unknown' row -
+          the UNKNOWN member every fact coalesces an unresolved key to.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['both', 'erp_only', 'crm_only', 'unknown']
+      - name: match_confidence
+        description: Confidence of the surviving CRM match. Null for erp_only and crm_only.
+      - name: match_is_ambiguous
+        description: >
+          True on 15 customers whose CRM match had a tie at its best confidence
+          tier. A stewardship queue, not a defect.
+      - name: crm_candidate_count
+        description: >
+          How many CRM companies selected this ERP customer. 27 customers have
+          more than one. The dimension keeps the highest-confidence claimant
+          and publishes the collision rather than fanning out.
+
+  - name: fct_shipment
+    description: >
+      "Grain: one row per shipment (3,509 rows). The atomic fact behind both
+      computable I2D metrics.
+
+      Carries both on-time bases (75.6% carrier, 84.1% customer) and both cost
+      bases (charge lines 5,488,709; header 6,030,476) so that the two open
+      business decisions are metric-definition changes rather than model
+      changes. is_on_time and shipment_cost_usd resolve to whichever basis the
+      project vars select."
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: customer_key
+        description: Resolved on all 3,509 shipments - 2,998 via the order reference and 511 via the customer name.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: site_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_site')
+                field: site_code
+      - name: carrier_scac
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_carrier')
+                field: carrier_scac
+      - name: ship_date_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: is_on_time
+        description: >
+          Resolves to var('otd_promise_basis'). Null on the 128 undelivered
+          shipments - deliberately not false, see open question 1.
+      - name: shipment_cost_usd
+        description: Resolves to var('shipment_cost_basis'). Default is the charge lines.
+        tests: [not_null]
+      - name: cost_variance_usd
+        description: charge_total_usd - header_cost_usd. Never zero on any shipment.
+
+  - name: fct_shipment_event
+    description: >
+      "Grain: one row per shipment and event sequence (24,504 rows). Kept
+      atomic - collapsing to milestones is what int_shipment_milestone does,
+      and discarding the intermediate scans would foreclose transit-leg
+      analysis."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [shipment_id, event_sequence]
+    columns:
+      - name: shipment_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_shipment')
+                field: shipment_id
+      - name: is_out_of_sequence
+        description: >
+          316 events across 298 shipments. Computed, not corrected - the
+          ordering is what the carrier sent.
+
+  - name: fct_sales_order_line
+    description: >
+      "Grain: one row per sales order line (11,575 rows). Amounts are carried
+      in both document currency (_doc) and reporting currency (_usd), because
+      the estate is genuinely multi-currency and an unlabelled 'amount' on a
+      multi-currency fact is how two dashboards end up disagreeing about
+      revenue."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sales_order_number, sales_order_line_number]
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: item_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_item')
+                field: item_code
+      - name: site_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_site')
+                field: site_code
+      - name: order_date_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: line_net_amount_usd
+        description: Document amount at the GL-implied rate for the order month.
+        tests: [not_null]
+      - name: fx_rate_is_fallback
+        description: >
+          True where the order month falls outside the GL's coverage and the
+          currency-level rate was used. Currently zero rows.
+
+  - name: fct_invoice_line
+    description: >
+      "Grain: one row per sales invoice line (9,767 rows). The fact behind the
+      DSO proxy. Reconciliation check: line_net_amount_usd sums to 218,855,426,
+      which equals GL account 41000 exactly."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [invoice_number, invoice_line_number]
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: item_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_item')
+                field: item_code
+      - name: invoice_date_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: days_to_pay_settled_only
+        description: >
+          Null, never zero, on the 1,335 lines (13.7%) whose invoice carried
+          the 1753-01-01 sentinel. The unguarded equivalent over the raw column
+          returns a mean of -13,708 days.
+      - name: is_unsettled
+        description: >
+          The companion figure the DSO proxy must always be published with.
+          Without it the proxy silently excludes exactly the invoices that
+          would make DSO look bad.

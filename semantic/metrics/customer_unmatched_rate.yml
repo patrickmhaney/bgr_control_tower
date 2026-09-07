@@ -1,0 +1,53 @@
+name: customer_unmatched_rate
+label: Unmatched CRM Customers
+status: active
+is_data_quality: true
+
+description: >
+  The share of CRM companies that cannot be matched to any ERP customer. The
+  business needs to see this number. It is not an engineering embarrassment -
+  it is the measured cost of having no shared key between HubSpot and Sage X3,
+  and it bounds how much of the pipeline can ever be tied to revenue.
+
+grain: One conformed customer.
+
+base_model: dim_customer
+
+numerator:
+  agg: sum
+  column: crm_company_count
+  filter: {column: source_scope, op: eq, value: crm_only}
+  label: Unmatched CRM companies
+
+denominator:
+  agg: sum
+  column: crm_company_count
+  label: CRM companies
+
+filters: []
+
+dimensions: []
+
+format: percent
+decimals: 1
+direction: lower_is_better
+
+owner: TBD
+owner_proposed: Data Governance Lead
+
+lineage_notes: >
+  dim_customer.source_scope and crm_company_count, derived from
+  int_customer_xref. 31 of 260 HubSpot companies (11.9%) have no ERP candidate
+  under any of the four matching probes. Exact name alone would leave 89
+  unmatched (34.2%); the tiered matching closes two thirds of that gap.
+
+  The denominator sums crm_company_count rather than counting dimension rows.
+  dim_customer is at ERP grain, and 32 CRM companies point at an ERP customer
+  another company already claimed - counting rows would drop them and report
+  13.6% instead of 11.9%.
+
+  A separate stewardship figure worth watching: 15 customers are matched but
+  ambiguous (a tie at their best confidence tier), and 27 ERP customers are
+  claimed by more than one CRM company.
+
+blocked_reason: null

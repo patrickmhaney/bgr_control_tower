@@ -1,0 +1,361 @@
+<title>Control Tower Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+  :root {
+    --ground:   #f4f7f7;
+    --paper:    #ffffff;
+    --panel:    #fbfcfc;
+    --ink:      #131e25;
+    --ink-soft: #3d525c;
+    --muted:    #64787f;
+    --rule:     #dbe4e5;
+    --rule-soft:#e8eeee;
+    --accent:   #0b6e77;
+    --accent-b: #e2f0f0;
+    --warn:     #8f5500;
+    --stop:     #8f2f24;
+    --go:       #2a5f46;
+    --shadow:   0 1px 2px rgba(19, 30, 37, .05), 0 8px 24px -14px rgba(19, 30, 37, .18);
+
+    --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --sans:  "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    --measure: 68ch;
+    --gutter: clamp(1.1rem, 4vw, 3.25rem);
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0b1317;
+      --paper:    #121e24;
+      --panel:    #16242b;
+      --ink:      #dae4e7;
+      --ink-soft: #b0c1c7;
+      --muted:    #86999f;
+      --rule:     #22343c;
+      --rule-soft:#1b2b32;
+      --accent:   #55bfc6;
+      --accent-b: #163336;
+      --warn:     #d79a45;
+      --stop:     #dd8377;
+      --go:       #6fbf99;
+      --shadow:   0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px -16px rgba(0, 0, 0, .7);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #0b1317;
+    --paper:    #121e24;
+    --panel:    #16242b;
+    --ink:      #dae4e7;
+    --ink-soft: #b0c1c7;
+    --muted:    #86999f;
+    --rule:     #22343c;
+    --rule-soft:#1b2b32;
+    --accent:   #55bfc6;
+    --accent-b: #163336;
+    --warn:     #d79a45;
+    --stop:     #dd8377;
+    --go:       #6fbf99;
+    --shadow:   0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px -16px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); }
+
+  /* ---------- masthead ---------- */
+  .masthead { padding: clamp(3rem, 8vw, 5.5rem) 0 2.25rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1.1rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(2.4rem, 6vw, 3.9rem);
+    line-height: 1.03;
+    letter-spacing: -.02em;
+    margin: 0 0 1rem;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: clamp(1.02rem, 2vw, 1.16rem);
+    line-height: 1.62;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 clamp(1.5rem, 4vw, 3rem);
+    margin-top: 2.5rem;
+    padding-top: 1.35rem;
+    border-top: 1px solid var(--rule);
+  }
+  .fact { display: flex; flex-direction: column; padding: .35rem 0; }
+  .fact-n {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 1.22rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .fact-l {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---------- sticky nav ---------- */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--ground) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-inner {
+    display: flex;
+    gap: 1.9rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+  .nav-inner::-webkit-scrollbar { display: none; }
+  .nav a {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .82rem 0;
+    font-size: .84rem;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .15s, border-color .15s;
+  }
+  .nav a:hover { color: var(--ink); border-bottom-color: var(--accent); }
+  .nav-mark {
+    font-family: var(--mono);
+    font-size: .74rem;
+    color: var(--accent);
+  }
+
+  /* ---------- sections ---------- */
+  .section { padding-top: clamp(3.5rem, 8vw, 5.5rem); scroll-margin-top: 3.5rem; }
+
+  .section-head { max-width: var(--measure); margin-bottom: 2.5rem; }
+  .section-mark {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .1em;
+    color: var(--accent);
+    background: var(--accent-b);
+    padding: .16rem .5rem;
+    border-radius: 3px;
+    margin-bottom: .85rem;
+  }
+  .section h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+    line-height: 1.16;
+    letter-spacing: -.015em;
+    margin: 0 0 .7rem;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; color: var(--ink-soft); font-size: 1.02rem; }
+
+  /* ---------- figures ---------- */
+  .fig {
+    margin: 0 0 clamp(2.75rem, 6vw, 4rem);
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .fig figcaption { max-width: var(--measure); margin-bottom: 1.15rem; }
+  .fig-no {
+    font-family: var(--mono);
+    font-size: .71rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fig h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 1.28rem;
+    line-height: 1.25;
+    margin: .3rem 0 .45rem;
+  }
+  .claim { margin: 0; color: var(--ink-soft); font-size: .97rem; line-height: 1.58; }
+
+  .canvas {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: clamp(1rem, 2.5vw, 1.9rem);
+    overflow-x: auto;
+    box-shadow: var(--shadow);
+  }
+  .canvas pre.mermaid {
+    margin: 0;
+    background: none;
+    border: 0;
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .canvas svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+
+  .note {
+    max-width: var(--measure);
+    margin: 1.15rem 0 0;
+    padding-left: .95rem;
+    border-left: 2px solid var(--accent);
+    font-size: .92rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+  .note-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .22rem;
+  }
+
+  /* ---------- colophon ---------- */
+  .colophon {
+    margin-top: clamp(4rem, 9vw, 6rem);
+    padding: 2.5rem 0 4rem;
+    border-top: 1px solid var(--rule);
+  }
+  .colophon h2 {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0 0 1.1rem;
+  }
+  .colophon p { max-width: var(--measure); color: var(--ink-soft); font-size: .93rem; margin: 0 0 1.1rem; }
+  .repro {
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.85;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.1rem 1.25rem;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .repro b { color: var(--accent); font-weight: 500; }
+  .caveat {
+    font-size: .87rem;
+    color: var(--muted);
+    max-width: var(--measure);
+    margin-top: 1.5rem;
+  }
+
+  a:focus-visible, .nav a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; animation: none !important; }
+  }
+  @media (max-width: 620px) {
+    .facts { gap: 0 1.4rem; }
+    .fact-n { font-size: 1.05rem; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Globex · process performance warehouse</p>
+    <h1>Control Tower Atlas</h1>
+    <p class="standfirst">
+      Every diagram from the build, in one place: what the five source systems
+      actually look like, where they fail to join, the dimensional model the
+      dashboards read, and the pipeline that gets from one to the other. Every
+      cardinality and match rate below was measured against the data, not read
+      off a schema.
+    </p>
+    <div class="facts"><!--FACTS--></div>
+  </div>
+</header>
+
+<nav class="nav" aria-label="Sections">
+  <div class="nav-inner">
+    <!--NAV-->
+  </div>
+</nav>
+
+<main class="wrap">
+<!--SECTIONS-->
+
+  <section class="colophon">
+    <h2>Reproducing this</h2>
+    <p>
+      The <!--COUNT--> diagrams on this page are generated from the Mermaid
+      source committed in <code>docs/data_model.md</code> and
+      <code>docs/ingestion.md</code>, so the page cannot drift from the
+      repository. The pipeline lineage was extracted from the dbt manifest after
+      a full build.
+    </p>
+    <div class="repro"><b>pip install -r requirements.txt</b>              once, in a virtual environment
+<b>python run_ingestion.py --explain</b>           the extraction spec, per table
+<b>python run_ingestion.py</b>                     source systems → landing → raw
+<b>dbt build</b>                                   80 models, 207 tests
+<b>python scripts/verify_ingestion.py</b>          prove ingestion changed nothing
+<b>python scripts/build_atlas.py</b>               rebuild this page</div>
+    <p class="caveat">
+      Source data is a seeded mock standing in for the real systems, modelled to
+      reproduce their behaviour rather than their contents — CHAR padding,
+      sentinel dates, string-typed exports, missing change tracking. Two source
+      systems, Netstock and Pangea, remain unidentified and carry real schedule
+      risk. Three of the seven defined metrics cannot be computed from any
+      source that exists today.
+    </p>
+  </section>
+</main>

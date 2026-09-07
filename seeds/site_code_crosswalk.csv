@@ -1,0 +1,4 @@
+x3_site_code,paycom_location_code,netstock_location_code,site_name,city,state_province,country_code
+US001,DAL-01,US001,Dallas TX Distribution Center,Dallas,TX,USA
+US002,RNO-01,US002,Reno NV Distribution Center,Reno,NV,USA
+CA001,TOR-01,CA001,Toronto ON Distribution Center,Toronto,ON,CAN

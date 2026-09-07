@@ -1,0 +1,106 @@
+version: 2
+
+models:
+  - name: stg_hubspot__company
+    description: >
+      "Grain: one row per HubSpot company. Archived rows are flagged, not
+      filtered - a connector landing is not a delete, and the mart decides."
+    columns:
+      - name: company_id
+        tests: [unique, not_null]
+      - name: company_name
+        description: >
+          The only candidate join to X3. Exact upper-cased match hits 171 of
+          260; normalising punctuation and legal suffixes lifts it to 182.
+        tests: [not_null]
+      - name: domain
+        description: >
+          Truncated to 18 characters before the TLD and not unique - 198
+          distinct values across 260 rows. Usable as corroboration in the
+          xref, never as a key.
+      - name: employee_count
+        description: Source is varchar. try_cast here; non-numeric becomes null.
+      - name: annual_revenue
+        description: Source is varchar. try_cast here; non-numeric becomes null.
+      - name: is_archived
+        description: 12 rows. Flagged, not filtered.
+
+  - name: stg_hubspot__contact
+    description: >
+      "Grain: one row per HubSpot contact. Contains ~40 near-duplicate records
+      with mangled emails - deliberately not deduplicated here, because
+      deduplication is a business rule and staging holds none."
+    columns:
+      - name: contact_id
+        tests: [unique, not_null]
+      - name: company_id
+        description: >
+          hubspot association, denormalised onto the contact. Not tested to
+          stg_hubspot__company because archived companies are retained on both
+          sides and the relationship is genuinely optional.
+
+  - name: stg_hubspot__deal
+    description: "Grain: one row per HubSpot deal."
+    columns:
+      - name: deal_id
+        tests: [unique, not_null]
+      - name: deal_amount
+        description: Source is varchar. All 850 rows cast cleanly, but the cast is defensive.
+      - name: stage_probability
+        description: Source is varchar.
+      - name: erp_order_number_raw
+        description: >
+          The CRM-to-ERP handoff, as delivered. 145 of 238 closed-won deals
+          have a value and only 96 join as-is - the rest are lower-cased,
+          prefix-stripped, or carry two order numbers in one field. Repair
+          logic lives in int_deal_erp_order_number, not here.
+      - name: deal_stage_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_hubspot__pipeline_stage')
+                field: deal_stage_id
+              config:
+                severity: warn
+
+  - name: stg_hubspot__deal_stage_history
+    description: "Grain: one row per deal, stage and change date."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [deal_id, deal_stage_id, changed_at_date]
+    columns:
+      - name: deal_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_hubspot__deal')
+                field: deal_id
+
+  - name: stg_hubspot__association
+    description: "Grain: one row per object association (deal-contact, deal-company, contact-company)."
+
+  - name: stg_hubspot__engagement
+    description: "Grain: one row per engagement."
+    columns:
+      - name: engagement_id
+        tests: [unique, not_null]
+
+  - name: stg_hubspot__owner
+    description: >
+      "Grain: one row per HubSpot owner. `email` matches paycom.employee
+      work_email exactly, which makes this the highest-confidence identity
+      bridge in the estate - better than the name match the README's join map
+      suggests."
+    columns:
+      - name: owner_id
+        tests: [unique, not_null]
+      - name: email
+        tests: [unique, not_null]
+
+  - name: stg_hubspot__pipeline_stage
+    description: "Grain: one row per pipeline and stage."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [pipeline_id, deal_stage_id]

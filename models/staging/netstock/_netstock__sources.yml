@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: netstock
+    database: "{{ var('source_database') }}"
+    schema: netstock
+    description: >
+      Netstock demand planning. Grain and column semantics are right; exact
+      names are inferred. Regenerated wholesale on each sync, so the natural
+      landing pattern is a snapshot fact, not an SCD.
+    tables:
+      - name: item_location
+        description: >
+          Item x location planning parameters. last_sync_at = 2026-09-02, so
+          it is stale relative to X3. 35 rows reference items with no
+          ITMMASTER row.
+      - name: forecast
+        description: Item x location x month forecast.
+      - name: forecast_accuracy
+        description: Item x location x month realised forecast error.
+      - name: replenishment_recommendation
+        description: >
+          Suggested replenishment. erp_po_number is populated on 247 of 896
+          rows and every one resolves to an X3 PORDER - a clean cross-system
+          link that the README's join map does not mention. Populated across
+          all four statuses, so it is not an acceptance flag.
+      - name: supplier
+        description: Netstock supplier. supplier_code joins cleanly to BPSUPPLIER.

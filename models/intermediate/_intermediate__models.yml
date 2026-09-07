@@ -1,0 +1,233 @@
+version: 2
+
+models:
+  - name: int_fx_rate
+    description: >
+      "Grain: one row per document currency and calendar month. Rates are
+      recovered from the X3 GL (AMTLOC_0 / AMTCUR_0), which is the only FX
+      signal in the estate. Today CAD returns a flat 0.740000 across all 27
+      months - a single posting rate, not a series. The model is shaped as a
+      series so that a real rate feed is a source swap, not a remodel."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [currency_code, rate_month]
+    columns:
+      - name: rate_to_reporting_currency
+        description: >
+          Volume-weighted within the month, not a mean of ratios - a mean of
+          ratios lets one small line move the rate as much as a large one.
+        tests: [not_null]
+      - name: fallback_rate
+        description: >
+          Currency-level rate, used when a fact falls outside the GL's month
+          coverage. Without it, out-of-range facts silently lose their
+          converted amount.
+        tests: [not_null]
+
+  - name: int_customer_xref
+    description: >
+      "Grain: one row per (HubSpot company, X3 customer) match candidate.
+      First-class and inspectable by design - the matching is uncertain and the
+      business needs to see the uncertainty rather than inherit it through a
+      dimension. 229 of 260 HubSpot companies (88.1%) get at least one
+      candidate, up from 171 (65.8%) on exact name alone. 15 companies remain
+      ambiguous at their best confidence tier and are flagged, not guessed."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [hubspot_company_id, x3_customer_code]
+    columns:
+      - name: customer_xref_key
+        tests: [unique, not_null]
+      - name: match_method
+        description: >
+          The strongest probe that found this pair - so these are "pairs
+          credited", not "probe hits". exact_name 171, alnum_name 12,
+          domain_stem 84, core_name 43. The probes individually fire on 171,
+          183, 250 and 310 pairs; the difference is what
+          best_method_per_pair collapses. Both counts appear in the model
+          header, labelled.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['exact_name', 'alnum_name', 'domain_stem', 'core_name']
+      - name: confidence
+        description: 0.95 exact, 0.90 alnum, 0.75 domain stem, 0.60 core name.
+        tests: [not_null]
+      - name: is_ambiguous
+        description: >
+          True when this company has more than one candidate at its best
+          confidence. 24 pairs across 15 companies. These are not resolved
+          automatically - they are a stewardship queue.
+      - name: is_selected
+        description: >
+          The candidate dim_customer will survive. Exactly one per HubSpot
+          company.
+
+  - name: int_employee_xref
+    description: >
+      "Grain: one row per (source system record, Paycom person) match
+      candidate. Paycom is the spine because it is the roster of record, but it
+      has to be deduplicated first - 12 of its 150 rows are the same person
+      twice. Doing the dedup after the cross-system match is what produces the
+      30-rows-for-28-reps result reported in the feasibility audit; doing it
+      first, as here, gives 28 unambiguous rep matches and 22 owner matches.
+
+      NO DOWNSTREAM CONSUMER, deliberately. No active metric needs an employee,
+      so dim_employee and fct_payroll_earning are not built. This model exists
+      anyway because the duplicate-roster finding is a governance result the
+      client needs whether or not a dashboard reads it, and because when an H2R
+      or commission metric lands the resolution is already done and tested.
+      Cost to carry: one table, 50 rows. See docs/data_model.md section 4.4."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [source_system, source_key, paycom_employee_code]
+    columns:
+      - name: employee_xref_key
+        tests: [unique, not_null]
+      - name: source_system
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['sage_x3', 'hubspot']
+      - name: match_method
+        description: >
+          work_email at 0.99 (HubSpot owner - exact and unique once Paycom is
+          deduplicated) and person_name at 0.70 (X3 rep - a name is not a key,
+          and it is only unambiguous here because the dedup ran first).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['work_email', 'person_name']
+      - name: duplicate_record_count
+        description: >
+          How many Paycom rows collapsed into this person. 2 for the 12
+          duplicated people, 1 otherwise. Published so the roster problem stays
+          visible to the people who can fix it in Paycom.
+
+  - name: int_deal_erp_order_number
+    description: >
+      "Grain: one row per HubSpot deal reference after repair - a deal naming
+      two orders emits two rows. Repairing case, restoring the stripped SO
+      prefix and splitting multi-value fields takes the CRM-to-ERP handoff from
+      96 resolvable deals to 145, which is every deal that carries a reference
+      at all. The remaining gap is the 93 closed-won deals with no reference,
+      which is a process problem in HubSpot, not a data problem here.
+
+      NO DOWNSTREAM CONSUMER, deliberately. No active metric spans the CRM-to-
+      ERP boundary, so fct_deal_stage_change is not built. Kept for the same
+      reason as int_employee_xref: the 96-to-145 lift is a finding the client
+      needs, and the repair is tested and ready for the first P2C or M2O metric
+      that needs it. Cost to carry: one table, 167 rows.
+      See docs/data_model.md section 4.4."
+    columns:
+      - name: deal_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_hubspot__deal')
+                field: deal_id
+      - name: repair_applied
+        description: >
+          A label derived from the three independent flags, joining every
+          repair that fired with ' + '. Count per flag rather than per label -
+          was_split, was_case_corrected and was_prefix_restored are the
+          countable facts, and a reference can carry more than one. Every
+          repaired reference resolves to a real order, which is the evidence
+          that the repairs encode what the user meant rather than
+          manufacturing matches.
+      - name: was_split
+        description: The raw field carried two order numbers separated by ' / '.
+      - name: was_case_corrected
+        description: The reference arrived lower-cased.
+      - name: was_prefix_restored
+        description: The SO prefix was stripped, leaving a bare country code and sequence.
+      - name: sales_order_number
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__sorder')
+                field: sales_order_number
+
+  - name: int_sales_order_line
+    description: >
+      "Grain: one row per sales order line. Rejoins the X3 split line tables -
+      quantities from SORDERQ, prices from SORDERP - on
+      sales_order_number + sales_order_line_number."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sales_order_number, sales_order_line_number]
+    columns:
+      - name: item_code_disagrees
+        description: >
+          Both split tables carry ITMREF_0. They agree on all 11,575 lines
+          here. The README says to check rather than assume, so this asserts it
+          instead of silently preferring one side.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [false]
+                quote: false
+
+  - name: int_shipment_charge
+    description: >
+      "Grain: one row per shipment. Charge lines collapsed to a shipment total
+      with the accessorial mix kept as columns, so a rise in cost per shipment
+      can be attributed without returning to the source. Carries both cost
+      bases and the variance between them."
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: charge_total_usd
+        description: Sum of the charge lines. The default cost basis.
+        tests: [not_null]
+      - name: cost_variance_usd
+        description: >
+          charge_total_usd - header_cost_usd. Sums to -541,767 across the
+          estate (the header is 9.9% higher). Published rather than hidden.
+
+  - name: int_shipment_milestone
+    description: >
+      "Grain: one row per shipment. Milestone dates extracted from the tracking
+      stream by event_code, never by min/max of event_at - 1.29% of events
+      arrive out of order relative to event_seq, and 298 shipments are affected."
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: has_out_of_sequence_events
+        description: >
+          298 of 3,509 shipments. Published rather than corrected: a shipment
+          whose scans arrived out of order is one whose transit time should not
+          be trusted, and the consumer is entitled to know which.
+      - name: transit_days
+        description: Picked up to delivered. Mean 3.78 days.
+
+  - name: int_shipment_order
+    description: >
+      "Grain: one row per shipment. Resolves the shipment to an X3 order and to
+      a conformed customer. The order reference covers 2,998 of 3,509
+      shipments; the customer name - which matches BPCUSTOMER on all 220
+      distinct values and is not in the README's join map - recovers the
+      customer for the remaining 511. Customer resolution is therefore 100%
+      while order resolution is 85.4%, and that difference is a constraint on
+      the On-Time Delivery definition, not just a quality note."
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: customer_resolution_method
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['order_reference', 'customer_name', 'unresolved']
+      - name: customer_code
+        description: Resolved on all 3,509 shipments.
+        tests: [not_null]
+      - name: customer_requested_delivery_date
+        description: >
+          Latest requested delivery date across the order's lines. The
+          alternative basis for On-Time Delivery. Taking the earliest line
+          would flatter the metric.

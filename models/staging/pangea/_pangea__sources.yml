@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: pangea
+    database: "{{ var('source_database') }}"
+    schema: pangea
+    description: >
+      Pangea, modelled as a generic freight/parcel visibility platform. The
+      product identity is unconfirmed (open question 9) - if it turns out to be
+      something else, this whole source needs re-cutting, but the shipment
+      grain is unlikely to change.
+    tables:
+      - name: shipment
+        description: >
+          Shipment header. `reference_number` carries the X3 sales order
+          number on ~85% of rows; the rest are null or a customer PO.
+          `total_cost_usd` does not reconcile to the charge lines.
+      - name: shipment_leg
+        description: Shipment x leg.
+      - name: tracking_event
+        description: >
+          Shipment x event sequence. ~1.3% of rows have timestamps out of
+          order relative to event_seq, so milestones must be derived by
+          event_code, never by min/max of event_ts.
+      - name: charge
+        description: Shipment x charge code. FREIGHT, FUEL and three accessorials.
+      - name: carrier
+        description: Carrier reference, keyed by SCAC.

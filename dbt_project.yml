@@ -1,0 +1,84 @@
+name: bgr_control_tower
+version: 1.0.0
+config-version: 2
+
+profile: bgr_control_tower
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Which database the sources read from.
+  #   raw           the output of run_ingestion.py (the normal path)
+  #   mock_sources  the source systems directly, bypassing ingestion.
+  #                 Used to prove the pipeline is lossless, and to keep the
+  #                 project buildable by someone who has not run ingestion.
+  source_database: raw
+
+  # --- Documented assumptions. Every one of these is an open question in
+  # --- docs/open_questions.md. They are vars so that reversing a business
+  # --- decision is a config change, not a remodel.
+
+  # Q1 On-Time Delivery promise basis: carrier | customer
+  otd_promise_basis: carrier
+
+  # Q10 Reporting currency and the FX policy used to get there.
+  #     'derived' reads the implied rate out of the X3 GL (AMTLOC/AMTCUR).
+  reporting_currency: USD
+  fx_rate_source: derived
+
+  # Shipment cost basis: charge_lines | shipment_header  (README landmine 13)
+  shipment_cost_basis: charge_lines
+
+  # Q3 Cost Per Order cost pool: fulfillment | fully_loaded
+  cost_per_order_pool: fulfillment
+
+  # Q4 Fiscal calendar. Placeholder until Finance confirms.
+  fiscal_year_start_month: 1
+
+  # X3 sentinel date meaning "no date"
+  x3_null_date: '1753-01-01'
+
+  # Relationship tests on the README's dashed lines warn instead of erroring.
+  # Thresholds are documented in the model YAML next to each test.
+  dashed_line_severity: warn
+
+models:
+  bgr_control_tower:
+    +materialized: view
+    staging:
+      +schema: staging
+      +tags: ["staging"]
+    intermediate:
+      +schema: intermediate
+      +tags: ["intermediate"]
+    marts:
+      core:
+        +schema: core
+        +materialized: table
+        +tags: ["core"]
+      metrics:
+        +schema: metrics
+        +materialized: view
+        +tags: ["metrics", "generated"]
+      process:
+        +schema: process
+        +materialized: view
+        +tags: ["process"]
+    semantic:
+      +schema: semantic
+
+snapshots:
+  bgr_control_tower:
+    +target_schema: snapshot
+
+seeds:
+  bgr_control_tower:
+    +schema: seed

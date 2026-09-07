@@ -1,0 +1,8 @@
+process_code,metric_name,slot,display_order
+O2C,dso_days_to_pay_proxy,M1,1
+O2C,return_rate,M2,2
+O2C,cost_per_order,M3,3
+S2P,match_rate,M1,1
+I2D,inventory_accuracy,M1,1
+I2D,on_time_delivery_rate,M2,2
+I2D,cost_per_shipment,M3,3

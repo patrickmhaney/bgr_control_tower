@@ -1,0 +1,71 @@
+# Conformed dimension registry.
+#
+# The set of things a metric may be sliced by. Every entry names a dimension
+# model in marts/core and the key facts join to it on. A metric that asks for a
+# dimension not listed here fails validation - which is the point: it stops
+# "customer" meaning three different things on three dashboards.
+
+version: 1
+
+dimensions:
+
+  date:
+    label: Date
+    model: dim_date
+    key: date_key
+    description: Conformed calendar. Fiscal periods are assumed - see open question 4.
+    attributes:
+      - date_day
+      - calendar_year
+      - calendar_quarter
+      - calendar_month_label
+      - fiscal_year_label
+      - fiscal_quarter_label
+
+  customer:
+    label: Customer
+    model: dim_customer
+    key: customer_key
+    description: >
+      Conformed across X3 and HubSpot. 197 of 251 rows are matched across both
+      systems; source_scope says which population a row belongs to.
+    attributes:
+      - customer_name
+      - customer_group_code
+      - industry
+      - country_code
+      - payment_term_code
+      - primary_rep_name
+      - source_scope
+
+  site:
+    label: Site
+    model: dim_site
+    key: site_code
+    description: Conformed across X3, Paycom and Netstock via a seeded crosswalk.
+    attributes:
+      - site_name
+      - city
+      - state_province
+      - country_code
+      - company_name
+
+  item:
+    label: Item
+    model: dim_item
+    key: item_code
+    description: X3 item master with Netstock planning attributes.
+    attributes:
+      - item_description
+      - item_category_code
+      - item_status
+      - best_abc_class
+
+  carrier:
+    label: Carrier
+    model: dim_carrier
+    key: carrier_scac
+    description: Pangea carrier reference, keyed by SCAC.
+    attributes:
+      - carrier_name
+      - transport_mode

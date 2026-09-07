@@ -1,0 +1,89 @@
+version: 2
+
+models:
+  - name: stg_netstock__item_location
+    description: >
+      "Grain: one row per item and location. Regenerated wholesale on each
+      sync - last_sync_date is 2026-09-02 on every row, so this is a snapshot,
+      not a slowly changing dimension."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [item_code, location_code]
+    columns:
+      - name: item_code
+        description: >
+          Joins cleanly to X3 ITMMASTER except for 35 orphans (3.9%) -
+          items that exist in the planning system and not in the ERP.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__itmmaster')
+                field: item_code
+              config:
+                severity: warn
+                # 35 known orphans. Errors above 50 - a rise means the
+                # planning system and the ERP item master are diverging
+                # faster than the sync can reconcile them.
+                error_if: ">50"
+                warn_if: ">0"
+      - name: location_code
+        description: Uses the X3 site codes directly. Clean.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__facility')
+                field: site_code
+      - name: supplier_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_netstock__supplier')
+                field: supplier_code
+
+  - name: stg_netstock__forecast
+    description: "Grain: one row per item, location and forecast period (month)."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [item_code, location_code, period_start_date]
+
+  - name: stg_netstock__forecast_accuracy
+    description: "Grain: one row per item, location and period."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [item_code, location_code, period_start_date]
+
+  - name: stg_netstock__replenishment_recommendation
+    description: "Grain: one row per recommendation."
+    columns:
+      - name: recommendation_id
+        tests: [unique, not_null]
+      - name: erp_purchase_order_number
+        description: >
+          The only reliable path from planning back to procurement, and it is
+          not in the README's join map. Sparse but exact: 247 of 896 rows are
+          populated and all 247 resolve to a PORDER. Population is spread
+          across all four statuses rather than only ACCEPTED, so it records
+          "a PO exists for this line" rather than "this recommendation was
+          accepted". The relationships test below ignores the 649 nulls and
+          asserts the populated rows stay clean.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__porder')
+                field: purchase_order_number
+
+  - name: stg_netstock__supplier
+    description: "Grain: one row per supplier."
+    columns:
+      - name: supplier_code
+        description: Joins cleanly to X3 BPSUPPLIER.
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__bpsupplier')
+                field: supplier_code

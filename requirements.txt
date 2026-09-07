@@ -1,0 +1,19 @@
+# Tested versions. Python 3.11 is what this was built and verified on;
+# dbt-core 1.12 supports 3.9 through 3.12.
+#
+#   python -m venv .venv
+#   . .venv/bin/activate                 # Windows: .venv\Scripts\activate
+#   pip install -r requirements.txt
+#
+# Pinned rather than ranged so a rebuild on another machine produces the same
+# warehouse. To move off a pin, change it here and re-run the full check:
+#   python scripts/regenerate.py --check && dbt build && python scripts/verify_ingestion.py
+
+# Regenerating the mock source database needs pandas as well; that is the only
+# extra, and it lives in requirements-dev.txt.
+
+dbt-core==1.12.3
+dbt-duckdb==1.11.0
+duckdb==1.5.5
+dlt[duckdb,filesystem,parquet]==1.30.0
+PyYAML==6.0.3

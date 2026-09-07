@@ -1,0 +1,57 @@
+name: order_reference_coverage_rate
+label: Shipment Order Reference Coverage
+status: active
+is_data_quality: true
+
+description: >
+  The share of shipments that resolve to a Sage X3 sales order. This bounds
+  every metric that has to cross the shipment-to-order boundary: Cost Per Order
+  is computed over shipped orders only, and On-Time Delivery measured against
+  the customer's requested date is only available for the shipments this figure
+  covers.
+
+grain: One shipment.
+
+base_model: fct_shipment
+
+numerator:
+  agg: count
+  column: shipment_id
+  filter: {column: has_order_reference, op: is_true}
+  label: Shipments with a resolved order
+
+denominator:
+  agg: count
+  column: shipment_id
+  label: Shipments
+
+filters: []
+
+dimensions: [date, customer, site, carrier]
+
+format: percent
+decimals: 1
+direction: higher_is_better
+
+owner: TBD
+owner_proposed: Director of Sales Operations
+
+lineage_notes: >
+  pangea.shipment.reference_number joined to sage_x3.SORDER.SOHNUM_0 in
+  int_shipment_order. 2,998 of 3,509 shipments (85.4%): 247 carry no reference
+  at all and 264 carry a CUST-PO-##### customer PO that matches nothing in X3.
+
+  Customer resolution is separately 100%, because
+  pangea.shipment.customer_name matches BPCUSTOMER on all 220 distinct values.
+  Order resolution and customer resolution are different coverage numbers and
+  conflating them would overstate what can be attributed to an order.
+
+  ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that the Pangea
+  customer name is a reliable key. It matches on all 220 distinct values and no
+  two ERP customer names collide - but nobody has confirmed whether the field
+  is populated by an integration from X3 or typed at booking, and a
+  two-company mock cannot establish that ERP names are unique in a production
+  folder. See open question 13. If it proves unreliable, customer attribution
+  on shipments falls from 100% toward this metric's own 85.4%.
+
+blocked_reason: null

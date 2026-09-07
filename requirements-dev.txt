@@ -1,0 +1,11 @@
+# Only needed to regenerate the mock source database:
+#
+#   pip install -r requirements-dev.txt
+#   python generate_mock_sources.py
+#
+# The pipeline itself does not use pandas - every query in scripts/ and
+# ingestion/ goes through fetchall() rather than a dataframe, so the runtime
+# dependency set stays small.
+
+-r requirements.txt
+pandas>=2.0,<3.0

@@ -1,0 +1,69 @@
+name: dso_days_to_pay_proxy
+label: DSO (days-to-pay proxy)
+status: provisional
+
+description: >
+  The average number of days between invoicing a customer and that invoice
+  being settled, across settled invoices only. This is a proxy for Days Sales
+  Outstanding, not DSO. Textbook DSO divides an accounts receivable balance by
+  revenue over a period; that requires an open-AR position and cash
+  application, neither of which exists in any source system here.
+
+grain: One settled sales invoice line.
+
+base_model: fct_invoice_line
+
+numerator:
+  agg: sum
+  column: days_to_pay_settled_only
+  label: Days to pay
+
+denominator:
+  agg: count
+  column: days_to_pay_settled_only
+  label: Settled invoice lines
+
+filters: []
+
+dimensions: [date, customer, site, item]
+
+format: days
+decimals: 1
+direction: lower_is_better
+
+owner: TBD
+owner_proposed: Controller
+
+provisional_reason: >
+  It is not DSO and must not be labelled as one on a dashboard. It structurally
+  excludes unpaid invoices - which are exactly the invoices that make real DSO
+  bad - so it is systematically more flattering. Open question 2.
+
+companion_metric: unsettled_invoice_rate
+
+lineage_notes: >
+  date_diff('day', SINVOICEV.INVDAT_0, SINVOICEV.PAYDAT_0), carried on
+  fct_invoice_line as days_to_pay_settled_only.
+
+  492 of 3,564 invoices (13.8%) carry the 1753-01-01 sentinel in PAYDAT_0,
+  meaning unsettled, and are null here rather than zero. An unguarded date_diff
+  over the raw column returns a mean of -13,708 days. Measured on the settled
+  population: mean 48.2 days, median 45, range 28-90.
+
+  ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that every posting
+  entity's company currency is the reporting currency. fct_invoice_line
+  converts through int_fx_rate, which derives a document-to-COMPANY-currency
+  rate from the GL and publishes it as a reporting-currency rate. Those agree
+  only where company currency equals reporting currency, which is true here
+  because GLBCA posts AMTLOC_0 in USD - unusual for a Canadian entity. If a
+  real folder posts CAD locally the derived rate becomes 1.00 and CAD amounts
+  report unconverted. See open question 10;
+  tests/assert_fx_rate_is_not_identity_for_foreign_currency.sql catches the
+  symptom until COMPANY.CUR_0 arrives.
+
+caveats:
+  - >
+    Must always be published alongside unsettled_invoice_rate. On its own it
+    invites comparison against a DSO benchmark, and that comparison is wrong.
+
+blocked_reason: null

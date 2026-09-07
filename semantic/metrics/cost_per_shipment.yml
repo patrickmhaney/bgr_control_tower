@@ -1,0 +1,50 @@
+name: cost_per_shipment
+label: Cost Per Shipment
+status: active
+
+description: >
+  The average freight cost of moving one shipment, measured as total carrier
+  charges divided by shipments. Charges are the sum of the line-level charge
+  codes on the shipment - freight, fuel surcharge and accessorials - which is
+  what the carrier will invoice and what a cost analyst can decompose. It is
+  not the cost of goods, and it excludes internal handling labour.
+
+grain: One shipment.
+
+base_model: fct_shipment
+
+numerator:
+  agg: sum
+  column: shipment_cost_usd
+  label: Shipment cost
+
+denominator:
+  agg: count
+  column: shipment_id
+  label: Shipments
+
+filters: []
+
+dimensions: [date, customer, site, carrier]
+
+format: currency_usd
+decimals: 2
+direction: lower_is_better
+
+owner: TBD
+owner_proposed: Logistics / Transportation Manager
+
+lineage_notes: >
+  pangea.charge.amount_usd summed to the shipment in int_shipment_charge, then
+  carried on fct_shipment as shipment_cost_usd. Denominator is
+  pangea.shipment.shipment_id.
+
+  The charge lines are used rather than pangea.shipment.total_cost_usd. Those
+  two disagree on every one of the 3,509 shipments, and the header is 9.9%
+  higher in aggregate (6,030,476 vs 5,488,709). The basis is
+  var('shipment_cost_basis') and the difference is published on the fact as
+  cost_variance_usd. See docs/open_questions.md.
+
+  All charges are already USD in the source, so no FX conversion applies.
+
+blocked_reason: null

@@ -1,0 +1,72 @@
+name: cost_per_order
+label: Cost Per Order
+status: provisional
+
+description: >
+  The average fulfillment cost of delivering one sales order, measured as
+  carrier charges divided by distinct shipped orders. The cost pool is freight
+  and accessorials only. It is not fully loaded: the general ledger in this
+  estate contains revenue, receivables and tax and nothing else, so warehouse
+  labour, handling and overhead are not represented.
+
+grain: One shipped sales order.
+
+base_model: fct_shipment
+
+numerator:
+  agg: sum
+  column: shipment_cost_usd
+  label: Fulfillment cost
+
+denominator:
+  agg: count_distinct
+  column: sales_order_number
+  label: Shipped orders
+
+filters:
+  - {column: has_order_reference, op: is_true}
+
+dimensions: [date, customer, site]
+
+format: currency_usd
+decimals: 2
+direction: lower_is_better
+
+owner: TBD
+owner_proposed: Director of Sales Operations
+
+provisional_reason: >
+  The cost pool and the allocation basis are business decisions that have not
+  been made. Fulfillment-only is the assumption; fulfillment plus warehouse
+  labour is computable from Paycom's labor_allocation_code with an allocation
+  rule, and fully loaded is not computable at all from the current sources.
+  See open question 3.
+
+lineage_notes: >
+  Numerator is pangea.charge.amount_usd via fct_shipment.shipment_cost_usd,
+  restricted to shipments that resolve to an X3 order. Denominator is the
+  distinct count of sage_x3.SORDER.SOHNUM_0 reached through
+  pangea.shipment.reference_number.
+
+  Coverage: 2,998 of 4,200 orders (71.4%) have a matched shipment. Orders with
+  no shipment are outside the denominator, so this is cost per *shipped* order.
+  The coverage rate must be published beside the metric.
+
+  ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: no order ships more
+  than once. Zero of the 2,998 order-linked shipments share an order, which is
+  why a distinct-count denominator survives pre-aggregation here at all.
+  Partial and split shipments are ordinary in freight, so expect this to break
+  - see open question 12. When it does, the divergence surfaces in
+  scripts/test_metric_parity.py rather than on a dashboard, and ask_metric.py
+  already computes this metric from fct_shipment directly rather than by
+  summing the pre-aggregated model.
+
+caveats:
+  - >
+    The denominator is a distinct count, which does not re-aggregate. Summing
+    the pre-aggregated denominator across dimension values will over-count any
+    order that spans them. The generated SQL model is correct at its declared
+    dimension grain; the generated DAX uses DISTINCTCOUNT over the fact and is
+    correct at any grain. See is_reaggregatable in the compiled registry.
+
+blocked_reason: null

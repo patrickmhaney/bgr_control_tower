@@ -1,0 +1,79 @@
+version: 2
+
+sources:
+  - name: sage_x3
+    database: "{{ var('source_database') }}"
+    schema: sage_x3
+    description: >
+      Sage X3 ERP. High-fidelity mock: `_0` column suffixes, array columns,
+      `UPDTICK_0` optimistic-lock counters, CHAR-padded keys, SQL Server
+      sentinel dates (1753-01-01), integer local menus, no enforced foreign
+      keys. Table and column names are close to a real X3 folder but must be
+      validated against the client install before production DDL.
+    loaded_at_field: null
+    tables:
+      - name: COMPANY
+        description: Legal entity. Two rows - a US and a Canadian company.
+      - name: FACILITY
+        description: Site. Three rows - Dallas, Reno, Toronto.
+      - name: BPARTNER
+        description: Business partner master. BPCFLG_0/BPSFLG_0 flag the roles.
+      - name: BPCUSTOMER
+        description: >
+          Customer role extension of BPARTNER. REP_0/REP_1 is an X3 array
+          column - about 18% of customers carry a second rep.
+      - name: BPSUPPLIER
+        description: Supplier role extension of BPARTNER.
+      - name: BPADDRESS
+        description: Partner x address code. Multiple ship-tos per customer.
+      - name: ITMMASTER
+        description: Item master. ITMSTA_0 is a local menu (chapter 20).
+      - name: ITMFACILIT
+        description: Item x site replenishment parameters.
+      - name: SORDER
+        description: >
+          Sales order header. BPCORD_0 is CHAR-padded. SHIDAT_0 carries the
+          1753-01-01 sentinel on 402 rows.
+      - name: SORDERQ
+        description: >
+          Sales order line, quantity side. ITMREF_0 is CHAR-padded on every
+          row. Joins to SORDERP on SOHNUM_0 + SOPLIN_0.
+      - name: SORDERP
+        description: >
+          Sales order line, price side. ITMDES1_0 is denormalised at order
+          time and drifts from ITMMASTER - real X3 behaviour, not a defect.
+      - name: SINVOICEV
+        description: >
+          Sales invoice header. PAYDAT_0 carries the sentinel on 492 rows.
+          There is no cash application table anywhere in the source estate.
+      - name: SINVOICED
+        description: Sales invoice line. Carries SOHNUM_0/SOPLIN_0 back to the order.
+      - name: STOCK
+        description: Current on-hand by item, site, lot and location.
+      - name: STOJOU
+        description: >
+          Stock journal. TRSTYP_0 is a local menu (chapter 700). Adjustments
+          (code 3) are the closest thing to a cycle-count signal, and they are
+          not one.
+      - name: PORDER
+        description: Purchase order header.
+      - name: PORDERQ
+        description: >
+          Purchase order line with expected and actual receipt. RCPDAT_0
+          carries the sentinel on 576 rows.
+      - name: GACCENTRY
+        description: >
+          GL journal header. In this extract every entry is a sales journal
+          (JOU_0 = SAL, TYP_0 = SIH) - there is no AP or cost subledger.
+      - name: GACCENTRYD
+        description: >
+          GL journal line. AMTCUR_0 is document currency, AMTLOC_0 is company
+          currency; the ratio is the only FX signal in the estate.
+      - name: REPRESENT
+        description: >
+          Sales representative. REPNAM_0 is "LASTNAME FIRSTNAME" upper case -
+          the only link to Paycom.
+      - name: APLSTD
+        description: Local menu labels, keyed by chapter and code.
+      - name: ATEXTRA
+        description: Field-level translations (FRA here).

@@ -1,0 +1,60 @@
+name: on_time_delivery_rate
+label: On-Time Delivery
+status: active
+
+description: >
+  The share of delivered shipments that arrived on or before the promised
+  delivery date. The promise is the carrier's committed delivery date, not the
+  customer's requested date - the two give materially different answers and the
+  business has not yet chosen between them.
+
+grain: One delivered shipment.
+
+base_model: fct_shipment
+
+numerator:
+  agg: count
+  column: shipment_id
+  filter: {column: is_on_time_vs_carrier_promise, op: is_true}
+  label: On-time shipments
+
+denominator:
+  agg: count
+  column: shipment_id
+  filter: {column: is_on_time_vs_carrier_promise, op: is_not_null}
+  label: Delivered shipments
+
+filters: []
+
+dimensions: [date, customer, site, carrier]
+
+format: percent
+decimals: 1
+direction: higher_is_better
+
+owner: TBD
+owner_proposed: VP Operations
+
+lineage_notes: >
+  pangea.shipment.delivered_date compared to
+  pangea.shipment.estimated_delivery_date, carried on fct_shipment as
+  is_on_time_vs_carrier_promise. The fact stores both bases side by side and
+  this definition names the one it means, so switching basis is an edit to
+  these two filter lines - and publishing both bases as two separate metrics,
+  which is what open question 1 may resolve to, is a second definition file
+  naming is_on_time_vs_customer_request.
+
+  Measured: 75.6% against the carrier promise (3,381 delivered shipments) and
+  84.1% against the customer request date (2,887 shipments that join back to an
+  X3 order). The customer basis also changes the denominator, because the
+  request date only exists for the 85.4% of shipments carrying a resolvable
+  order reference.
+
+caveats:
+  - >
+    The 128 undelivered shipments (109 EXCEPTION, 19 IN_TRANSIT) are excluded
+    from the denominator, which means a shipment that fails outright cannot
+    make this metric worse. That is a definitional weakness, not an
+    implementation one - open question 1 asks the business to resolve it.
+
+blocked_reason: null

@@ -1,0 +1,47 @@
+name: return_rate
+label: Return Rate
+status: blocked
+
+description: >
+  The share of shipped or invoiced value that customers subsequently return.
+  Definition pending, because there is nothing to define it against yet.
+
+grain: To be determined once a returns object exists. Most likely one return line.
+
+base_model: null
+numerator: null
+denominator: null
+filters: []
+dimensions: [date, customer, site, item]
+
+format: percent
+decimals: 1
+direction: lower_is_better
+
+owner: TBD
+owner_proposed: Director of Customer Service
+
+blocked_reason: >
+  No returns object exists in any of the five source systems. Verified rather
+  than assumed:
+
+    - sage_x3.SINVOICEV.SIVTYP_0 has exactly one value, SIN. There is no credit
+      memo or return invoice type.
+    - Zero negative-amount lines in SINVOICED (0 of 9,767).
+    - Zero negative quantities in SORDERQ (0 of 11,575).
+    - sage_x3.STOJOU.TRSTYP_0 decodes through APLSTD chapter 700 to Receipt /
+      Issue / Adjustment / Transfer in / Transfer out. There is no return
+      movement type, and VCRTYP_0 holds only SDH, PTH and ADJ.
+    - No RMA table in sage_x3, hubspot, paycom, netstock or pangea.
+
+  A returns process may well exist in the business and simply not be captured,
+  or it may run outside the ERP. Either way this is a sourcing question for the
+  client, not a modelling problem. Nothing here should be substituted for it -
+  a "return rate" built on stock adjustments would be a different number
+  wearing this metric's name.
+
+unblock_requires:
+  - A returns or RMA transaction source with, at minimum, a return date, the
+    original order or invoice reference, item, quantity and value.
+  - A decision on whether the denominator is shipped value, invoiced value or
+    order lines.

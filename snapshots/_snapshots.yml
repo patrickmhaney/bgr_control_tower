@@ -1,0 +1,40 @@
+version: 2
+
+snapshots:
+  - name: snap_bpcustomer
+    description: >
+      Type 2 history for the X3 customer master. Nothing consumes it. It exists
+      because a Type 2 dimension can only be built forward from its first
+      snapshot: BPCUSTOMER carries UPDDAT_0 but no effective dating, so the
+      state of a customer on any past date is not recoverable from the source.
+      Every other open question is a config change whenever the business
+      answers. This one gets permanently more expensive the longer it stays
+      open - deferring it does not defer the cost, it deletes the history the
+      decision would need. See open question 11.
+    config:
+      unique_key: customer_code
+      strategy: check
+      check_cols: [primary_rep_code, secondary_rep_code, payment_term_code,
+                   credit_limit_amount, customer_group_code, currency_code]
+
+  - name: snap_represent
+    description: >
+      Type 2 history for the X3 sales rep master. Territory and site
+      assignment are exactly the attributes a commission or rep-scorecard
+      metric needs as-was rather than as-is. See open question 11.
+    config:
+      unique_key: rep_code
+      strategy: check
+      check_cols: [rep_name, site_code, rep_type_code]
+
+  - name: snap_netstock_item_location
+    description: >
+      Type 2 history for Netstock planning attributes. ABC and XYZ class churn
+      by design - that is what a planning system does - so "cost per shipment
+      by ABC class" over two years of history currently means "by whatever
+      class the item holds today". See open question 11.
+    config:
+      unique_key: "item_code || '|' || location_code"
+      strategy: check
+      check_cols: [abc_class, xyz_class, replenishment_policy, lead_time_days,
+                   reorder_point_qty, safety_stock_qty, supplier_code]

@@ -1,0 +1,340 @@
+version: 2
+
+models:
+  - name: stg_sage_x3__company
+    description: "Grain: one row per legal entity."
+    columns:
+      - name: company_code
+        description: X3 CPY_0. Two entities - GLBUS (US) and GLBCA (Canada).
+        tests: [unique, not_null]
+
+  - name: stg_sage_x3__facility
+    description: "Grain: one row per site. Three distribution centres."
+    columns:
+      - name: site_code
+        description: X3 FCY_0. The conformed site key for the whole warehouse.
+        tests: [unique, not_null]
+      - name: company_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__company')
+                field: company_code
+      - name: is_stock_site
+        description: >
+          Decoded from FCYSTO_0. X3 local menu chapter 1 is 1=No / 2=Yes, so
+          the raw integer 2 means true. Kept as both code and boolean.
+
+  - name: stg_sage_x3__bpartner
+    description: "Grain: one row per business partner."
+    columns:
+      - name: partner_code
+        tests: [unique, not_null]
+      - name: is_customer
+        description: Decoded from BPCFLG_0 (2 = yes).
+      - name: is_supplier
+        description: Decoded from BPSFLG_0 (2 = yes).
+
+  - name: stg_sage_x3__bpcustomer
+    description: "Grain: one row per customer account."
+    columns:
+      - name: customer_code
+        tests: [unique, not_null]
+      - name: customer_name
+        description: >
+          The only candidate join to hubspot.company. Names have drifted -
+          see int_customer_xref.
+        tests: [not_null]
+      - name: primary_rep_code
+        description: X3 REP_0. Array column position 0.
+      - name: secondary_rep_code
+        description: >
+          X3 REP_1. Array column position 1, populated on 41 of 220 customers.
+          Deliberately NOT unpivoted here - see docs/open_questions.md.
+
+  - name: stg_sage_x3__bpsupplier
+    description: "Grain: one row per supplier account."
+    columns:
+      - name: supplier_code
+        tests: [unique, not_null]
+
+  - name: stg_sage_x3__bpaddress
+    description: "Grain: one row per partner and address code."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [partner_code, address_code]
+
+  - name: stg_sage_x3__itmmaster
+    description: "Grain: one row per item."
+    columns:
+      - name: item_code
+        description: X3 ITMREF_0. Not CHAR-padded on the master, padded on every transaction table.
+        tests: [unique, not_null]
+      - name: item_status
+        description: Decoded from ITMSTA_0 via APLSTD chapter 20 - Active / Not usable / Obsolete.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Active', 'Not usable', 'Obsolete']
+
+  - name: stg_sage_x3__itmfacilit
+    description: "Grain: one row per item and site."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [item_code, site_code]
+    columns:
+      - name: item_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__itmmaster')
+                field: item_code
+      - name: reorder_mode
+        description: Decoded from REOMODE_0 via APLSTD chapter 861.
+
+  - name: stg_sage_x3__sorder
+    description: "Grain: one row per sales order header."
+    columns:
+      - name: sales_order_number
+        tests: [unique, not_null]
+      - name: ordering_customer_code
+        description: >
+          X3 BPCORD_0, CHAR-padded on all 4,200 rows. Trimmed here; joins
+          100% clean afterwards.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__bpcustomer')
+                field: customer_code
+      - name: shipping_site_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__facility')
+                field: site_code
+      - name: shipment_date
+        description: >
+          X3 SHIDAT_0. 402 rows carried the 1753-01-01 sentinel and are null
+          here. Any lead-time calculation that does not expect nulls is wrong.
+      - name: order_status
+        description: Decoded from ORDSTA_0 via APLSTD chapter 415 - Firm / Closed / Cancelled.
+
+  - name: stg_sage_x3__sorderq
+    description: >
+      "Grain: one row per sales order line, quantity side. Joins to
+      stg_sage_x3__sorderp on sales_order_number + sales_order_line_number."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sales_order_number, sales_order_line_number]
+    columns:
+      - name: sales_order_number
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__sorder')
+                field: sales_order_number
+      - name: item_code
+        description: X3 ITMREF_0, CHAR-padded on all 11,575 rows. Trimmed here.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__itmmaster')
+                field: item_code
+      - name: requested_delivery_date
+        description: >
+          X3 DEMDLVDAT_0 - the customer's requested date. One of the two
+          candidate bases for On-Time Delivery (open question 1).
+
+  - name: stg_sage_x3__sorderp
+    description: "Grain: one row per sales order line, price side."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sales_order_number, sales_order_line_number]
+    columns:
+      - name: item_description_at_order
+        description: >
+          X3 ITMDES1_0, denormalised at order time. Drifts from ITMMASTER by
+          design. Never use it as the item's current description.
+
+  - name: stg_sage_x3__sinvoicev
+    description: "Grain: one row per sales invoice header."
+    columns:
+      - name: invoice_number
+        tests: [unique, not_null]
+      - name: customer_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__bpcustomer')
+                field: customer_code
+      - name: payment_date
+        description: >
+          X3 PAYDAT_0. 492 of 3,564 rows carried the 1753-01-01 sentinel
+          meaning unpaid, and are null here. This is the single most
+          consequential sentinel in the estate - it is the denominator
+          exclusion that makes the DSO proxy a proxy.
+
+  - name: stg_sage_x3__sinvoiced
+    description: "Grain: one row per sales invoice line."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [invoice_number, invoice_line_number]
+    columns:
+      - name: invoice_number
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__sinvoicev')
+                field: invoice_number
+      - name: sales_order_number
+        description: Back-reference to the order. Populated and clean on all 9,767 lines.
+
+  - name: stg_sage_x3__stock
+    description: "Grain: one row per item, site, lot and location. Current on-hand only - no history."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [site_code, item_code, lot_code, location_code]
+
+  - name: stg_sage_x3__stojou
+    description: "Grain: one row per stock movement (STOJOU.ROWID)."
+    columns:
+      - name: stock_movement_id
+        tests: [unique, not_null]
+      - name: movement_type
+        description: >
+          Decoded from TRSTYP_0 via APLSTD chapter 700. There is no return
+          movement type and no count movement type, which is why Return Rate
+          and Inventory Accuracy are blocked.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Receipt', 'Issue', 'Adjustment', 'Transfer in', 'Transfer out']
+      - name: item_code
+        description: CHAR-padded on all 16,421 rows. Trimmed here.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__itmmaster')
+                field: item_code
+      - name: document_number
+        description: >
+          X3 VCRNUM_0. Resolves to a source document on the sales side only.
+          All 10,421 SDH rows carry a SOHNUM_0 that exists in SORDER; none of
+          the 4,217 PTH rows carry a POHNUM_0 that exists in PORDER - their
+          numbers are of the form PTH###### and match nothing. Do not build a
+          receipt-to-purchase-order join on this column; there isn't one. The
+          test below asserts the half that works.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__sorder')
+                field: sales_order_number
+              config:
+                where: "document_type = 'SDH'"
+      - name: document_type
+        description: SDH (sales shipment) 10,421, PTH (purchase receipt) 4,217, ADJ 1,783.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['SDH', 'PTH', 'ADJ']
+
+  - name: stg_sage_x3__porder
+    description: "Grain: one row per purchase order header."
+    columns:
+      - name: purchase_order_number
+        tests: [unique, not_null]
+      - name: supplier_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__bpsupplier')
+                field: supplier_code
+
+  - name: stg_sage_x3__porderq
+    description: >
+      "Grain: one row per purchase order line. Receipt is carried as columns on
+      the line rather than a separate receipt table, so a PO-to-receipt match
+      is computable but a three-way match is not - there is no supplier
+      invoice anywhere in the estate."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [purchase_order_number, purchase_order_line_number]
+    columns:
+      - name: actual_receipt_date
+        description: X3 RCPDAT_0. 576 rows carried the sentinel and are null here.
+
+  - name: stg_sage_x3__gaccentry
+    description: "Grain: one row per GL journal header."
+    columns:
+      - name: journal_entry_number
+        tests: [unique, not_null]
+      - name: journal_code
+        description: >
+          Only 'SAL' exists in this extract. There is no AP journal, which is
+          the direct cause of Match Rate being blocked.
+
+  - name: stg_sage_x3__gaccentryd
+    description: "Grain: one row per GL journal line."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [journal_entry_number, journal_line_number]
+    columns:
+      - name: journal_entry_number
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__gaccentry')
+                field: journal_entry_number
+      - name: gl_account_code
+        description: >
+          Only three accounts exist - 11100 (AR), 22300 (tax), 41000 (revenue).
+          No COGS, no expense, no AP. This is what makes a fully-loaded Cost
+          Per Order impossible from the GL.
+      - name: amount_document_currency
+        description: X3 AMTCUR_0.
+      - name: amount_company_currency
+        description: >
+          X3 AMTLOC_0. The ratio to AMTCUR_0 is the only FX signal in the
+          estate - see int_fx_rate.
+
+  - name: stg_sage_x3__represent
+    description: "Grain: one row per sales representative."
+    columns:
+      - name: rep_code
+        tests: [unique, not_null]
+      - name: rep_name
+        description: >
+          "LASTNAME FIRSTNAME", upper case. The only link to Paycom, and it is
+          not unique in Paycom - 12 name collisions exist. See
+          int_employee_xref.
+      - name: site_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__facility')
+                field: site_code
+
+  - name: stg_sage_x3__aplstd
+    description: >
+      "Grain: one row per local menu chapter, code and language. Every integer
+      enum in X3 resolves through here. Verify the table name against the
+      client folder - the mechanism is right even if the name is not."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [menu_chapter, menu_code, language_code]
+
+  - name: stg_sage_x3__atextra
+    description: "Grain: one row per table, field, language and key. Field-level translations."

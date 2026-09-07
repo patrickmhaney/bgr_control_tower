@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: paycom
+    database: "{{ var('source_database') }}"
+    schema: paycom
+    description: >
+      Paycom, modelled as flat report exports because that is the real
+      constraint - Paycom has no queryable backend and a thin API. Every date
+      is a MM/DD/YYYY string, every amount is a string, and there is no change
+      tracking of any kind, so ingestion is full refresh only.
+    tables:
+      - name: employee
+        description: >
+          Employee roster. `location_code` uses DAL-01 / RNO-01 / TOR-01 and
+          does not match FACILITY.FCY_0 - see seeds/site_code_crosswalk.csv.
+      - name: check
+        description: One row per employee per biweekly pay period.
+      - name: earning_detail
+        description: Check x earning code. labor_allocation_code is `<location>-<department>`.
+      - name: deduction_detail
+        description: Check x deduction code.
+      - name: tax_detail
+        description: Check x tax code.
+      - name: gl_mapping
+        description: Payroll code to GL account. Joins to GACCENTRYD.ACC_0.

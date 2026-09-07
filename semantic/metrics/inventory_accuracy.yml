@@ -1,0 +1,41 @@
+name: inventory_accuracy
+label: Inventory Accuracy
+status: blocked
+
+description: >
+  The share of counted stock positions whose physical quantity agrees with the
+  system quantity, within tolerance. Definition pending.
+
+grain: To be determined. Most likely one counted item-site-location position.
+
+base_model: null
+numerator: null
+denominator: null
+filters: []
+dimensions: [date, site, item]
+
+format: percent
+decimals: 1
+direction: higher_is_better
+
+owner: TBD
+owner_proposed: Warehouse Operations Manager
+
+blocked_reason: >
+  Inventory accuracy compares a counted quantity to a system quantity. There is
+  no count table, no count document type and no count date anywhere in the five
+  schemas.
+
+  The only candidate signal is sage_x3.STOJOU adjustments (TRSTYP_0 = 3): 1,008
+  rows, 497 negative and 511 positive, netting -11,469 units. That has the
+  shape of count corrections, but an adjustment journal records the correction,
+  not the count. It cannot say how many positions were counted, so it has no
+  denominator - and any accuracy percentage built on it would be inventing one.
+  Inventing a denominator is worse than reporting nothing, because the result
+  looks like a measurement.
+
+unblock_requires:
+  - A cycle count source with count date, item, site, location, counted
+    quantity and system quantity at count time.
+  - A tolerance policy - is a position accurate at zero variance, or within a
+    quantity or value band?
