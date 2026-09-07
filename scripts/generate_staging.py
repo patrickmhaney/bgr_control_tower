@@ -344,6 +344,107 @@ t("sage_x3", "GACCENTRYD", "One row per GL journal line.", [
     ("ACCDAT_0", "accounting_date", "sdate"),
 ])
 
+t("sage_x3", "SRETURN", "One row per customer return header.", [
+    ("SRHNUM_0", "return_number", "key"),
+    ("SRHFCY_0", "site_code", "key"),
+    ("BPCNUM_0", "customer_code", "key"),
+    ("RTNDAT_0", "return_date", "sdate"),
+    ("SOHNUM_0", "sales_order_number", "key"),
+    ("SIVNUM_0", "invoice_number", "key"),
+    ("RTNSTA_0", "return_status_code", "int"),
+    ("RTNREN_0", "return_reason_code", "int"),
+    ("CREUSR_0", "created_by", "str"),
+    ("UPDTICK_0", "update_tick", "int"),
+], menus=[("return_status_code", 740, "return_status"),
+          ("return_reason_code", 720, "return_reason")])
+
+t("sage_x3", "SRETURND", "One row per customer return line.", [
+    ("SRHNUM_0", "return_number", "key"),
+    ("SRDLIN_0", "return_line_number", "int"),
+    ("ITMREF_0", "item_code", "key"),
+    ("QTY_0", "returned_qty", "num"),
+    ("NETPRI_0", "net_unit_price", "num"),
+    ("AMTNOTLIN_0", "line_net_amount", "num"),
+    ("SOHNUM_0", "sales_order_number", "key"),
+    ("SOPLIN_0", "sales_order_line_number", "int"),
+    ("STOFCY_0", "site_code", "key"),
+    ("RTNREN_0", "return_reason_code", "int"),
+], menus=[("return_reason_code", 720, "return_reason")])
+
+t("sage_x3", "PRECEIPT", "One row per goods receipt header.", [
+    ("PTHNUM_0", "receipt_number", "key"),
+    ("PTHFCY_0", "receipt_site_code", "key"),
+    ("BPSNUM_0", "supplier_code", "key"),
+    ("POHNUM_0", "purchase_order_number", "key"),
+    ("RCPDAT_0", "receipt_date", "sdate"),
+    ("PTHTYP_0", "receipt_type_code", "int"),
+    ("CREUSR_0", "received_by", "str"),
+    ("UPDTICK_0", "update_tick", "int"),
+])
+
+t("sage_x3", "PRECEIPTD", "One row per goods receipt line.", [
+    ("PTHNUM_0", "receipt_number", "key"),
+    ("PTDLIN_0", "receipt_line_number", "int"),
+    ("POHNUM_0", "purchase_order_number", "key"),
+    ("POPLIN_0", "purchase_order_line_number", "int"),
+    ("ITMREF_0", "item_code", "key"),
+    ("PTHFCY_0", "receipt_site_code", "key"),
+    ("QTYUOM_0", "received_qty", "num"),
+    ("RCPDAT_0", "receipt_date", "sdate"),
+])
+
+t("sage_x3", "PINVOICE", "One row per supplier invoice header.", [
+    ("NUM_0", "supplier_invoice_number", "key"),
+    ("PIVTYP_0", "invoice_type_code", "str"),
+    ("BPSNUM_0", "supplier_code", "key"),
+    ("BPSINV_0", "supplier_document_number", "str"),
+    ("INVDAT_0", "invoice_date", "sdate"),
+    ("ACCDAT_0", "accounting_date", "sdate"),
+    ("PIHFCY_0", "site_code", "key"),
+    ("CUR_0", "currency_code", "str"),
+    ("AMTNOTLIN_0", "net_amount", "num"),
+    ("AMTTAXLIN_0", "tax_amount", "num"),
+    ("AMTATILIN_0", "gross_amount", "num"),
+    ("INVSTA_0", "invoice_status_code", "int"),
+    ("UPDTICK_0", "update_tick", "int"),
+])
+
+t("sage_x3", "PINVOICED", "One row per supplier invoice line.", [
+    ("NUM_0", "supplier_invoice_number", "key"),
+    ("PIDLIN_0", "supplier_invoice_line_number", "int"),
+    ("POHNUM_0", "purchase_order_number", "key"),
+    ("POPLIN_0", "purchase_order_line_number", "int"),
+    ("PTHNUM_0", "receipt_number", "key"),
+    ("ITMREF_0", "item_code", "key"),
+    ("QTY_0", "invoiced_qty", "num"),
+    ("NETPRI_0", "invoiced_unit_price", "num"),
+    ("AMTNOTLIN_0", "line_net_amount", "num"),
+    ("PIHFCY_0", "site_code", "key"),
+])
+
+t("sage_x3", "STOCOUNT", "One row per inventory count session.", [
+    ("SESNUM_0", "count_session_number", "key"),
+    ("STOFCY_0", "site_code", "key"),
+    ("CNTDAT_0", "count_date", "sdate"),
+    ("CNTTYP_0", "count_type_code", "int"),
+    ("SESSTA_0", "session_status_code", "int"),
+    ("CREUSR_0", "counted_by", "str"),
+    ("UPDTICK_0", "update_tick", "int"),
+], menus=[("count_type_code", 730, "count_type"),
+          ("session_status_code", 740, "session_status")])
+
+t("sage_x3", "STOCOUNTD", "One row per counted stock position.", [
+    ("SESNUM_0", "count_session_number", "key"),
+    ("CNTLIN_0", "count_line_number", "int"),
+    ("ITMREF_0", "item_code", "key"),
+    ("STOFCY_0", "site_code", "key"),
+    ("LOC_0", "location_code", "str"),
+    ("LOT_0", "lot_code", "str"),
+    ("QTYTHEO_0", "system_qty", "num"),
+    ("QTYCNT_0", "counted_qty", "num"),
+    ("CNTSTA_0", "count_line_status_code", "int"),
+], menus=[("count_line_status_code", 740, "count_line_status")])
+
 t("sage_x3", "REPRESENT", "One row per sales representative.", [
     ("REPNUM_0", "rep_code", "key"),
     ("REPNAM_0", "rep_name", "str"),

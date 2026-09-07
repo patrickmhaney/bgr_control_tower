@@ -3,10 +3,25 @@
 Every number below was measured against `mock_sources.duckdb` (SEED 20260905),
 not inferred. The queries are reproducible from `scripts/profile_sources.py`.
 
-**Headline: three of the seven defined metrics cannot be computed from any
-current source, and two more need a business decision before they mean
-anything. Only two are computable as specified.** That is the most important
-finding of the phase and it is a sourcing problem, not an engineering one.
+**Headline: all seven defined metrics now compute, but five of them carry a
+business decision that has not been made.** Three were blocked in the original
+audit — not because they were hard, but because the documents they measure
+were absent from the extract. Sourcing those documents unblocked them without
+a single change to the compiler or the metric grammar.
+
+> **Read the next paragraph before quoting any of this to the client.**
+>
+> This audit measures `mock_sources.duckdb`. That file is a *model* of five
+> source systems, not a sample of them. When the original version of this
+> document said "no returns object exists in any of the five source systems",
+> the true statement was "the generator did not write one" — and the mock
+> carries 22 X3 tables where a live folder carries two to four thousand.
+> Sage X3 has sales returns, purchase receipts, supplier invoices and a
+> physical-inventory module as standard. The blockage was in the mock.
+>
+> What the audit *does* establish, and what remains worth saying, is the shape
+> of each metric: what it needs, what decisions it hides, and what it costs to
+> get wrong. Those survive contact with the real folder. The row counts do not.
 
 | Metric | Process | Verdict | Registry status |
 |---|---|---|---|
@@ -14,9 +29,9 @@ finding of the phase and it is a sourcing problem, not an engineering one.
 | On-Time Delivery | I2D | Computable, but "on time against what?" is unanswered | `active` (assumption flagged) |
 | Cost Per Order | O2C | Needs an allocation rule | `provisional` |
 | DSO | O2C | Proxy only — no cash application data exists | `provisional` |
-| Return Rate | O2C | **Blocked** — no returns object in any source | `blocked` |
-| Match Rate | S2P | **Blocked** — no supplier invoice table | `blocked` |
-| Inventory Accuracy | I2D | **Blocked** — no cycle count data | `blocked` |
+| Return Rate | O2C | Computable once returns are sourced; denominator and date basis both open | `provisional` |
+| Match Rate | S2P | Computable once receipts and AP invoices are sourced; tolerance policy open | `provisional` |
+| Inventory Accuracy | I2D | Computable once count sessions are sourced; tolerance and basis open | `provisional` |
 
 ---
 
@@ -132,71 +147,117 @@ a dashboard. Open question 2.
 
 ---
 
-## Blocked
+## Unblocked by sourcing the missing documents
 
-These three get a registry entry with `status: blocked`, a populated
-`blocked_reason`, and no SQL. They cost nothing and they keep the gap visible.
+Each of these was blocked on a document that did not exist in the extract.
+Adding it changed nothing about how the metric is defined or compiled — the
+grammar, the compiler and the six output targets were untouched. That is the
+result worth reporting: the cost of a new metric here is a source and a
+definition, not an architecture.
 
-### Return Rate — no returns object exists
+### Return Rate — needed a returns object
 
-Verified absent, not merely unfound:
+**What was missing.** No return document, no credit-memo invoice type, no
+return movement type in the stock journal, no RMA table.
 
-- `SINVOICEV.SIVTYP_0` has exactly one value: `SIN`. No credit memo type.
-- Zero negative-amount lines in `SINVOICED` (0 of 9,767).
-- Zero negative quantities in `SORDERQ`.
-- `STOJOU.TRSTYP_0` decodes to Receipt / Issue / Adjustment / Transfer in /
-  Transfer out (chapter 700). There is no return movement type, and
-  `VCRTYP_0` has only `SDH`, `PTH`, `ADJ` — no return document type.
-- No RMA table in any of the five schemas.
+**What was added.** `SRETURN` / `SRETURND` as the return document, a `SCR`
+credit-memo type on the sales invoice tables with the sign reversed, and
+`TRSTYP_0 = 6` movements putting the stock back on the shelf. Returns raise
+credit memos, credit memos post to the GL, and invoiced revenue still
+reconciles to account 41000 — the existing test proves it.
 
-A returns process may exist in the business and simply not be captured, or it
-may run outside the ERP entirely. Either way the answer comes from the client,
-not from the warehouse.
+**Measured.** 146 returns / 179 lines against 3,564 invoices. Returned value
+$2.78M against $218.9M invoiced: **1.27%**.
 
-### Match Rate — two of the three legs of a three-way match are missing
+**What is still open.** Two things, and they move the number more than the
+data does.
 
-Three-way match needs PO, receipt, and supplier invoice.
+- *The denominator.* Invoiced value is used. Ordered value and shipped value
+  are both computable and all three differ, because an order can be invoiced
+  in part. Open question 16.
+- *The date.* A return raised in March against a January order lands in
+  January on this metric, because the denominator has no other date. So it
+  answers "what fraction of what we sold that month came back", not "how much
+  came back this month". Both are legitimate and they are not close to each
+  other on a monthly chart. Open question 17.
 
-- PO: present. `PORDER` 1,400 headers / `PORDERQ` 2,959 lines.
-- Receipt: present, but **only as columns on the PO line** — `RCPQTY_0` and
-  `RCPDAT_0`. 2,383 lines have a receipt quantity, 2,064 received exactly the
-  ordered quantity, and 576 lines carry the sentinel receipt date.
-- Supplier invoice: **does not exist**. No AP invoice table, no AP GL account
-  (the only accounts are 11100/22300/41000), and no AP journal
-  (`GACCENTRY.JOU_0` is `SAL` on every row).
+Two source properties are carried rather than cleaned away: 8% of returns
+arrive with an order reference that resolves to nothing (blank or lowercased),
+and 14% have not been credited at extract time — so any recent month's rate
+rises as credits post.
 
-**There is also no receipt *transaction*.** `STOJOU` holds 4,217 purchase
-movements (`VCRTYP_0 = 'PTH'`), and their `VCRNUM_0` values are of the form
-`PTH######` — **none of the 4,217 resolve to a `POHNUM_0`**. By contrast all
-10,421 sales movements (`SDH`) resolve to a `SORDER` cleanly. So the receipt
-side of the estate is weaker than "two of three legs present" suggests: a
-receipt cannot be dated independently, sequenced, split across deliveries, or
-attributed to a user. The PO line records only that a quantity arrived and when
-the last one did.
+### Match Rate — needed a receipt and a supplier invoice as documents
 
-That matters for scoping the fix. Sourcing an AP invoice alone would still not
-buy a real three-way match — a receipt transaction with a PO reference is a
-second, separate ask.
+**What was missing.** The purchase order existed. The receipt existed only as
+`RCPQTY_0` / `RCPDAT_0` denormalised onto the PO line, so it could not be
+dated, sequenced, split across deliveries or attributed to a user. The
+supplier invoice did not exist at all, and neither did an AP account or an AP
+journal.
 
-A two-way (PO-to-receipt) match rate *is* computable at 69.8% of lines exactly
-matched on quantity. It is a different metric and it should not be shipped
-under the name "Match Rate". Recorded in the registry as a note on the blocked
-entry, not as a substitute.
+**What was added.** `PRECEIPT` / `PRECEIPTD` and `PINVOICE` / `PINVOICED`, an
+AP journal (`PUR` / `PIH`) and accounts 21000 and 50000. The stock journal's
+purchase movements now carry receipt numbers that resolve — previously all
+4,217 of them resolved to nothing, which is the single fact that made a
+three-way match impossible.
 
-### Inventory Accuracy — no cycle count data
+**Measured.** 2,498 invoice lines across 1,186 invoices. **70.7% matched.**
 
-Inventory accuracy is `counted quantity vs system quantity`. There is no count
-table, no count document type, and no count date anywhere in the estate.
+| Result | Lines | Share |
+|---|---:|---:|
+| `matched` | 1,766 | 70.7% |
+| `price_variance` | 295 | 11.8% |
+| `quantity_variance` | 274 | 11.0% |
+| `not_received` | 107 | 4.3% |
+| `no_purchase_order` | 56 | 2.2% |
 
-`STOJOU` adjustments (`TRSTYP_0 = 3`) are the only candidate signal: 1,008 rows,
-of which 497 are negative and 511 positive, netting −11,469 units. That is a
-count-adjustment *shape*, but an adjustment journal records the correction, not
-the count — it cannot tell you how many locations were counted, so it has no
-denominator. Any accuracy percentage built on it would be inventing the
-denominator, which is worse than reporting nothing.
+The reason is kept on the fact, not just the flag. A match rate says there is
+a problem; `match_result` says which desk to send it to. `no_purchase_order`
+is maverick spend — a governance finding rather than a data quality one.
 
-If the business runs cycle counts today, the data is in a spreadsheet or in
-X3 count sessions that are not in this extract. Ask.
+**One modelling decision worth knowing about.** An invoice line is compared to
+the receipt *it names*, not to every receipt against the PO line. 514 lines
+here are multi-delivery, and comparing each invoice to the cumulative received
+quantity reports a variance on both halves of a perfectly good transaction —
+it moved the measured rate from 59.2% to 70.7%. This is exactly the class of
+error a three-way match implementation gets wrong quietly.
+
+**What is still open.** The tolerance policy. Exact quantity and 2% price is
+assumed; AP departments commonly allow a quantity band too, which would move
+this several points. Until AP sets one, the rate measures the policy as much
+as the process. Open question 14.
+
+### Inventory Accuracy — needed a count session, not an adjustment journal
+
+**What was missing.** No count table, no count document type, no count date.
+The stock journal's adjustments looked like the right signal and were not: an
+adjustment records the correction, not the count, so it can say how much was
+wrong but not how much was checked. It has no denominator, and inventing one
+produces something that looks like a measurement.
+
+**What was added.** `STOCOUNT` / `STOCOUNTD` — monthly cycle-count sessions per
+site, carrying `QTYTHEO_0` (the system quantity *at count time*) beside
+`QTYCNT_0`. Variances now post as adjustments carrying the session number, so
+the stock journal reconciles to the counts instead of being noise.
+
+**Measured.** 78 sessions, 2,843 counted positions, 2,656 accurate:
+**93.4%**.
+
+**What is still open.** Two decisions and one verification.
+
+- *The tolerance band.* Zero is assumed — accurate only on an exact match.
+  Many warehouses allow a quantity or value band. Open question 15.
+- *The basis.* Accuracy is by position. A site that miscounts one pallet of
+  5,000 and gets 400 other positions right scores 99.75% here and far worse on
+  a unit or value basis.
+- *The table names.* `STOCOUNT` / `STOCOUNTD` are **constructed**. The counting
+  mechanism is right; the names must be checked against the client's folder,
+  like `APLSTD`.
+
+One property of this metric deserves its own line, because it is the only
+irreversible thing in this document: `QTYTHEO_0` is the system quantity at the
+moment of the count and cannot be reconstructed later from stock on hand. If
+the count tables are not captured, inventory accuracy cannot be rebuilt
+retrospectively at any price.
 
 ---
 

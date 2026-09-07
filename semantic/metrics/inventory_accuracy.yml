@@ -1,17 +1,30 @@
 name: inventory_accuracy
 label: Inventory Accuracy
-status: blocked
+status: provisional
 
 description: >
-  The share of counted stock positions whose physical quantity agrees with the
-  system quantity, within tolerance. Definition pending.
+  The share of counted stock positions where the counted quantity agrees with
+  the system quantity within tolerance. Measured by position - one item, site,
+  location and lot - which is the common warehouse convention.
 
-grain: To be determined. Most likely one counted item-site-location position.
+grain: One counted stock position.
 
-base_model: null
-numerator: null
-denominator: null
+base_model: fct_inventory_count_line
+
+numerator:
+  agg: count
+  column: count_line_number
+  filter: {column: is_accurate_position, op: is_true}
+  label: Accurate positions
+
+denominator:
+  agg: count
+  column: count_line_number
+  filter: {column: is_accurate_position, op: is_not_null}
+  label: Positions counted
+
 filters: []
+
 dimensions: [date, site, item]
 
 format: percent
@@ -21,21 +34,40 @@ direction: higher_is_better
 owner: TBD
 owner_proposed: Warehouse Operations Manager
 
-blocked_reason: >
-  Inventory accuracy compares a counted quantity to a system quantity. There is
-  no count table, no count document type and no count date anywhere in the five
-  schemas.
+provisional_reason: >
+  Two decisions are outstanding. The tolerance band is assumed to be zero -
+  a position is accurate only on an exact match - and many warehouses allow a
+  quantity or value band instead. The measurement basis is assumed to be
+  position rather than unit or value, which flatters sites whose errors are
+  concentrated in a few large positions. See open question 15.
 
-  The only candidate signal is sage_x3.STOJOU adjustments (TRSTYP_0 = 3): 1,008
-  rows, 497 negative and 511 positive, netting -11,469 units. That has the
-  shape of count corrections, but an adjustment journal records the correction,
-  not the count. It cannot say how many positions were counted, so it has no
-  denominator - and any accuracy percentage built on it would be inventing one.
-  Inventing a denominator is worse than reporting nothing, because the result
-  looks like a measurement.
+  The source table names are also unverified against a real X3 folder.
 
-unblock_requires:
-  - A cycle count source with count date, item, site, location, counted
-    quantity and system quantity at count time.
-  - A tolerance policy - is a position accurate at zero variance, or within a
-    quantity or value band?
+lineage_notes: >
+  sage_x3.STOCOUNTD, one row per counted position, carried on
+  fct_inventory_count_line with is_accurate_position.
+
+  The denominator is what makes this metric possible and it comes from the
+  count session, not from the stock journal. STOJOU adjustments record the
+  correction, not the count: they can say how much was wrong but not how much
+  was checked, so an accuracy percentage built on them would be inventing its
+  own denominator. The count session is the only source that carries both.
+
+  system_qty is the theoretical quantity AT COUNT TIME. It is not recoverable
+  from current stock, so this metric cannot be rebuilt retrospectively if the
+  count tables are dropped from the extract.
+
+  Accuracy is by position, not by unit. A site that miscounts one pallet of
+  5,000 and gets 400 other positions right scores 99.75% here and far worse on
+  a unit basis. Both are legitimate measures of different things.
+
+  VERIFY THE SOURCE TABLE NAMES against the client's X3 folder. The counting
+  mechanism is right; STOCOUNT / STOCOUNTD are constructed names.
+
+assumptions:
+  - name: inventory_accuracy_tolerance_pct
+    var: inventory_accuracy_tolerance_pct
+    value: 0.0
+    question: Q15
+
+blocked_reason: null

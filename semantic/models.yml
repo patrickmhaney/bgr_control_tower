@@ -70,6 +70,37 @@ models:
       payment_term_code: payment_term_code
       document_currency_code: document_currency_code
 
+  fct_supplier_invoice_line:
+    label: Supplier Invoice Line
+    grain: One supplier invoice line.
+    description: >
+      X3 AP invoice lines matched against the purchase order and the goods
+      receipts posted against it. Carries the three-way match outcome and the
+      reason a line failed.
+    dimensions:
+      date: invoice_date_key
+      site: site_code
+      item: item_code
+    degenerate:
+      match_result: match_result
+      supplier_code: supplier_code
+      invoice_status_code: invoice_status_code
+
+  fct_inventory_count_line:
+    label: Inventory Count Line
+    grain: One counted stock position.
+    description: >
+      One row per position counted in a cycle-count or physical-inventory
+      session, carrying the system quantity at count time alongside the count.
+    dimensions:
+      date: count_date_key
+      site: site_code
+      item: item_code
+    degenerate:
+      count_type: count_type
+      session_status: session_status
+      location_code: location_code
+
   dim_customer:
     label: Customer
     grain: One conformed customer.

@@ -41,6 +41,26 @@ models:
     description: Settled invoice lines
   - name: metric_value
     description: numerator / denominator
+- name: mtr_inventory_accuracy
+  description: 'GENERATED. Inventory Accuracy (provisional). Grain: One counted stock position. Definition:
+    semantic/metrics/inventory_accuracy.yml. Re-aggregatable across dimensions.'
+  columns:
+  - name: numerator
+    description: Accurate positions
+  - name: denominator
+    description: Positions counted
+  - name: metric_value
+    description: numerator / denominator
+- name: mtr_match_rate
+  description: 'GENERATED. Match Rate (provisional). Grain: One supplier invoice line. Definition: semantic/metrics/match_rate.yml.
+    Re-aggregatable across dimensions.'
+  columns:
+  - name: numerator
+    description: Matched lines
+  - name: denominator
+    description: Invoice lines
+  - name: metric_value
+    description: numerator / denominator
 - name: mtr_on_time_delivery_rate
   description: 'GENERATED. On-Time Delivery (active). Grain: One delivered shipment. Definition: semantic/metrics/on_time_delivery_rate.yml.
     Re-aggregatable across dimensions.'
@@ -59,6 +79,16 @@ models:
     description: Shipments with a resolved order
   - name: denominator
     description: Shipments
+  - name: metric_value
+    description: numerator / denominator
+- name: mtr_return_rate
+  description: 'GENERATED. Return Rate (provisional). Grain: One sales order line. Definition: semantic/metrics/return_rate.yml.
+    Re-aggregatable across dimensions.'
+  columns:
+  - name: numerator
+    description: Returned value
+  - name: denominator
+    description: Invoiced value
   - name: metric_value
     description: numerator / denominator
 - name: mtr_unsettled_invoice_rate

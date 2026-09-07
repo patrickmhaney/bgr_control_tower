@@ -221,6 +221,65 @@ SAGE_X3 = SourceSpec(
                   window_via=("GACCENTRY", "NUM_0", "ACCDAT_0"),
                   note="No UPDTICK_0, no dates of its own.",
                   reconcile_keys="weekly"),
+
+        # --- returns: the Return Rate source ---
+        TableSpec("SRETURN", Strategy.HEADER_WINDOW, ("SRHNUM_0",),
+                  window_via=("SRETURN", "SRHNUM_0", "RTNDAT_0"),
+                  note="Customer returns. RTNDAT_0 is a business date and a "
+                       "return can be raised months after the order, so the "
+                       "window must be on the RETURN date - windowing on the "
+                       "order date would miss every late return, which is most "
+                       "of them.",
+                  reconcile_keys="weekly"),
+        TableSpec("SRETURND", Strategy.HEADER_WINDOW, ("SRHNUM_0", "SRDLIN_0"),
+                  window_via=("SRETURN", "SRHNUM_0", "RTNDAT_0"),
+                  note="No date of its own. Reached through the return header.",
+                  reconcile_keys="weekly"),
+
+        # --- purchasing: the Match Rate sources ---
+        TableSpec("PRECEIPT", Strategy.HEADER_WINDOW, ("PTHNUM_0",),
+                  window_via=("PRECEIPT", "PTHNUM_0", "RCPDAT_0"),
+                  note="Goods receipts. Unlike PORDERQ.RCPDAT_0 this is a "
+                       "document with its own date, so a receipt against an "
+                       "old PO lands inside the window on its own merit. This "
+                       "is the table that makes PORDERQ's update-in-place "
+                       "problem survivable.",
+                  reconcile_keys="weekly"),
+        TableSpec("PRECEIPTD", Strategy.HEADER_WINDOW, ("PTHNUM_0", "PTDLIN_0"),
+                  window_via=("PRECEIPT", "PTHNUM_0", "RCPDAT_0"),
+                  note="Carries the PO line reference, which is what makes a "
+                       "partial or multi-delivery receipt matchable.",
+                  reconcile_keys="weekly"),
+        TableSpec("PINVOICE", Strategy.HEADER_WINDOW, ("NUM_0",),
+                  window_via=("PINVOICE", "NUM_0", "INVDAT_0"),
+                  note="Supplier invoices. Same business-date caveat as "
+                       "SINVOICEV: an invoice approved or repriced after "
+                       "posting changes in place without moving INVDAT_0. "
+                       "Watch INVSTA_0 and keep the lookback wide.",
+                  reconcile_keys="weekly"),
+        TableSpec("PINVOICED", Strategy.HEADER_WINDOW, ("NUM_0", "PIDLIN_0"),
+                  window_via=("PINVOICE", "NUM_0", "INVDAT_0"),
+                  note="Holds the PO and receipt references. A null PTHNUM_0 "
+                       "is meaningful - it is an invoice with no receipt - so "
+                       "do not filter it in the extractor.",
+                  reconcile_keys="weekly"),
+
+        # --- counting: the Inventory Accuracy source ---
+        TableSpec("STOCOUNT", Strategy.HEADER_WINDOW, ("SESNUM_0",),
+                  window_via=("STOCOUNT", "SESNUM_0", "CNTDAT_0"),
+                  note="Count sessions. VERIFY THE TABLE NAME against the "
+                       "client's folder - the counting mechanism is right, the "
+                       "name is constructed. A session stays open while it is "
+                       "being counted, so the lookback must cover the longest "
+                       "count cycle or sessions will land half-posted.",
+                  reconcile_keys="weekly"),
+        TableSpec("STOCOUNTD", Strategy.HEADER_WINDOW, ("SESNUM_0", "CNTLIN_0"),
+                  window_via=("STOCOUNT", "SESNUM_0", "CNTDAT_0"),
+                  note="One row per counted position. QTYTHEO_0 is the system "
+                       "quantity AT COUNT TIME and is not recoverable later "
+                       "from STOCK - if this table is not captured, inventory "
+                       "accuracy cannot be rebuilt retrospectively.",
+                  reconcile_keys="weekly"),
     ),
 )
 

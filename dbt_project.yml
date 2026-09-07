@@ -46,6 +46,26 @@ vars:
   # X3 sentinel date meaning "no date"
   x3_null_date: '1753-01-01'
 
+  # Q14 Three-way match tolerance. A match is "within tolerance" when both the
+  #     quantity and the extended price agree with the receipt and the PO to
+  #     within these percentages. Zero means exact. AP has not set a policy, so
+  #     these are placeholders and the metric is provisional until they are.
+  match_qty_tolerance_pct: 0.0
+  match_price_tolerance_pct: 2.0
+
+  # Q15 Inventory accuracy tolerance. Zero means a position is accurate only
+  #     when the count equals the system quantity exactly. Many warehouses
+  #     allow a band; Operations has not chosen one.
+  inventory_accuracy_tolerance_pct: 0.0
+
+  # Q16 Return Rate denominator basis: invoiced | ordered
+  #     DECLARATIVE, like cost_per_order_pool. fct_sales_order_line carries
+  #     both invoiced_amount_usd and line_net_amount_usd, following the same
+  #     both-and pattern as the two on-time flags on fct_shipment, so switching
+  #     basis is an edit to the denominator column in the metric YAML. This var
+  #     records which one is live; changing it alone does nothing.
+  return_rate_basis: invoiced
+
   # Relationship tests on the README's dashed lines warn instead of erroring.
   # Thresholds are documented in the model YAML next to each test.
   dashed_line_severity: warn

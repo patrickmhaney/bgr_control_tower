@@ -52,19 +52,23 @@ sources:
         description: Current on-hand by item, site, lot and location.
       - name: STOJOU
         description: >
-          Stock journal. TRSTYP_0 is a local menu (chapter 700). Adjustments
-          (code 3) are the closest thing to a cycle-count signal, and they are
-          not one.
+          Stock journal. TRSTYP_0 is a local menu (chapter 700). Every
+          movement resolves to the document that caused it: VCRNUM_0 carries
+          the receipt (PTH), count session (CNT), return (RTN) or order number.
+          Adjustments (code 3) are posted BY a count session and are still not
+          a substitute for one - they record the correction, not the count.
       - name: PORDER
         description: Purchase order header.
       - name: PORDERQ
         description: >
           Purchase order line with expected and actual receipt. RCPDAT_0
-          carries the sentinel on 576 rows.
+          carries the sentinel on 576 rows. It is a denormalised copy of the
+          LAST receipt - PRECEIPTD is the document, and the two disagree on
+          any line received more than once.
       - name: GACCENTRY
         description: >
-          GL journal header. In this extract every entry is a sales journal
-          (JOU_0 = SAL, TYP_0 = SIH) - there is no AP or cost subledger.
+          GL journal header. Two journals: sales (JOU_0 = SAL, TYP_0 = SIH
+          for invoices and SCH for credit memos) and purchasing (PUR / PIH).
       - name: GACCENTRYD
         description: >
           GL journal line. AMTCUR_0 is document currency, AMTLOC_0 is company
@@ -77,3 +81,35 @@ sources:
         description: Local menu labels, keyed by chapter and code.
       - name: ATEXTRA
         description: Field-level translations (FRA here).
+      - name: SRETURN
+        description: >
+          Customer return header. RTNDAT_0 is the return date and can be
+          months after the order - returns cross period boundaries.
+      - name: SRETURND
+        description: >
+          Customer return line. SOHNUM_0 references the original order and is
+          unreliable on ~8% of rows: blank or lowercased.
+      - name: PRECEIPT
+        description: >
+          Goods receipt header. The receipt as a document, with its own date -
+          which is what makes a late receipt against an old PO extractable.
+      - name: PRECEIPTD
+        description: >
+          Goods receipt line, carrying the PO line reference. A PO line
+          received in two deliveries has two rows here and one RCPDAT_0 on
+          PORDERQ.
+      - name: PINVOICE
+        description: Supplier (AP) invoice header.
+      - name: PINVOICED
+        description: >
+          Supplier invoice line. POHNUM_0 and PTHNUM_0 are the PO and receipt
+          references; either can be null, and a null is meaningful - it is
+          maverick spend or an invoice with no receipt, not a data error.
+      - name: STOCOUNT
+        description: >
+          Inventory count session. NAME UNVERIFIED - the counting mechanism is
+          right, the table name is constructed. Validate against the install.
+      - name: STOCOUNTD
+        description: >
+          Counted position. QTYTHEO_0 is the system quantity AT COUNT TIME and
+          cannot be reconstructed later. NAME UNVERIFIED.

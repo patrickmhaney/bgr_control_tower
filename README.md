@@ -1,6 +1,6 @@
 # Mock source systems for the Globex data warehouse build
 
-A single DuckDB file containing five mock source schemas, ~233,000 rows, covering
+A single DuckDB file containing five mock source schemas, ~248,000 rows, covering
 Jul 2024 – Aug 2026. Built for design exploration: profiling, grain discovery,
 conformed-dimension planning, and finding out where the joins break.
 
@@ -33,7 +33,13 @@ and data-model diagrams on one page, captioned. GitHub renders them inline.
 | `netstock` | **Inferred** | Grain and column semantics are right (item × location, forecast periods, ABC/XYZ, ROP). Exact names are my construction. |
 | `pangea` | **Inferred, and the product is a guess** | The whiteboard was cut off at "Pange…". This is modeled as a generic freight/parcel visibility platform. Tell me what it actually is and I'll re-cut it. |
 
-Two things to note in `sage_x3`: the local-menu table is named `APLSTD` here, and
+Three things to note in `sage_x3`. `STOCOUNT` / `STOCOUNTD` are **constructed
+names** — X3 has a physical-inventory module and the counting mechanism modelled
+here is right, but the table names must be checked against the client's folder
+before anything is pointed at them. The same caveat applies less strongly to
+`SRETURN`/`SRETURND`, `PRECEIPT`/`PRECEIPTD` and `PINVOICE`/`PINVOICED`, which
+follow X3's documented sales and purchasing naming but are still unverified.
+The local-menu table is named `APLSTD` here, and
 you should verify that name against the install — the mechanism (integer enums
 resolved through a menu table plus `ATEXTRA` for translations) is right even if
 the table name isn't. And `ITMDES1_0` in `SORDERP` is denormalized at
@@ -54,11 +60,15 @@ order time, so it drifts from `ITMMASTER` — that's real X3 behavior, not a bug
 | `ITMFACILIT` | **Item × site** — replenishment policy, safety stock, lead time. |
 | `SORDER` | Sales order header. |
 | `SORDERQ` / `SORDERP` | Order **line**, split across two tables: quantities in Q, prices in P. Join on `SOHNUM_0 + SOPLIN_0`. |
-| `SINVOICEV` / `SINVOICED` | Invoice header / line. Line carries `SOHNUM_0` back to the order. |
+| `SINVOICEV` / `SINVOICED` | Invoice header / line. Line carries `SOHNUM_0` back to the order. `SIVTYP_0` is `SIN` (invoice) or `SCR` (credit memo, negative). |
+| `SRETURN` / `SRETURND` | Customer return header / line. Raises a credit memo. Dated on the return, not the order. |
 | `STOCK` | Item × site × lot × location, current on-hand. |
-| `STOJOU` | Stock movement (transaction-level). Your inventory fact source. |
-| `PORDER` / `PORDERQ` | Purchase order header / line, with expected vs actual receipt dates. |
-| `GACCENTRY` / `GACCENTRYD` | GL journal header / line. |
+| `STOJOU` | Stock movement (transaction-level). Every row resolves to the document that caused it via `VCRNUM_0`. |
+| `STOCOUNT` / `STOCOUNTD` | Count session / counted position. `QTYTHEO_0` is the system quantity **at count time**. Names constructed — verify. |
+| `PORDER` / `PORDERQ` | Purchase order header / line. `RCPQTY_0`/`RCPDAT_0` are a denormalised copy of the last receipt. |
+| `PRECEIPT` / `PRECEIPTD` | Goods receipt header / line — the receipt as a document, carrying the PO line reference. |
+| `PINVOICE` / `PINVOICED` | Supplier (AP) invoice header / line, with PO and receipt references. Either may be null, meaningfully. |
+| `GACCENTRY` / `GACCENTRYD` | GL journal header / line. Sales (`SAL`) and purchasing (`PUR`) journals. |
 | `REPRESENT` | Sales rep. |
 | `APLSTD`, `ATEXTRA` | Local-menu labels and translations. |
 
@@ -162,6 +172,22 @@ Each of these is real behavior from the corresponding system. Verified present:
 14. **CDC hooks.** X3 tables carry `UPDTICK_0`. HubSpot has
     `hs_lastmodifieddate`. Paycom exports have neither — full refresh only.
     That asymmetry should drive your ingestion pattern.
+15. **Unresolvable return references.** ~8% of `SRETURND.SOHNUM_0` values are
+    blank or lowercased — keyed from a packing slip rather than copied from the
+    order. They cannot be attributed to an order line and must not be dropped:
+    doing so shrinks a return rate's numerator while leaving its denominator
+    intact, which makes the metric quietly optimistic.
+16. **Uncredited returns.** 14% of returns carry no credit memo at extract
+    time. Any recent month's return rate rises as credits post, so the last two
+    or three months of the series are not comparable with the rest.
+17. **`PORDERQ.RCPDAT_0` is a denormalised copy of the LAST receipt.** Where a
+    PO line was received in two deliveries, `PRECEIPTD` has two rows and the PO
+    line has one date. A three-way match built on the PO line silently treats
+    every partial delivery as a variance — worth 11 points of match rate here.
+18. **Count sessions are not recoverable.** `STOCOUNTD.QTYTHEO_0` is the system
+    quantity *at the moment of the count*. It cannot be reconstructed later
+    from `STOCK`. If the count tables are missed in the extract, inventory
+    accuracy cannot be built retrospectively at any price.
 
 ---
 

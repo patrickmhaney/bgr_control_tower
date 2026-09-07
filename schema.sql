@@ -431,6 +431,35 @@ CREATE TABLE sage_x3."ITMMASTER" (
     "UPDTICK_0" bigint
 );
 
+CREATE TABLE sage_x3."PINVOICE" (
+    "NUM_0" varchar(255),
+    "PIVTYP_0" varchar(255),
+    "BPSNUM_0" varchar(255),
+    "BPSINV_0" varchar(255),
+    "INVDAT_0" date,
+    "ACCDAT_0" date,
+    "PIHFCY_0" varchar(255),
+    "CUR_0" varchar(255),
+    "AMTNOTLIN_0" numeric(18,4),
+    "AMTTAXLIN_0" numeric(18,4),
+    "AMTATILIN_0" numeric(18,4),
+    "INVSTA_0" bigint,
+    "UPDTICK_0" bigint
+);
+
+CREATE TABLE sage_x3."PINVOICED" (
+    "NUM_0" varchar(255),
+    "PIDLIN_0" bigint,
+    "POHNUM_0" varchar(255),
+    "POPLIN_0" bigint,
+    "PTHNUM_0" varchar(255),
+    "ITMREF_0" varchar(255),
+    "QTY_0" numeric(18,4),
+    "NETPRI_0" numeric(18,4),
+    "AMTNOTLIN_0" numeric(18,4),
+    "PIHFCY_0" varchar(255)
+);
+
 CREATE TABLE sage_x3."PORDER" (
     "POHNUM_0" varchar(255),
     "POHFCY_0" varchar(255),
@@ -454,6 +483,28 @@ CREATE TABLE sage_x3."PORDERQ" (
     "RCPDAT_0" date,
     "NETPRI_0" numeric(18,4),
     "UPDTICK_0" bigint
+);
+
+CREATE TABLE sage_x3."PRECEIPT" (
+    "PTHNUM_0" varchar(255),
+    "PTHFCY_0" varchar(255),
+    "BPSNUM_0" varchar(255),
+    "POHNUM_0" varchar(255),
+    "RCPDAT_0" date,
+    "PTHTYP_0" bigint,
+    "CREUSR_0" varchar(255),
+    "UPDTICK_0" bigint
+);
+
+CREATE TABLE sage_x3."PRECEIPTD" (
+    "PTHNUM_0" varchar(255),
+    "PTDLIN_0" bigint,
+    "POHNUM_0" varchar(255),
+    "POPLIN_0" bigint,
+    "ITMREF_0" varchar(255),
+    "PTHFCY_0" varchar(255),
+    "QTYUOM_0" numeric(18,4),
+    "RCPDAT_0" date
 );
 
 CREATE TABLE sage_x3."REPRESENT" (
@@ -540,6 +591,32 @@ CREATE TABLE sage_x3."SORDERQ" (
     "UPDTICK_0" bigint
 );
 
+CREATE TABLE sage_x3."SRETURN" (
+    "SRHNUM_0" varchar(255),
+    "SRHFCY_0" varchar(255),
+    "BPCNUM_0" varchar(255),
+    "RTNDAT_0" date,
+    "SOHNUM_0" varchar(255),
+    "SIVNUM_0" varchar(255),
+    "RTNSTA_0" bigint,
+    "RTNREN_0" bigint,
+    "CREUSR_0" varchar(255),
+    "UPDTICK_0" bigint
+);
+
+CREATE TABLE sage_x3."SRETURND" (
+    "SRHNUM_0" varchar(255),
+    "SRDLIN_0" bigint,
+    "ITMREF_0" varchar(255),
+    "QTY_0" numeric(18,4),
+    "NETPRI_0" numeric(18,4),
+    "AMTNOTLIN_0" numeric(18,4),
+    "SOHNUM_0" varchar(255),
+    "SOPLIN_0" bigint,
+    "STOFCY_0" varchar(255),
+    "RTNREN_0" bigint
+);
+
 CREATE TABLE sage_x3."STOCK" (
     "STOFCY_0" varchar(255),
     "ITMREF_0" varchar(255),
@@ -549,6 +626,28 @@ CREATE TABLE sage_x3."STOCK" (
     "STA_0" varchar(255),
     "OWNER_0" varchar(255),
     "UPDTICK_0" bigint
+);
+
+CREATE TABLE sage_x3."STOCOUNT" (
+    "SESNUM_0" varchar(255),
+    "STOFCY_0" varchar(255),
+    "CNTDAT_0" date,
+    "CNTTYP_0" bigint,
+    "SESSTA_0" bigint,
+    "CREUSR_0" varchar(255),
+    "UPDTICK_0" bigint
+);
+
+CREATE TABLE sage_x3."STOCOUNTD" (
+    "SESNUM_0" varchar(255),
+    "CNTLIN_0" bigint,
+    "ITMREF_0" varchar(255),
+    "STOFCY_0" varchar(255),
+    "LOC_0" varchar(255),
+    "LOT_0" varchar(255),
+    "QTYTHEO_0" numeric(18,4),
+    "QTYCNT_0" numeric(18,4),
+    "CNTSTA_0" bigint
 );
 
 CREATE TABLE sage_x3."STOJOU" (

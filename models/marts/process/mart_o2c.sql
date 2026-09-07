@@ -7,7 +7,7 @@
 --
 -- Metrics on this dashboard (3):
 --   M1  DSO (days-to-pay proxy) (provisional)
---   M2  Return Rate (blocked)
+--   M2  Return Rate (provisional)
 --   M3  Cost Per Order (provisional)
 
     select
@@ -53,17 +53,17 @@ union all
         r.metric_status,
         r.metric_format,
         r.metric_direction,
-        cast(null as integer) as date_key,
-        cast(null as varchar) as customer_key,
-        cast(null as varchar) as site_code,
-        cast(null as varchar) as item_code,
+        m.date_key,
+        m.customer_key,
+        m.site_code,
+        m.item_code,
         cast(null as varchar) as carrier_scac,
-        cast(null as decimal(38, 6)) as numerator,
-        cast(null as decimal(38, 6)) as denominator,
-        cast(null as decimal(38, 6)) as metric_value,
+        cast(m.numerator as decimal(38, 6)) as numerator,
+        cast(m.denominator as decimal(38, 6)) as denominator,
+        cast(m.metric_value as decimal(38, 6)) as metric_value,
         r.blocked_reason
 
-    from {{ ref('metric_registry') }} as registry_anchor
+    from {{ ref('mtr_return_rate') }} as m
     cross join (
         select
             metric_label,
@@ -74,7 +74,6 @@ union all
         from {{ ref('metric_registry') }}
         where metric_name = 'return_rate'
     ) as r
-    where registry_anchor.metric_name = 'return_rate'
 
 
 union all

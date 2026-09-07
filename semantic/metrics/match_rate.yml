@@ -1,18 +1,33 @@
 name: match_rate
 label: Match Rate
-status: blocked
+status: provisional
 
 description: >
-  The share of supplier invoices that match their purchase order and goods
-  receipt within tolerance - the three-way match. Definition pending.
+  The share of supplier invoice lines that agree with both the purchase order
+  and the goods receipt within tolerance - the three-way match. A line matches
+  when it references a purchase order, the ordered quantity was received, the
+  invoiced quantity agrees with the received quantity, and the invoiced price
+  agrees with the ordered price.
 
-grain: To be determined. Most likely one supplier invoice line.
+grain: One supplier invoice line.
 
-base_model: null
-numerator: null
-denominator: null
+base_model: fct_supplier_invoice_line
+
+numerator:
+  agg: count
+  column: supplier_invoice_line_number
+  filter: {column: is_three_way_matched, op: is_true}
+  label: Matched lines
+
+denominator:
+  agg: count
+  column: supplier_invoice_line_number
+  filter: {column: is_three_way_matched, op: is_not_null}
+  label: Invoice lines
+
 filters: []
-dimensions: [date, site]
+
+dimensions: [date, site, item]
 
 format: percent
 decimals: 1
@@ -21,33 +36,40 @@ direction: higher_is_better
 owner: TBD
 owner_proposed: AP Manager
 
-blocked_reason: >
-  A three-way match needs a purchase order, a goods receipt and a supplier
-  invoice. Two of the three exist:
+provisional_reason: >
+  The tolerance policy is a business decision that has not been made. Exact
+  quantity and 2% price is the assumption, and the rate is highly sensitive to
+  it - AP departments commonly allow a quantity band as well, which would move
+  this number several points. Until AP sets a policy the rate measures the
+  policy as much as the process. See open question 14.
 
-    - Purchase order: present. PORDER 1,400 headers, PORDERQ 2,959 lines.
-    - Receipt: present, but ONLY as columns on the PO line (RCPQTY_0,
-      RCPDAT_0). 2,383 lines carry a receipt quantity; 576 carry the
-      1753-01-01 sentinel receipt date. There is no receipt transaction and no
-      receipt document: STOJOU's 4,217 purchase movements (VCRTYP_0 = 'PTH')
-      carry document numbers of the form PTH######, none of which resolve to a
-      POHNUM_0. So a receipt cannot be dated, sequenced, split across
-      deliveries, or attributed to a receiving user - the PO line records only
-      that a quantity arrived and when the last one did.
-    - Supplier invoice: absent. There is no AP invoice table, no AP control
-      account (GACCENTRYD holds only 11100, 22300 and 41000) and no AP journal
-      (GACCENTRY.JOU_0 is SAL on all 3,564 rows).
+lineage_notes: >
+  sage_x3.PINVOICED joined to PORDERQ and to receipts summed from PRECEIPTD in
+  int_supplier_invoice_match, then carried on fct_supplier_invoice_line as
+  is_three_way_matched.
 
-  A two-way PO-to-receipt match rate is computable - 2,064 of 2,959 lines
-  (69.8%) received exactly the ordered quantity - but it is a different metric
-  and shipping it under this name would misrepresent what was checked. It is
-  recorded here as a note, not as a substitute.
+  Receipts are summed per PO line rather than matched one-to-one, because a
+  line can be received across several deliveries. Matching to a single receipt
+  row would fail every partial delivery for no reason and understate the rate.
 
-unblock_requires:
-  - An AP invoice source with supplier, invoice number, PO reference, line
-    detail and amounts.
-  - A goods receipt transaction carrying the PO reference. Without one, even a
-    two-way match is limited to a single aggregate quantity per PO line, and
-    partial or multi-delivery receipts cannot be matched at all.
-  - A tolerance policy - quantity and price variance thresholds that define
-    "matched".
+  The reason a line fails is kept on the fact as match_result -
+  no_purchase_order, po_line_not_found, not_received, quantity_variance or
+  price_variance. A match rate on its own says there is a problem; the reason
+  says where to go. Maverick spend (no PO at all) is a governance finding, not
+  a data quality one, and is also flagged as is_maverick_spend.
+
+  Every supplier invoice in this estate is USD, so no FX applies. The metric
+  counts LINES, not value - a policy choice, since a value-weighted match rate
+  would let one large clean invoice mask many small failures.
+
+assumptions:
+  - name: match_qty_tolerance_pct
+    var: match_qty_tolerance_pct
+    value: 0.0
+    question: Q14
+  - name: match_price_tolerance_pct
+    var: match_price_tolerance_pct
+    value: 2.0
+    question: Q14
+
+blocked_reason: null

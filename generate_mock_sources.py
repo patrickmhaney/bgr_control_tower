@@ -65,6 +65,18 @@ def choice_w(items, weights):
     return random.choices(items, weights=weights, k=1)[0]
 
 
+def side_rng(tag):
+    """An independent stream for a section added after the fact.
+
+    Everything below the sales spine draws from the module-level `random`, so
+    inserting a new section there would shift every number generated after it -
+    every documented row count, every metric value, every figure in the docs.
+    A section that seeds its own generator is additive: existing data stays
+    byte-identical, and this file stays reproducible.
+    """
+    return random.Random(f"{SEED}:{tag}")
+
+
 # ------------------------------------------------------- shared spine ----
 COMPANIES = [
     ("GLBUS", "Globex Distribution Inc", "US", "USA"),
@@ -144,6 +156,12 @@ LOCAL_MENUS = {
     (20, 1): "Active", (20, 2): "Not usable", (20, 3): "Obsolete",  # ITMSTA_0
     (700, 1): "Receipt", (700, 2): "Issue", (700, 3): "Adjustment",
     (700, 4): "Transfer in", (700, 5): "Transfer out",
+    (700, 6): "Customer return",
+    (720, 1): "Damaged in transit", (720, 2): "Wrong item shipped",
+    (720, 3): "Quality defect", (720, 4): "Over-shipment",
+    (720, 5): "Customer cancelled", (720, 6): "Not specified",
+    (730, 1): "Cycle count", (730, 2): "Full physical",
+    (740, 1): "Open", (740, 2): "Counted", (740, 3): "Posted",
     (861, 1): "Reorder point", (861, 2): "MRP", (861, 3): "Manual",  # REOMODE_0
 }
 
@@ -372,6 +390,7 @@ for i in range(N_ORDERS):
 x3["SINVOICEV"], x3["SINVOICED"] = [], []
 inv_seq = 0
 lines_by_order = {}
+inv_by_order = {}          # soh -> (invoice number, invoice date). used by returns.
 for (soh, lineno, itm, qty, net, d, fcy, shipped) in order_lines:
     lines_by_order.setdefault(soh, []).append((lineno, itm, qty, net))
 
@@ -391,6 +410,7 @@ for soh, h in order_index.items():
             "AMTNOTLIN_0": amt, "SOHNUM_0": soh, "SOPLIN_0": lineno,
             "STOFCY_0": h["fcy"],
         })
+    inv_by_order[soh] = (num, invdat)
     tax = money(tot * (0.0825 if h["fcy"].startswith("US") else 0.13))
     x3["SINVOICEV"].append({
         "NUM_0": num, "SIVTYP_0": "SIN", "INVDAT_0": invdat,
@@ -430,19 +450,29 @@ for (soh, lineno, itm, qty, net, d, fcy, shipped) in order_lines:
         "LOT_0": f"L{random.randint(100000, 999999)}",
         "CREUSR_0": "WMS", "UPDTICK_0": 1,
     })
-for _ in range(6000):                                   # receipts + adjustments
+# Transfers only. Receipts (TRSTYP_0 = 1), count adjustments (3) and customer
+# returns (6) are posted further down by the document that causes them, so
+# their VCRNUM_0 resolves to a real receipt, count session or return. A stock
+# journal whose document numbers resolve to nothing is what blocked Match Rate.
+#
+# The loop still makes every draw it always made - the row is built and then
+# discarded - because the module-level RNG is shared with everything below and
+# skipping a draw here would change data that has nothing to do with this.
+for _ in range(6000):
     itm, fcy = random.choice(ITEM_SITE)
     rowid += 1
     t = choice_w([1, 3, 4, 5], [.72, .16, .06, .06])
     q = float(random.randint(10, 1200)) * (1 if t in (1, 4) else random.choice([1, -1]))
-    x3["STOJOU"].append({
+    row = {
         "ROWID": rowid, "ITMREF_0": pad(itm, 20), "STOFCY_0": fcy,
         "IPTDAT_0": rdate(), "TRSTYP_0": t, "QTYSTU_0": q,
-        "VCRNUM_0": f"{'PTH' if t == 1 else 'ADJ'}{random.randint(100000, 999999)}",
-        "VCRTYP_0": "PTH" if t == 1 else "ADJ",
+        "VCRNUM_0": f"TRF{random.randint(100000, 999999)}",
+        "VCRTYP_0": "TRF",
         "LOT_0": f"L{random.randint(100000, 999999)}",
         "CREUSR_0": random.choice(["WMS", "ADMIN", "RKAUR"]), "UPDTICK_0": 1,
-    })
+    }
+    if t in (4, 5):
+        x3["STOJOU"].append(row)
 
 # --------------------------------------------------- purchase orders ----
 x3["PORDER"], x3["PORDERQ"] = [], []
@@ -494,6 +524,378 @@ for v in x3["SINVOICEV"]:
             "BPR_0": v["BPR_0"], "CPY_0": cpy, "FCY_0": v["SALFCY_0"],
             "DSP_0": "", "ACCDAT_0": v["ACCDAT_0"],
         })
+
+# =========================================================================
+#  Documents that close the three blocked metrics
+#
+#  Return Rate needed a returns object. Match Rate needed a goods receipt and
+#  a supplier invoice as documents rather than as columns on a PO line.
+#  Inventory Accuracy needed a count session - something that records what was
+#  counted, not only what changed, because that is where the denominator is.
+#
+#  Every section here draws from its own RNG (see side_rng) so the data
+#  generated above is unaffected.
+# =========================================================================
+
+# ------------------------------------------------------ sales returns ----
+rr = side_rng("returns")
+
+
+x3["SRETURN"], x3["SRETURND"] = [], []
+rtn_seq = 0
+_return_moves, _credit_memos = [], []
+
+for soh in sorted(inv_by_order):
+    if not lines_by_order.get(soh) or rr.random() >= 0.035:
+        continue
+    h = order_index[soh]
+    inv_num, invdat = inv_by_order[soh]
+    rtn_seq += 1
+    fcy = h["fcy"]
+    srh = f"RTN{fcy[:2]}{invdat.year % 100:02d}{rtn_seq:05d}"
+    rtndat = min(invdat + timedelta(days=rr.randint(5, 75)), END)
+
+    # 8% arrive with an order reference nobody can resolve - keyed off a
+    # packing slip, lowercased, or simply blank. Land them; do not filter.
+    ref_soh, r = soh, rr.random()
+    if r < 0.05:
+        ref_soh = ""
+    elif r < 0.08:
+        ref_soh = soh.lower()
+
+    x3["SRETURN"].append({
+        "SRHNUM_0": srh, "SRHFCY_0": fcy, "BPCNUM_0": h["cust"]["BPCNUM_0"],
+        "RTNDAT_0": rtndat, "SOHNUM_0": ref_soh, "SIVNUM_0": inv_num,
+        "RTNSTA_0": rr.choices([1, 2, 3], [.06, .10, .84])[0],
+        "RTNREN_0": rr.choices([1, 2, 3, 4, 5, 6],
+                               [.28, .19, .24, .09, .12, .08])[0],
+        "CREUSR_0": rr.choice(["JMARTIN", "SPATEL", "DCHEN", "RKAUR"]),
+        "UPDTICK_0": rr.randint(1, 12),
+    })
+
+    picked = rr.sample(lines_by_order[soh],
+                       k=min(len(lines_by_order[soh]),
+                             rr.choices([1, 2], [.78, .22])[0]))
+    rtn_total, credited = 0.0, []
+    for k, (lineno, itm, qty, net) in enumerate(picked):
+        rqty = float(max(1, int(qty * rr.choice([0.25, 0.5, 1.0, 1.0]))))
+        amt = money(net * rqty)
+        rtn_total += amt
+        credited.append((lineno, itm, rqty, net, amt))
+        x3["SRETURND"].append({
+            "SRHNUM_0": srh, "SRDLIN_0": (k + 1) * 1000, "ITMREF_0": itm,
+            "QTY_0": rqty, "NETPRI_0": net, "AMTNOTLIN_0": amt,
+            "SOHNUM_0": ref_soh, "SOPLIN_0": lineno, "STOFCY_0": fcy,
+            "RTNREN_0": rr.choices([1, 2, 3, 4, 5, 6],
+                                   [.28, .19, .24, .09, .12, .08])[0],
+        })
+        _return_moves.append((itm, fcy, rtndat, rqty, srh))
+    if rtn_total > 0 and rr.random() < 0.86:      # 14% not yet credited
+        _credit_memos.append((srh, h, rtndat, rtn_total, credited, fcy))
+
+for (srh, h, rtndat, rtn_total, credited, fcy) in _credit_memos:
+    inv_seq += 1
+    num = f"SC{fcy[:2]}{rtndat.year % 100:02d}{inv_seq:06d}"
+    for k, (lineno, itm, rqty, net, amt) in enumerate(credited):
+        x3["SINVOICED"].append({
+            "NUM_0": num, "SIDLIN_0": (k + 1) * 1000, "ITMREF_0": itm,
+            "ITMDES1_0": "", "QTY_0": -rqty, "NETPRI_0": net,
+            "AMTNOTLIN_0": money(-amt), "SOHNUM_0": "", "SOPLIN_0": lineno,
+            "STOFCY_0": fcy,
+        })
+    cur = "CAD" if h["cust"]["cry"] == "CA" else "USD"
+    tax = money(-rtn_total * (0.0825 if fcy.startswith("US") else 0.13))
+    x3["SINVOICEV"].append({
+        "NUM_0": num, "SIVTYP_0": "SCR", "INVDAT_0": rtndat,
+        "BPR_0": h["cust"]["BPCNUM_0"], "SALFCY_0": fcy, "CUR_0": cur,
+        "AMTNOTLIN_0": money(-rtn_total), "AMTTAXLIN_0": tax,
+        "AMTATILIN_0": money(-rtn_total + tax), "INVSTA_0": 2,
+        "PAYDAT_0": rtndat + timedelta(days=rr.choice([21, 30, 45]))
+        if rr.random() < 0.80 else NULL_DATE,
+        "ACCDAT_0": rtndat, "UPDTICK_0": rr.randint(1, 8),
+    })
+    # Credit memos post to the same accounts with the sign reversed, so
+    # invoiced revenue still reconciles to GL 41000.
+    gnum += 1
+    gl = f"GL{gnum:08d}"
+    cpy = "GLBCA" if fcy == "CA001" else "GLBUS"
+    x3["GACCENTRY"].append({
+        "NUM_0": gl, "TYP_0": "SCH", "JOU_0": "SAL", "CPY_0": cpy,
+        "FCY_0": fcy, "ACCDAT_0": rtndat, "CUR_0": cur,
+        "DES_0": f"Credit memo {num}", "VCRNUM_0": num, "STA_0": 3,
+        "UPDTICK_0": 1,
+    })
+    for k, (acc, sns, amt) in enumerate(
+            [("11100", 1, money(-rtn_total + tax)),
+             ("41000", -1, money(-rtn_total)), ("22300", -1, tax)]):
+        x3["GACCENTRYD"].append({
+            "NUM_0": gl, "LIN_0": (k + 1) * 1000, "ACC_0": acc, "SNS_0": sns,
+            "AMTCUR_0": money(amt),
+            "AMTLOC_0": money(amt * (0.74 if cur == "CAD" else 1.0)),
+            "BPR_0": h["cust"]["BPCNUM_0"], "CPY_0": cpy, "FCY_0": fcy,
+            "DSP_0": "", "ACCDAT_0": rtndat,
+        })
+
+for (itm, fcy, rtndat, rqty, srh) in _return_moves:
+    rowid += 1
+    x3["STOJOU"].append({
+        "ROWID": rowid, "ITMREF_0": pad(itm, 20), "STOFCY_0": fcy,
+        "IPTDAT_0": rtndat, "TRSTYP_0": 6, "QTYSTU_0": rqty,
+        "VCRNUM_0": srh, "VCRTYP_0": "SRH",
+        "LOT_0": f"L{rr.randint(100000, 999999)}",
+        "CREUSR_0": "WMS", "UPDTICK_0": 1,
+    })
+
+# ------------------------------------------- goods receipts + AP invoices --
+# The purchasing cycle as three documents instead of one flattened line.
+# PORDERQ keeps RCPQTY_0/RCPDAT_0 - X3 really does denormalise the last receipt
+# onto the line - but the receipt now also exists as a document whose number
+# resolves, and the supplier invoice exists at all.
+pr = side_rng("purchasing")
+x3["PRECEIPT"], x3["PRECEIPTD"] = [], []
+x3["PINVOICE"], x3["PINVOICED"] = [], []
+
+po_index = {h["POHNUM_0"]: h for h in x3["PORDER"]}
+lines_by_po = {}
+for _ln in x3["PORDERQ"]:
+    lines_by_po.setdefault(_ln["POHNUM_0"], []).append(_ln)
+
+rcp_seq = 0
+_rcpt_lines_by_pth = {}
+_receipt_moves = []
+
+for poh in sorted(lines_by_po):
+    head = po_index[poh]
+    received = [l for l in lines_by_po[poh]
+                if l["RCPQTY_0"] and l["RCPDAT_0"] != NULL_DATE]
+    if not received:
+        continue
+    # A receipt covers everything that arrived on the same delivery, so lines
+    # are grouped into waves rather than each getting its own document.
+    received.sort(key=lambda l: l["RCPDAT_0"])
+    n_waves = min(len(received), pr.choices([1, 2, 3], [.72, .22, .06])[0])
+    waves = [received[i::n_waves] for i in range(n_waves)]
+
+    for wave in waves:
+        if not wave:
+            continue
+        rdat = max(l["RCPDAT_0"] for l in wave)
+        rcp_seq += 1
+        pth = f"PTH{head['POHFCY_0'][:2]}{rdat.year % 100:02d}{rcp_seq:06d}"
+        _rcpt_lines_by_pth[pth] = 0
+        x3["PRECEIPT"].append({
+            "PTHNUM_0": pth, "PTHFCY_0": head["POHFCY_0"],
+            "BPSNUM_0": head["BPSNUM_0"], "POHNUM_0": poh,
+            "RCPDAT_0": rdat, "PTHTYP_0": 1,
+            "CREUSR_0": pr.choice(["WMS", "RECV1", "RECV2"]),
+            "UPDTICK_0": pr.randint(1, 10),
+        })
+        for ln in wave:
+            # 12% of lines arrive short and are completed on a later receipt.
+            # A single denormalised RCPDAT_0 on the PO line cannot express
+            # that; a receipt document can.
+            qty = float(ln["RCPQTY_0"])
+            if pr.random() < 0.12:
+                qty = money(qty * 0.6)
+            _rcpt_lines_by_pth[pth] += 1
+            x3["PRECEIPTD"].append({
+                "PTHNUM_0": pth, "PTDLIN_0": _rcpt_lines_by_pth[pth] * 1000,
+                "POHNUM_0": poh, "POPLIN_0": ln["POPLIN_0"],
+                "ITMREF_0": ln["ITMREF_0"], "PTHFCY_0": head["POHFCY_0"],
+                "QTYUOM_0": money(qty), "RCPDAT_0": rdat,
+            })
+            _receipt_moves.append((ln["ITMREF_0"], head["POHFCY_0"], rdat, qty, pth))
+            if qty < float(ln["RCPQTY_0"]):        # the balance, received later
+                bal = money(float(ln["RCPQTY_0"]) - qty)
+                bdat = min(rdat + timedelta(days=pr.randint(5, 25)), END)
+                rcp_seq += 1
+                bpth = f"PTH{head['POHFCY_0'][:2]}{bdat.year % 100:02d}{rcp_seq:06d}"
+                x3["PRECEIPT"].append({
+                    "PTHNUM_0": bpth, "PTHFCY_0": head["POHFCY_0"],
+                    "BPSNUM_0": head["BPSNUM_0"], "POHNUM_0": poh,
+                    "RCPDAT_0": bdat, "PTHTYP_0": 1,
+                    "CREUSR_0": pr.choice(["WMS", "RECV1", "RECV2"]),
+                    "UPDTICK_0": pr.randint(1, 10),
+                })
+                x3["PRECEIPTD"].append({
+                    "PTHNUM_0": bpth, "PTDLIN_0": 1000, "POHNUM_0": poh,
+                    "POPLIN_0": ln["POPLIN_0"], "ITMREF_0": ln["ITMREF_0"],
+                    "PTHFCY_0": head["POHFCY_0"], "QTYUOM_0": bal,
+                    "RCPDAT_0": bdat,
+                })
+                _receipt_moves.append((ln["ITMREF_0"], head["POHFCY_0"], bdat, bal, bpth))
+
+for (itm, fcy, rdat, qty, pth) in _receipt_moves:
+    rowid += 1
+    x3["STOJOU"].append({
+        "ROWID": rowid, "ITMREF_0": pad(itm, 20), "STOFCY_0": fcy,
+        "IPTDAT_0": rdat, "TRSTYP_0": 1, "QTYSTU_0": money(qty),
+        "VCRNUM_0": pth, "VCRTYP_0": "PTH",
+        "LOT_0": f"L{pr.randint(100000, 999999)}",
+        "CREUSR_0": "WMS", "UPDTICK_0": 1,
+    })
+
+# Supplier invoices. The failure mix is deliberate: a match rate of 100% makes
+# the metric useless, and 0% looks like a bug.
+_rlines_by_po, _rcpdat_by_po = {}, {}
+for d in x3["PRECEIPTD"]:
+    _rlines_by_po.setdefault(d["POHNUM_0"], []).append(d)
+    _rcpdat_by_po[d["POHNUM_0"]] = max(_rcpdat_by_po.get(d["POHNUM_0"], d["RCPDAT_0"]),
+                                       d["RCPDAT_0"])
+
+pinv_seq = 0
+for poh in sorted(_rlines_by_po):
+    if pr.random() >= 0.92:                       # 8% received, not yet invoiced
+        continue
+    head = po_index[poh]
+    fcy = head["POHFCY_0"]
+    invdat = min(_rcpdat_by_po[poh] + timedelta(days=pr.randint(2, 40)), END)
+    pinv_seq += 1
+    num = f"PI{fcy[:2]}{invdat.year % 100:02d}{pinv_seq:06d}"
+    po_lines = {l["POPLIN_0"]: l for l in lines_by_po[poh]}
+    tot, k = 0.0, 0
+    for rl in _rlines_by_po[poh]:
+        pol = po_lines.get(rl["POPLIN_0"])
+        if pol is None:
+            continue
+        k += 1
+        qty, price = float(rl["QTYUOM_0"]), float(pol["NETPRI_0"])
+        pth_ref = rl["PTHNUM_0"]
+        mode = pr.choices(["clean", "qty", "price", "no_receipt"],
+                          [.72, .12, .11, .05])[0]
+        if mode == "qty":
+            qty = money(qty * pr.choice([0.82, 0.9, 1.08, 1.2]))
+        elif mode == "price":
+            price = money(price * pr.choice([0.88, 0.95, 1.06, 1.15]))
+        elif mode == "no_receipt":
+            pth_ref = ""                          # billed, never received
+        amt = money(qty * price)
+        tot += amt
+        x3["PINVOICED"].append({
+            "NUM_0": num, "PIDLIN_0": k * 1000, "POHNUM_0": poh,
+            "POPLIN_0": rl["POPLIN_0"], "PTHNUM_0": pth_ref,
+            "ITMREF_0": rl["ITMREF_0"], "QTY_0": qty, "NETPRI_0": price,
+            "AMTNOTLIN_0": amt, "PIHFCY_0": fcy,
+        })
+    if not k:
+        continue
+    tax = money(tot * 0.0825)
+    x3["PINVOICE"].append({
+        "NUM_0": num, "PIVTYP_0": "PIN", "BPSNUM_0": head["BPSNUM_0"],
+        "BPSINV_0": f"{pr.randint(10000, 99999)}-{pr.randint(1, 9)}",
+        "INVDAT_0": invdat, "ACCDAT_0": invdat, "PIHFCY_0": fcy, "CUR_0": "USD",
+        "AMTNOTLIN_0": money(tot), "AMTTAXLIN_0": tax,
+        "AMTATILIN_0": money(tot + tax),
+        "INVSTA_0": pr.choices([1, 2], [.14, .86])[0],
+        "UPDTICK_0": pr.randint(1, 12),
+    })
+
+# Maverick spend: invoices with no purchase order at all, ~3% of the AP book.
+for _ in range(int(len(x3["PINVOICE"]) * 0.03)):
+    pinv_seq += 1
+    sup = suppliers[pr.randrange(len(suppliers))]
+    fcy = SITE_CODES[pr.randrange(len(SITE_CODES))]
+    invdat = START + timedelta(days=pr.randint(0, (END - START).days))
+    num = f"PI{fcy[:2]}{invdat.year % 100:02d}{pinv_seq:06d}"
+    tot = 0.0
+    for k in range(pr.choices([1, 2, 3], [.6, .3, .1])[0]):
+        itm = ITEM_REFS[pr.randrange(len(ITEM_REFS))]
+        qty = float(pr.randint(5, 300))
+        price = money(PRICE_BY_ITEM.get(itm, 50) * pr.uniform(.4, .7))
+        amt = money(qty * price)
+        tot += amt
+        x3["PINVOICED"].append({
+            "NUM_0": num, "PIDLIN_0": (k + 1) * 1000, "POHNUM_0": "",
+            "POPLIN_0": 0, "PTHNUM_0": "", "ITMREF_0": itm, "QTY_0": qty,
+            "NETPRI_0": price, "AMTNOTLIN_0": amt, "PIHFCY_0": fcy,
+        })
+    tax = money(tot * 0.0825)
+    x3["PINVOICE"].append({
+        "NUM_0": num, "PIVTYP_0": "PIN", "BPSNUM_0": sup["BPSNUM_0"],
+        "BPSINV_0": f"{pr.randint(10000, 99999)}-{pr.randint(1, 9)}",
+        "INVDAT_0": invdat, "ACCDAT_0": invdat, "PIHFCY_0": fcy, "CUR_0": "USD",
+        "AMTNOTLIN_0": money(tot), "AMTTAXLIN_0": tax,
+        "AMTATILIN_0": money(tot + tax), "INVSTA_0": 2,
+        "UPDTICK_0": pr.randint(1, 12),
+    })
+
+# AP postings: a second journal type, and the two accounts whose absence made
+# a fully loaded cost pool impossible.
+for v in x3["PINVOICE"]:
+    gnum += 1
+    gl = f"GL{gnum:08d}"
+    cpy = "GLBCA" if v["PIHFCY_0"] == "CA001" else "GLBUS"
+    x3["GACCENTRY"].append({
+        "NUM_0": gl, "TYP_0": "PIH", "JOU_0": "PUR", "CPY_0": cpy,
+        "FCY_0": v["PIHFCY_0"], "ACCDAT_0": v["ACCDAT_0"], "CUR_0": v["CUR_0"],
+        "DES_0": f"Supplier invoice {v['NUM_0']}", "VCRNUM_0": v["NUM_0"],
+        "STA_0": 3, "UPDTICK_0": 1,
+    })
+    for k, (acc, sns, amt) in enumerate(
+            [("21000", -1, v["AMTATILIN_0"]), ("50000", 1, v["AMTNOTLIN_0"]),
+             ("22300", 1, v["AMTTAXLIN_0"])]):
+        x3["GACCENTRYD"].append({
+            "NUM_0": gl, "LIN_0": (k + 1) * 1000, "ACC_0": acc, "SNS_0": sns,
+            "AMTCUR_0": money(amt), "AMTLOC_0": money(amt),
+            "BPR_0": v["BPSNUM_0"], "CPY_0": cpy, "FCY_0": v["PIHFCY_0"],
+            "DSP_0": "", "ACCDAT_0": v["ACCDAT_0"],
+        })
+
+# ------------------------------------------------------- cycle counts -----
+# A count session records what was counted, not only what changed. That is the
+# entire difference between this and the adjustment journal, and it is where
+# the denominator comes from. Variances are posted as adjustments carrying the
+# session number, so STOJOU reconciles to the counts instead of being noise.
+cc = side_rng("counts")
+x3["STOCOUNT"], x3["STOCOUNTD"] = [], []
+ses_seq = 0
+_stock_by_site = {}
+for _r in x3["STOCK"]:
+    _stock_by_site.setdefault(_r["STOFCY_0"], []).append(_r)
+
+_m = date(START.year, START.month, 1)
+while _m < END:
+    for fcy in SITE_CODES:
+        positions = _stock_by_site.get(fcy, [])
+        if not positions:
+            continue
+        ses_seq += 1
+        cntdat = min(_m + timedelta(days=cc.randint(8, 24)), END)
+        ses = f"CNT{fcy[:2]}{cntdat.year % 100:02d}{ses_seq:05d}"
+        picked = cc.sample(positions, k=min(len(positions), cc.randint(28, 46)))
+        x3["STOCOUNT"].append({
+            "SESNUM_0": ses, "STOFCY_0": fcy, "CNTDAT_0": cntdat,
+            "CNTTYP_0": 2 if _m.month == 12 else 1,
+            "SESSTA_0": cc.choices([2, 3], [.08, .92])[0],
+            "CREUSR_0": cc.choice(["WMS", "ADMIN", "RKAUR"]),
+            "UPDTICK_0": cc.randint(1, 6),
+        })
+        for k, pos in enumerate(picked):
+            theo = float(pos["QTYSTU_0"])
+            # ~93% of positions count clean, and when they miss, the error is
+            # small far more often than it is large.
+            if cc.random() < 0.93:
+                counted = theo
+            else:
+                drift = cc.choices([0.02, 0.05, 0.12, 0.40],
+                                   [.45, .30, .18, .07])[0]
+                counted = max(0.0, float(round(theo * (1 + drift * cc.choice([1, -1])))))
+            x3["STOCOUNTD"].append({
+                "SESNUM_0": ses, "CNTLIN_0": (k + 1) * 1000,
+                "ITMREF_0": pos["ITMREF_0"], "STOFCY_0": fcy,
+                "LOC_0": pos["LOC_0"], "LOT_0": pos["LOT_0"],
+                "QTYTHEO_0": theo, "QTYCNT_0": counted, "CNTSTA_0": 3,
+            })
+            if counted != theo:
+                rowid += 1
+                x3["STOJOU"].append({
+                    "ROWID": rowid, "ITMREF_0": pad(pos["ITMREF_0"], 20),
+                    "STOFCY_0": fcy, "IPTDAT_0": cntdat, "TRSTYP_0": 3,
+                    "QTYSTU_0": money(counted - theo), "VCRNUM_0": ses,
+                    "VCRTYP_0": "ADJ", "LOT_0": pos["LOT_0"],
+                    "CREUSR_0": "WMS", "UPDTICK_0": 1,
+                })
+    _m = date(_m.year + (_m.month // 12), _m.month % 12 + 1, 1)
 
 # --------------------------------------------------------- ATEXTRA ------
 x3["ATEXTRA"] = []

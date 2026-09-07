@@ -1,17 +1,29 @@
 name: return_rate
 label: Return Rate
-status: blocked
+status: provisional
 
 description: >
-  The share of shipped or invoiced value that customers subsequently return.
-  Definition pending, because there is nothing to define it against yet.
+  The share of invoiced value that customers subsequently return, measured as
+  returned line value divided by invoiced line value on the same order lines.
+  Both sides are order-line amounts in the reporting currency, so the ratio is
+  additive and slices the same way at every level.
 
-grain: To be determined once a returns object exists. Most likely one return line.
+grain: One sales order line.
 
-base_model: null
-numerator: null
-denominator: null
+base_model: fct_sales_order_line
+
+numerator:
+  agg: sum
+  column: returned_amount_usd
+  label: Returned value
+
+denominator:
+  agg: sum
+  column: invoiced_amount_usd
+  label: Invoiced value
+
 filters: []
+
 dimensions: [date, customer, site, item]
 
 format: percent
@@ -21,27 +33,40 @@ direction: lower_is_better
 owner: TBD
 owner_proposed: Director of Customer Service
 
-blocked_reason: >
-  No returns object exists in any of the five source systems. Verified rather
-  than assumed:
+provisional_reason: >
+  The denominator basis is a business decision that has not been made. Invoiced
+  value is the assumption; ordered value and shipped value are both computable
+  and give different answers, because an order can be invoiced in part. The
+  date basis is the same kind of choice - order date is used, return date is
+  the alternative, and they move a monthly rate materially. See open questions
+  16 and 17.
 
-    - sage_x3.SINVOICEV.SIVTYP_0 has exactly one value, SIN. There is no credit
-      memo or return invoice type.
-    - Zero negative-amount lines in SINVOICED (0 of 9,767).
-    - Zero negative quantities in SORDERQ (0 of 11,575).
-    - sage_x3.STOJOU.TRSTYP_0 decodes through APLSTD chapter 700 to Receipt /
-      Issue / Adjustment / Transfer in / Transfer out. There is no return
-      movement type, and VCRTYP_0 holds only SDH, PTH and ADJ.
-    - No RMA table in sage_x3, hubspot, paycom, netstock or pangea.
+lineage_notes: >
+  sage_x3.SRETURND, resolved back to the order line in int_sales_return_line
+  and summed onto fct_sales_order_line as returned_amount_usd. The denominator
+  is the order line's own net amount, converted at the same FX rate as the
+  numerator, so currency cancels rather than being applied twice.
 
-  A returns process may well exist in the business and simply not be captured,
-  or it may run outside the ERP. Either way this is a sourcing question for the
-  client, not a modelling problem. Nothing here should be substituted for it -
-  a "return rate" built on stock adjustments would be a different number
-  wearing this metric's name.
+  Returns are dated on the RETURN, not the order. A return raised in March
+  against a January order counts in March on a return-date slice and in
+  January on an order-date slice, and the two give different answers. The
+  date dimension on this metric is the ORDER date, because the denominator has
+  no other date - which means the metric answers "what fraction of what we
+  sold that month came back", not "how much came back this month". Both are
+  legitimate; open question 17 asks the business which one it wants on the
+  dashboard.
 
-unblock_requires:
-  - A returns or RMA transaction source with, at minimum, a return date, the
-    original order or invoice reference, item, quantity and value.
-  - A decision on whether the denominator is shipped value, invoiced value or
-    order lines.
+  Two caveats carried from the source. 8% of returns arrive with an order
+  reference that resolves to nothing; those are excluded from the numerator
+  because they cannot be attributed to a denominator line, and their value is
+  published separately as a coverage figure. 14% of returns have not yet been
+  credited at extract time, so a rate measured on recent months will rise as
+  credits post.
+
+assumptions:
+  - name: return_rate_basis
+    var: return_rate_basis
+    value: invoiced
+    question: Q16
+
+blocked_reason: null

@@ -911,6 +911,322 @@
     "data_type": "date",
     "nullable": true
    }
+  },
+  "SRETURN": {
+   "SRHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SRHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPCNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "RTNDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "SOHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SIVNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "RTNSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "RTNREN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "SRETURND": {
+   "SRHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SRDLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "NETPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTNOTLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "SOHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "SOPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "RTNREN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "PRECEIPT": {
+   "PTHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PTHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPSNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "RCPDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "PTHTYP_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "PRECEIPTD": {
+   "PTHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PTDLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "POHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PTHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTYUOM_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "RCPDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   }
+  },
+  "PINVOICE": {
+   "NUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PIVTYP_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPSNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "BPSINV_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "INVDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "ACCDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "PIHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CUR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "AMTNOTLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTTAXLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTATILIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "INVSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "PINVOICED": {
+   "NUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "PIDLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "POHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "POPLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "PTHNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTY_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "NETPRI_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "AMTNOTLIN_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "PIHFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   }
+  },
+  "STOCOUNT": {
+   "SESNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CNTDAT_0": {
+    "data_type": "date",
+    "nullable": true
+   },
+   "CNTTYP_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "SESSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "CREUSR_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "UPDTICK_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
+  },
+  "STOCOUNTD": {
+   "SESNUM_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "CNTLIN_0": {
+    "data_type": "bigint",
+    "nullable": true
+   },
+   "ITMREF_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "STOFCY_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LOC_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "LOT_0": {
+    "data_type": "text",
+    "nullable": true
+   },
+   "QTYTHEO_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "QTYCNT_0": {
+    "data_type": "double",
+    "nullable": true
+   },
+   "CNTSTA_0": {
+    "data_type": "bigint",
+    "nullable": true
+   }
   }
  },
  "hubspot": {

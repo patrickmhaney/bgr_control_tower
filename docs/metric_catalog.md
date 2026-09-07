@@ -12,11 +12,11 @@ dashboards it lands on - the process column is read from
 | `cost_per_shipment` | Cost Per Shipment | active | I2D M3 | TBD | `fct_shipment` | One shipment. |
 | `customer_unmatched_rate` | Unmatched CRM Customers | active | _none_ | TBD | `dim_customer` | One conformed customer. |
 | `dso_days_to_pay_proxy` | DSO (days-to-pay proxy) | provisional | O2C M1 | TBD | `fct_invoice_line` | One settled sales invoice line. |
-| `inventory_accuracy` | Inventory Accuracy | blocked | I2D M1 | TBD | `-` | To be determined. Most likely one counted item-site-location position. |
-| `match_rate` | Match Rate | blocked | S2P M1 | TBD | `-` | To be determined. Most likely one supplier invoice line. |
+| `inventory_accuracy` | Inventory Accuracy | provisional | I2D M1 | TBD | `fct_inventory_count_line` | One counted stock position. |
+| `match_rate` | Match Rate | provisional | S2P M1 | TBD | `fct_supplier_invoice_line` | One supplier invoice line. |
 | `on_time_delivery_rate` | On-Time Delivery | active | I2D M2 | TBD | `fct_shipment` | One delivered shipment. |
 | `order_reference_coverage_rate` | Shipment Order Reference Coverage | active | _none_ | TBD | `fct_shipment` | One shipment. |
-| `return_rate` | Return Rate | blocked | O2C M2 | TBD | `-` | To be determined once a returns object exists. Most likely one return line. |
+| `return_rate` | Return Rate | provisional | O2C M2 | TBD | `fct_sales_order_line` | One sales order line. |
 | `unsettled_invoice_rate` | Unsettled Invoice Rate | active | _none_ | TBD | `fct_invoice_line` | One sales invoice line. |
 
 ---
@@ -141,20 +141,27 @@ _Defined in `semantic/metrics/dso_days_to_pay_proxy.yml`._
 
 ## Inventory Accuracy (`inventory_accuracy`)
 
-**Status** blocked · **Owner** TBD (proposed: Warehouse Operations Manager)
+**Status** provisional · **Owner** TBD (proposed: Warehouse Operations Manager)
 
-The share of counted stock positions whose physical quantity agrees with the system quantity, within tolerance. Definition pending.
+The share of counted stock positions where the counted quantity agrees with the system quantity within tolerance. Measured by position - one item, site, location and lot - which is the common warehouse convention.
 
-**Grain** To be determined. Most likely one counted item-site-location position.
+**Grain** One counted stock position.
 
 **Appears on** I2D M1
 
-**Blocked** Inventory accuracy compares a counted quantity to a system quantity. There is no count table, no count document type and no count date anywhere in the five schemas. The only candidate signal is sage_x3.STOJOU adjustments (TRSTYP_0 = 3): 1,008 rows, 497 negative and 511 positive, netting -11,469 units. That has the shape of count corrections, but an adjustment journal records the correction, not the count. It cannot say how many positions were counted, so it has no denominator - and any accuracy percentage built on it would be inventing one. Inventing a denominator is worse than reporting nothing, because the result looks like a measurement.
+**Numerator** `count(count_line_number) filter (where is_accurate_position)`  
+**Denominator** `count(count_line_number) filter (where is_accurate_position is not null)`  
 
-**To unblock**
+**Base model** `fct_inventory_count_line`  
+**Dimensions** date, site, item  
+**Generated SQL model** `mtr_inventory_accuracy`  
+**Re-aggregatable** yes
 
-- A cycle count source with count date, item, site, location, counted quantity and system quantity at count time.
-- A tolerance policy - is a position accurate at zero variance, or within a quantity or value band?
+**Provisional because** Two decisions are outstanding. The tolerance band is assumed to be zero - a position is accurate only on an exact match - and many warehouses allow a quantity or value band instead. The measurement basis is assumed to be position rather than unit or value, which flatters sites whose errors are concentrated in a few large positions. See open question 15. The source table names are also unverified against a real X3 folder.
+
+**Lineage**
+
+sage_x3.STOCOUNTD, one row per counted position, carried on fct_inventory_count_line with is_accurate_position. The denominator is what makes this metric possible and it comes from the count session, not from the stock journal. STOJOU adjustments record the correction, not the count: they can say how much was wrong but not how much was checked, so an accuracy percentage built on them would be inventing its own denominator. The count session is the only source that carries both. system_qty is the theoretical quantity AT COUNT TIME. It is not recoverable from current stock, so this metric cannot be rebuilt retrospectively if the count tables are dropped from the extract. Accuracy is by position, not by unit. A site that miscounts one pallet of 5,000 and gets 400 other positions right scores 99.75% here and far worse on a unit basis. Both are legitimate measures of different things. VERIFY THE SOURCE TABLE NAMES against the client's X3 folder. The counting mechanism is right; STOCOUNT / STOCOUNTD are constructed names.
 
 _Defined in `semantic/metrics/inventory_accuracy.yml`._
 
@@ -162,21 +169,27 @@ _Defined in `semantic/metrics/inventory_accuracy.yml`._
 
 ## Match Rate (`match_rate`)
 
-**Status** blocked · **Owner** TBD (proposed: AP Manager)
+**Status** provisional · **Owner** TBD (proposed: AP Manager)
 
-The share of supplier invoices that match their purchase order and goods receipt within tolerance - the three-way match. Definition pending.
+The share of supplier invoice lines that agree with both the purchase order and the goods receipt within tolerance - the three-way match. A line matches when it references a purchase order, the ordered quantity was received, the invoiced quantity agrees with the received quantity, and the invoiced price agrees with the ordered price.
 
-**Grain** To be determined. Most likely one supplier invoice line.
+**Grain** One supplier invoice line.
 
 **Appears on** S2P M1
 
-**Blocked** A three-way match needs a purchase order, a goods receipt and a supplier invoice. Two of the three exist: - Purchase order: present. PORDER 1,400 headers, PORDERQ 2,959 lines. - Receipt: present, but ONLY as columns on the PO line (RCPQTY_0, RCPDAT_0). 2,383 lines carry a receipt quantity; 576 carry the 1753-01-01 sentinel receipt date. There is no receipt transaction and no receipt document: STOJOU's 4,217 purchase movements (VCRTYP_0 = 'PTH') carry document numbers of the form PTH######, none of which resolve to a POHNUM_0. So a receipt cannot be dated, sequenced, split across deliveries, or attributed to a receiving user - the PO line records only that a quantity arrived and when the last one did. - Supplier invoice: absent. There is no AP invoice table, no AP control account (GACCENTRYD holds only 11100, 22300 and 41000) and no AP journal (GACCENTRY.JOU_0 is SAL on all 3,564 rows). A two-way PO-to-receipt match rate is computable - 2,064 of 2,959 lines (69.8%) received exactly the ordered quantity - but it is a different metric and shipping it under this name would misrepresent what was checked. It is recorded here as a note, not as a substitute.
+**Numerator** `count(supplier_invoice_line_number) filter (where is_three_way_matched)`  
+**Denominator** `count(supplier_invoice_line_number) filter (where is_three_way_matched is not null)`  
 
-**To unblock**
+**Base model** `fct_supplier_invoice_line`  
+**Dimensions** date, site, item  
+**Generated SQL model** `mtr_match_rate`  
+**Re-aggregatable** yes
 
-- An AP invoice source with supplier, invoice number, PO reference, line detail and amounts.
-- A goods receipt transaction carrying the PO reference. Without one, even a two-way match is limited to a single aggregate quantity per PO line, and partial or multi-delivery receipts cannot be matched at all.
-- A tolerance policy - quantity and price variance thresholds that define "matched".
+**Provisional because** The tolerance policy is a business decision that has not been made. Exact quantity and 2% price is the assumption, and the rate is highly sensitive to it - AP departments commonly allow a quantity band as well, which would move this number several points. Until AP sets a policy the rate measures the policy as much as the process. See open question 14.
+
+**Lineage**
+
+sage_x3.PINVOICED joined to PORDERQ and to receipts summed from PRECEIPTD in int_supplier_invoice_match, then carried on fct_supplier_invoice_line as is_three_way_matched. Receipts are summed per PO line rather than matched one-to-one, because a line can be received across several deliveries. Matching to a single receipt row would fail every partial delivery for no reason and understate the rate. The reason a line fails is kept on the fact as match_result - no_purchase_order, po_line_not_found, not_received, quantity_variance or price_variance. A match rate on its own says there is a problem; the reason says where to go. Maverick spend (no PO at all) is a governance finding, not a data quality one, and is also flagged as is_maverick_spend. Every supplier invoice in this estate is USD, so no FX applies. The metric counts LINES, not value - a policy choice, since a value-weighted match rate would let one large clean invoice mask many small failures.
 
 _Defined in `semantic/metrics/match_rate.yml`._
 
@@ -240,20 +253,27 @@ _Defined in `semantic/metrics/order_reference_coverage_rate.yml`._
 
 ## Return Rate (`return_rate`)
 
-**Status** blocked · **Owner** TBD (proposed: Director of Customer Service)
+**Status** provisional · **Owner** TBD (proposed: Director of Customer Service)
 
-The share of shipped or invoiced value that customers subsequently return. Definition pending, because there is nothing to define it against yet.
+The share of invoiced value that customers subsequently return, measured as returned line value divided by invoiced line value on the same order lines. Both sides are order-line amounts in the reporting currency, so the ratio is additive and slices the same way at every level.
 
-**Grain** To be determined once a returns object exists. Most likely one return line.
+**Grain** One sales order line.
 
 **Appears on** O2C M2
 
-**Blocked** No returns object exists in any of the five source systems. Verified rather than assumed: - sage_x3.SINVOICEV.SIVTYP_0 has exactly one value, SIN. There is no credit memo or return invoice type. - Zero negative-amount lines in SINVOICED (0 of 9,767). - Zero negative quantities in SORDERQ (0 of 11,575). - sage_x3.STOJOU.TRSTYP_0 decodes through APLSTD chapter 700 to Receipt / Issue / Adjustment / Transfer in / Transfer out. There is no return movement type, and VCRTYP_0 holds only SDH, PTH and ADJ. - No RMA table in sage_x3, hubspot, paycom, netstock or pangea. A returns process may well exist in the business and simply not be captured, or it may run outside the ERP. Either way this is a sourcing question for the client, not a modelling problem. Nothing here should be substituted for it - a "return rate" built on stock adjustments would be a different number wearing this metric's name.
+**Numerator** `sum(returned_amount_usd)`  
+**Denominator** `sum(invoiced_amount_usd)`  
 
-**To unblock**
+**Base model** `fct_sales_order_line`  
+**Dimensions** date, customer, site, item  
+**Generated SQL model** `mtr_return_rate`  
+**Re-aggregatable** yes
 
-- A returns or RMA transaction source with, at minimum, a return date, the original order or invoice reference, item, quantity and value.
-- A decision on whether the denominator is shipped value, invoiced value or order lines.
+**Provisional because** The denominator basis is a business decision that has not been made. Invoiced value is the assumption; ordered value and shipped value are both computable and give different answers, because an order can be invoiced in part. The date basis is the same kind of choice - order date is used, return date is the alternative, and they move a monthly rate materially. See open questions 16 and 17.
+
+**Lineage**
+
+sage_x3.SRETURND, resolved back to the order line in int_sales_return_line and summed onto fct_sales_order_line as returned_amount_usd. The denominator is the order line's own net amount, converted at the same FX rate as the numerator, so currency cancels rather than being applied twice. Returns are dated on the RETURN, not the order. A return raised in March against a January order counts in March on a return-date slice and in January on an order-date slice, and the two give different answers. The date dimension on this metric is the ORDER date, because the denominator has no other date - which means the metric answers "what fraction of what we sold that month came back", not "how much came back this month". Both are legitimate; open question 17 asks the business which one it wants on the dashboard. Two caveats carried from the source. 8% of returns arrive with an order reference that resolves to nothing; those are excluded from the numerator because they cannot be attributed to a denominator line, and their value is published separately as a coverage figure. 14% of returns have not yet been credited at extract time, so a rate measured on recent months will rise as credits post.
 
 _Defined in `semantic/metrics/return_rate.yml`._
 

@@ -6,7 +6,7 @@
 -- have to join across incompatible grains and would invent rows.
 --
 -- Metrics on this dashboard (1):
---   M1  Match Rate (blocked)
+--   M1  Match Rate (provisional)
 
     select
         'S2P' as process_code,
@@ -17,17 +17,17 @@
         r.metric_status,
         r.metric_format,
         r.metric_direction,
-        cast(null as integer) as date_key,
+        m.date_key,
         cast(null as varchar) as customer_key,
-        cast(null as varchar) as site_code,
-        cast(null as varchar) as item_code,
+        m.site_code,
+        m.item_code,
         cast(null as varchar) as carrier_scac,
-        cast(null as decimal(38, 6)) as numerator,
-        cast(null as decimal(38, 6)) as denominator,
-        cast(null as decimal(38, 6)) as metric_value,
+        cast(m.numerator as decimal(38, 6)) as numerator,
+        cast(m.denominator as decimal(38, 6)) as denominator,
+        cast(m.metric_value as decimal(38, 6)) as metric_value,
         r.blocked_reason
 
-    from {{ ref('metric_registry') }} as registry_anchor
+    from {{ ref('mtr_match_rate') }} as m
     cross join (
         select
             metric_label,
@@ -38,4 +38,3 @@
         from {{ ref('metric_registry') }}
         where metric_name = 'match_rate'
     ) as r
-    where registry_anchor.metric_name = 'match_rate'

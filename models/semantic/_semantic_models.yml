@@ -12,6 +12,44 @@
 version: 2
 
 semantic_models:
+- name: sm_fct_inventory_count_line
+  description: One row per position counted in a cycle-count or physical-inventory session, carrying the
+    system quantity at count time alongside the count.
+  model: ref('fct_inventory_count_line')
+  primary_entity: fct_inventory_count_line
+  defaults:
+    agg_time_dimension: metric_date
+  entities:
+  - name: site
+    type: foreign
+    expr: site_code
+  - name: item
+    type: foreign
+    expr: item_code
+  dimensions:
+  - name: metric_date
+    type: time
+    expr: count_date_key
+    type_params:
+      time_granularity: day
+  - name: count_type
+    type: categorical
+    expr: count_type
+  - name: session_status
+    type: categorical
+    expr: session_status
+  - name: location_code
+    type: categorical
+    expr: location_code
+  measures:
+  - name: inventory_accuracy_numerator
+    agg: count
+    expr: case when is_accurate_position then count_line_number end
+    description: Accurate positions
+  - name: inventory_accuracy_denominator
+    agg: count
+    expr: case when is_accurate_position is not null then count_line_number end
+    description: Positions counted
 - name: sm_fct_invoice_line
   description: X3 invoice lines with settlement dates. Reconciles to GL 41000.
   model: ref('fct_invoice_line')
@@ -57,6 +95,43 @@ semantic_models:
     agg: count
     expr: invoice_number
     description: Invoice lines
+- name: sm_fct_sales_order_line
+  description: X3 order lines, quantity and price sides rejoined.
+  model: ref('fct_sales_order_line')
+  primary_entity: fct_sales_order_line
+  defaults:
+    agg_time_dimension: metric_date
+  entities:
+  - name: customer
+    type: foreign
+    expr: customer_key
+  - name: site
+    type: foreign
+    expr: site_code
+  - name: item
+    type: foreign
+    expr: item_code
+  dimensions:
+  - name: metric_date
+    type: time
+    expr: order_date_key
+    type_params:
+      time_granularity: day
+  - name: order_status
+    type: categorical
+    expr: order_status
+  - name: document_currency_code
+    type: categorical
+    expr: document_currency_code
+  measures:
+  - name: return_rate_numerator
+    agg: sum
+    expr: returned_amount_usd
+    description: Returned value
+  - name: return_rate_denominator
+    agg: sum
+    expr: invoiced_amount_usd
+    description: Invoiced value
 - name: sm_fct_shipment
   description: Shipment header from Pangea, enriched with charge totals, tracking milestones and the resolved
     X3 order and customer.
@@ -128,6 +203,44 @@ semantic_models:
     agg: count
     expr: shipment_id
     description: Shipments
+- name: sm_fct_supplier_invoice_line
+  description: X3 AP invoice lines matched against the purchase order and the goods receipts posted against
+    it. Carries the three-way match outcome and the reason a line failed.
+  model: ref('fct_supplier_invoice_line')
+  primary_entity: fct_supplier_invoice_line
+  defaults:
+    agg_time_dimension: metric_date
+  entities:
+  - name: site
+    type: foreign
+    expr: site_code
+  - name: item
+    type: foreign
+    expr: item_code
+  dimensions:
+  - name: metric_date
+    type: time
+    expr: invoice_date_key
+    type_params:
+      time_granularity: day
+  - name: match_result
+    type: categorical
+    expr: match_result
+  - name: supplier_code
+    type: categorical
+    expr: supplier_code
+  - name: invoice_status_code
+    type: categorical
+    expr: invoice_status_code
+  measures:
+  - name: match_rate_numerator
+    agg: count
+    expr: case when is_three_way_matched then supplier_invoice_line_number end
+    description: Matched lines
+  - name: match_rate_denominator
+    agg: count
+    expr: case when is_three_way_matched is not null then supplier_invoice_line_number end
+    description: Invoice lines
 metrics:
 - name: cost_per_order_numerator
   label: Cost Per Order - numerator
@@ -225,6 +338,69 @@ metrics:
     status: provisional
     owner: TBD
     definition_file: semantic/metrics/dso_days_to_pay_proxy.yml
+- name: inventory_accuracy_numerator
+  label: Inventory Accuracy - numerator
+  description: Accurate positions
+  type: simple
+  type_params:
+    measure:
+      name: inventory_accuracy_numerator
+  meta:
+    component_of: inventory_accuracy
+- name: inventory_accuracy_denominator
+  label: Inventory Accuracy - denominator
+  description: Positions counted
+  type: simple
+  type_params:
+    measure:
+      name: inventory_accuracy_denominator
+  meta:
+    component_of: inventory_accuracy
+- name: inventory_accuracy
+  label: Inventory Accuracy
+  description: The share of counted stock positions where the counted quantity agrees with the system
+    quantity within tolerance. Measured by position - one item, site, location and lot - which is the
+    common warehouse convention.
+  type: ratio
+  type_params:
+    numerator: inventory_accuracy_numerator
+    denominator: inventory_accuracy_denominator
+  meta:
+    status: provisional
+    owner: TBD
+    definition_file: semantic/metrics/inventory_accuracy.yml
+- name: match_rate_numerator
+  label: Match Rate - numerator
+  description: Matched lines
+  type: simple
+  type_params:
+    measure:
+      name: match_rate_numerator
+  meta:
+    component_of: match_rate
+- name: match_rate_denominator
+  label: Match Rate - denominator
+  description: Invoice lines
+  type: simple
+  type_params:
+    measure:
+      name: match_rate_denominator
+  meta:
+    component_of: match_rate
+- name: match_rate
+  label: Match Rate
+  description: The share of supplier invoice lines that agree with both the purchase order and the goods
+    receipt within tolerance - the three-way match. A line matches when it references a purchase order,
+    the ordered quantity was received, the invoiced quantity agrees with the received quantity, and the
+    invoiced price agrees with the ordered price.
+  type: ratio
+  type_params:
+    numerator: match_rate_numerator
+    denominator: match_rate_denominator
+  meta:
+    status: provisional
+    owner: TBD
+    definition_file: semantic/metrics/match_rate.yml
 - name: on_time_delivery_rate_numerator
   label: On-Time Delivery - numerator
   description: On-time shipments
@@ -288,6 +464,37 @@ metrics:
     status: active
     owner: TBD
     definition_file: semantic/metrics/order_reference_coverage_rate.yml
+- name: return_rate_numerator
+  label: Return Rate - numerator
+  description: Returned value
+  type: simple
+  type_params:
+    measure:
+      name: return_rate_numerator
+  meta:
+    component_of: return_rate
+- name: return_rate_denominator
+  label: Return Rate - denominator
+  description: Invoiced value
+  type: simple
+  type_params:
+    measure:
+      name: return_rate_denominator
+  meta:
+    component_of: return_rate
+- name: return_rate
+  label: Return Rate
+  description: The share of invoiced value that customers subsequently return, measured as returned line
+    value divided by invoiced line value on the same order lines. Both sides are order-line amounts in
+    the reporting currency, so the ratio is additive and slices the same way at every level.
+  type: ratio
+  type_params:
+    numerator: return_rate_numerator
+    denominator: return_rate_denominator
+  meta:
+    status: provisional
+    owner: TBD
+    definition_file: semantic/metrics/return_rate.yml
 - name: unsettled_invoice_rate_numerator
   label: Unsettled Invoice Rate - numerator
   description: Unsettled lines

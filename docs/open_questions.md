@@ -1,6 +1,6 @@
 # Open questions
 
-Ten questions the POC could not answer from the data. **None of them blocked
+Seventeen questions the POC could not answer from the data. **None of them blocked
 the build.** Each one has a documented assumption, the assumption is encoded as
 a `var` in `dbt_project.yml` or as a field in the metric registry, and the
 answer changes a config value rather than a model.
@@ -23,6 +23,10 @@ business answers differently than we assumed.
 | 11 | As-was vs as-is-today attribution | Type 1 throughout | **Unrecoverable, and rising** |
 | 12 | Can one order ship more than once? | One shipment per order | One metric model |
 | 13 | Is the Pangea customer name typed or system-populated? | A reliable key | Customer attribution falls to 85.4% |
+| 14 | Three-way match tolerance | Exact quantity, 2% price | Two vars |
+| 15 | Inventory accuracy tolerance and basis | Exact match, by position | One var + one fact column |
+| 16 | Return Rate denominator | Invoiced value | One var |
+| 17 | Return Rate date basis | Order date | One metric definition |
 
 ---
 
@@ -389,6 +393,114 @@ denominator.
 silently taking the first match, and
 `tests/assert_customer_names_are_unique.sql` fails if two ERP customers ever
 share a name.
+
+---
+
+## 14. Three-way match — what counts as "within tolerance"?
+
+**The finding.** Match Rate is 70.7% of 2,498 invoice lines under the assumed
+policy: quantity must agree exactly with the receipt, price within 2% of the
+purchase order. The failures split 11.8% price variance, 11.0% quantity
+variance, 4.3% invoiced-but-not-received, 2.2% no purchase order at all.
+
+**Why it is a question.** The rate measures the policy at least as much as it
+measures the process. Most AP departments allow a quantity band as well as a
+price one — often a percentage *or* an absolute value, whichever is smaller,
+so that a 5% variance on two units is treated differently from 5% on two
+thousand. Adopting a 2% quantity band here would move the number by several
+points without anything changing in the business.
+
+**Assumed for the POC.** `match_qty_tolerance_pct: 0.0`,
+`match_price_tolerance_pct: 2.0`.
+
+**Cost to reverse.** Two vars. The reason each line failed is already stored on
+`fct_supplier_invoice_line` as `match_result`, so the sensitivity can be
+measured before the policy is set rather than after.
+
+**Ask.** AP Manager: what variance does AP actually accept today without a
+human touching the invoice, and is it expressed as a percentage, a value, or
+both?
+
+---
+
+## 15. Inventory accuracy — what tolerance, and measured on what?
+
+**The finding.** 93.4% of 2,843 counted positions match the system quantity
+exactly.
+
+**Why it is a question.** Two independent choices sit under that number.
+
+*Tolerance.* Zero is assumed — a position is accurate only on an exact match.
+Warehouses commonly allow a band, and the band is often value-weighted so that
+a variance on a cheap fastener is not treated like one on a motor.
+
+*Basis.* Accuracy is counted by position: one item, site, location and lot. A
+site that miscounts a single pallet of 5,000 units and gets 400 other
+positions right scores 99.75% here, and far worse on a unit or value basis.
+All three are standard, they answer different questions, and the gap between
+them is largest exactly where the business is worst.
+
+**Assumed for the POC.** `inventory_accuracy_tolerance_pct: 0.0`, position
+basis.
+
+**Cost to reverse.** One var for the tolerance. The basis is one additional
+column on `fct_inventory_count_line` — the variance quantity and percentage
+are already there.
+
+**Ask.** Warehouse Operations: what does the WMS or the current count process
+treat as a hit, and does Finance care about units or dollars?
+
+---
+
+## 16. Return Rate — divided by what?
+
+**The finding.** Returned value is $2.78M. Divided by invoiced value it is
+1.27%; divided by ordered value it is 1.08%, because 1,808 of 11,575 order
+lines are never invoiced.
+
+**Why it is a question.** Invoiced value is the defensible default — an order
+line that was never invoiced was never at risk of being returned, so including
+it dilutes the rate with value that could not have contributed to it. But
+shipped value is equally arguable, and a business that measures returns against
+bookings will read the invoiced-basis number as wrong.
+
+**Assumed for the POC.** `return_rate_basis: invoiced`.
+
+**Cost to reverse.** One var. `fct_sales_order_line` already carries the
+ordered, invoiced and returned amounts side by side.
+
+**Ask.** Director of Customer Service: returns as a share of what — what we
+booked, what we shipped, or what we billed?
+
+---
+
+## 17. Return Rate — dated on the order or on the return?
+
+**The finding.** Returns land a median of 40 days after the invoice, and up to
+75. On a monthly dashboard that difference is the whole metric.
+
+**Why it is a question.** The two readings are not variations on one number,
+they are different questions:
+
+- *Order date* (assumed): "of what we sold in January, how much came back?"
+  Complete only once the return window has closed, so the most recent months
+  always look better than they are.
+- *Return date*: "how much came back in March?" Current, but its denominator
+  belongs to other months, so the ratio is not a rate of anything — it can
+  move because sales moved, not because quality did.
+
+The first is right for quality and supplier scorecards. The second is right for
+a returns-processing workload dashboard. Publishing one and labelling it the
+other is how a metric loses its audience.
+
+**Assumed for the POC.** Order date, because the denominator has no other date.
+
+**Cost to reverse.** One metric definition, plus a return-dated fact if both
+are wanted at once — which is the likely answer, as two named metrics rather
+than one ambiguous one.
+
+**Ask.** Director of Customer Service: is this tile about product quality or
+about the returns desk's workload?
 
 ---
 

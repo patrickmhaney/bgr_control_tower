@@ -212,13 +212,15 @@ models:
         tests: [unique, not_null]
       - name: movement_type
         description: >
-          Decoded from TRSTYP_0 via APLSTD chapter 700. There is no return
-          movement type and no count movement type, which is why Return Rate
-          and Inventory Accuracy are blocked.
+          Decoded from TRSTYP_0 via APLSTD chapter 700. Customer return (code
+          6) posts stock back on the shelf and is the movement behind a return;
+          the count session, not the adjustment, is what Inventory Accuracy
+          reads.
         tests:
           - accepted_values:
               arguments:
-                values: ['Receipt', 'Issue', 'Adjustment', 'Transfer in', 'Transfer out']
+                values: ['Receipt', 'Issue', 'Adjustment', 'Transfer in',
+                         'Transfer out', 'Customer return']
       - name: item_code
         description: CHAR-padded on all 16,421 rows. Trimmed here.
         tests:
@@ -228,12 +230,15 @@ models:
                 field: item_code
       - name: document_number
         description: >
-          X3 VCRNUM_0. Resolves to a source document on the sales side only.
-          All 10,421 SDH rows carry a SOHNUM_0 that exists in SORDER; none of
-          the 4,217 PTH rows carry a POHNUM_0 that exists in PORDER - their
-          numbers are of the form PTH###### and match nothing. Do not build a
-          receipt-to-purchase-order join on this column; there isn't one. The
-          test below asserts the half that works.
+          X3 VCRNUM_0. Every movement now resolves to the document that caused
+          it: SDH to SORDER, PTH to PRECEIPT, SRH to SRETURN, ADJ to the count
+          session in STOCOUNT. Transfers (TRF) are the exception - they carry a
+          number with no document behind them, which is honest, because nothing
+          in this estate models an inter-site transfer order.
+
+          This was not true before the purchasing and counting documents
+          existed: PTH numbers were of the form PTH###### and matched nothing,
+          which is precisely what made a three-way match impossible.
         tests:
           - relationships:
               arguments:
@@ -241,12 +246,33 @@ models:
                 field: sales_order_number
               config:
                 where: "document_type = 'SDH'"
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__preceipt')
+                field: receipt_number
+              config:
+                where: "document_type = 'PTH'"
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__sreturn')
+                field: return_number
+              config:
+                where: "document_type = 'SRH'"
+          - relationships:
+              arguments:
+                to: ref('stg_sage_x3__stocount')
+                field: count_session_number
+              config:
+                where: "document_type = 'ADJ'"
       - name: document_type
-        description: SDH (sales shipment) 10,421, PTH (purchase receipt) 4,217, ADJ 1,783.
+        description: >
+          SDH (sales shipment) 10,421, PTH (purchase receipt) 2,664, ADJ
+          (count adjustment) 187, TRF (inter-site transfer) 775, SRH (customer
+          return) 179.
         tests:
           - accepted_values:
               arguments:
-                values: ['SDH', 'PTH', 'ADJ']
+                values: ['SDH', 'PTH', 'ADJ', 'TRF', 'SRH']
 
   - name: stg_sage_x3__porder
     description: "Grain: one row per purchase order header."

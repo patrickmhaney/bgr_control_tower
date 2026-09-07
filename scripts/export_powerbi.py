@@ -60,6 +60,8 @@ CORE_TABLES = [
     ("main_core", "fct_shipment_event"),
     ("main_core", "fct_sales_order_line"),
     ("main_core", "fct_invoice_line"),
+    ("main_core", "fct_supplier_invoice_line"),
+    ("main_core", "fct_inventory_count_line"),
     ("main_seed", "metric_registry"),
     ("main_seed", "process_metric_map"),
     ("main_seed", "process"),
@@ -85,6 +87,15 @@ RELATIONSHIPS = [
     ("fct_invoice_line", "customer_key", "dim_customer", "customer_key"),
     ("fct_invoice_line", "site_code", "dim_site", "site_code"),
     ("fct_invoice_line", "item_code", "dim_item", "item_code"),
+    # Neither purchasing nor counting has a customer or a carrier, so these
+    # facts join three of the five conformed dimensions and not the other two.
+    # That is what a conformed bus matrix looks like when it is honest.
+    ("fct_supplier_invoice_line", "invoice_date_key", "dim_date", "date_key"),
+    ("fct_supplier_invoice_line", "site_code", "dim_site", "site_code"),
+    ("fct_supplier_invoice_line", "item_code", "dim_item", "item_code"),
+    ("fct_inventory_count_line", "count_date_key", "dim_date", "date_key"),
+    ("fct_inventory_count_line", "site_code", "dim_site", "site_code"),
+    ("fct_inventory_count_line", "item_code", "dim_item", "item_code"),
 ]
 
 DUCKDB_TO_TMDL = {
