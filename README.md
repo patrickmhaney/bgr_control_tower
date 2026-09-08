@@ -226,6 +226,12 @@ LEFT JOIN sage_x3."BPCUSTOMER" c ON upper(h.name) = upper(c."BPCNAM_0");
 
 ## 6. Regenerating and rescaling
 
+**Running the whole thing end to end, including a full teardown to an empty
+baseline, is in [`docs/running_it.md`](docs/running_it.md)** — see "Reset to an
+empty baseline and rebuild". Everything in this project is derived and rebuilds
+in about fifteen seconds, so tearing it down is the cheap first move when
+something looks wrong.
+
 `generate_mock_sources.py` is self-contained. The `SCALE` block near the top
 controls volumes (`N_ORDERS`, `N_ITEMS`, `N_CUSTOMERS`, date range). Bump
 `N_ORDERS` to 400,000 if you want to test whether DuckDB alone gets the client

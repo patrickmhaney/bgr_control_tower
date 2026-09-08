@@ -58,7 +58,11 @@ python generate_mock_sources.py            # writes next to the script
 MOCK_SOURCES_DIR=/tmp/scratch python generate_mock_sources.py   # or elsewhere
 ```
 
-It is seeded, so it reproduces byte-for-byte unless you change `SCALE`.
+It is seeded, so the *data* reproduces exactly unless you change `SCALE`. The
+DuckDB **file** does not: rewriting it produces a different byte stream from
+identical rows, so `mock_sources.duckdb` shows as modified in git after every
+regeneration. `git checkout -- mock_sources.duckdb` if you did not mean to
+change the data.
 
 ---
 
@@ -70,6 +74,9 @@ dbt build                   # raw -> models, tests, snapshots
 python scripts/q.py --ls    # what you can now query
 python scripts/q.py         # interactive SQL
 ```
+
+Starting from nothing, or want a guaranteed-clean state? See
+[Reset to an empty baseline and rebuild](#reset-to-an-empty-baseline-and-rebuild).
 
 ---
 
@@ -134,9 +141,70 @@ sources with no watermark - these read everything, every run
 
 ```bash
 python run_ingestion.py --reset
-python run_ingestion.py     # 233,150 rows - full backfill
-python run_ingestion.py     # 125,336 rows - watermarks now set
+python run_ingestion.py     # 247,851 rows - full backfill
+python run_ingestion.py     # 126,399 rows - watermarks now set
 ```
+
+`--reset` clears the ingestion layer only: `landing/`, `raw.duckdb` and
+`ingestion/_state`. It leaves `warehouse.duckdb`, `target/` and `exports/`
+alone. For a true empty baseline see the section below.
+
+### Reset to an empty baseline and rebuild
+
+Everything in this project is derived. Nothing below is precious and all of it
+regenerates in about fifteen seconds, which is what makes a full teardown the
+right first move when something looks wrong.
+
+```bash
+# 1. Clear everything derived
+python run_ingestion.py --reset          # landing/, raw.duckdb, ingestion/_state
+rm -rf warehouse.duckdb target exports   # dbt output, dbt artefacts, exports
+
+# 2. Rebuild
+python generate_mock_sources.py          # ~1.5s   mock_sources.duckdb, 247,851 rows
+python run_ingestion.py                  # ~6s     -> landing/ -> raw.duckdb
+dbt build                                # ~6s     95 models, 217 tests
+
+# 3. Post-build - these need a built warehouse
+python scripts/update_build_stats.py
+python scripts/test_metric_parity.py --write-dax-gate
+python scripts/export_powerbi.py
+```
+
+Step 3 is `python scripts/regenerate.py --with-exports` if you would rather run
+one command.
+
+Expected:
+
+```
+raw          247,851 rows across 5 schemas
+dbt build    PASS=316 WARN=4 ERROR=0
+parity       10 metrics, all reconcile
+export       14 tables, 22 relationships, 10 generated measures, 0 hand-written
+```
+
+The four warnings are the documented dashed-line relationships - duplicate
+Paycom emails, orphaned Netstock item-locations, Pangea customer POs that match
+nothing in X3. They are supposed to warn. See `README.md` §3.
+
+Step 1 is only needed for a genuine clean slate. Day to day, `dbt build` alone
+is enough - it is idempotent, and `run_ingestion.py` is only needed when the
+source data changed.
+
+**Two ordering traps, both of which have bitten this repo.**
+
+`dbt docs generate` overwrites `target/run_results.json`, which is where
+`update_build_stats.py` reads the test counts from. Run the stats script
+immediately after `dbt build`. Run docs first and the statistics in
+`docs/architecture.md` silently become `0 pass / 0 warn / 0 error`, and
+`regenerate.py --check` then fails with a stale-statistics error that does not
+explain itself.
+
+Seeds are tables, so a change to `+column_types` in `dbt_project.yml` does not
+reach an existing warehouse. Run `dbt seed --full-refresh` once after changing
+one. A clean rebuild does not need this, because the seed is created fresh.
+
+---
 
 ---
 
