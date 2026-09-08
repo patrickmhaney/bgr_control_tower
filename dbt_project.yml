@@ -102,3 +102,14 @@ snapshots:
 seeds:
   bgr_control_tower:
     +schema: seed
+    metric_registry:
+      # Pin the free-text columns. When every metric is unblocked these are
+      # empty in the CSV for every row, and dbt's type inference reads an
+      # all-empty column as an integer - which then blows up on the first
+      # query that touches it, not on the build. That failure was latent for
+      # as long as at least one metric stayed blocked.
+      +column_types:
+        blocked_reason: varchar
+        description: varchar
+        owner: varchar
+        owner_proposed: varchar
