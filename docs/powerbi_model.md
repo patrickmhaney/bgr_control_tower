@@ -108,7 +108,10 @@ before the model is built. Open question 6.
 
 ### Tables
 
-Exported to `exports/parquet/` and referenced by the generated TMDL.
+Exported to `exports/parquet/`, one file per table, and referenced by the
+generated TMDL. How this route relates to the nine `mart_*` dashboard views in
+the warehouse is drawn in
+[architecture.md](architecture.md#two-routes-from-the-core-the-nine-views-and-the-power-bi-model).
 
 | Table | Role | Rows |
 |---|---|---|

@@ -523,6 +523,58 @@ The dashboard composes its tiles from `process_metric_map` and computes every
 value in DAX from the star. The metric and process tables ship beside the model
 for reference and are not read by it.
 
+### Two routes from the core: the nine views and the Power BI model
+
+The nine dashboard views and the Power BI model are two separate routes from
+the same core tables, both driven by the same metric definitions:
+
+```
+                        CORE (main_core)
+          dim_date  dim_customer  dim_site  dim_item  dim_carrier
+          fct_shipment  fct_sales_order_line  fct_invoice_line  ...
+                │                                     │
+   SQL route    │                                     │  Power BI route
+                ▼                                     ▼
+   mtr_* views (main_metrics)              exports/parquet/
+   one per metric: numerator +             one file per table:
+   denominator, summed from ONE            11 core + 3 seed tables loaded
+   fact, grouped by dim keys               (mtr_* / mart_* files written too,
+                │                           but the model ignores them)
+                ▼                                     │
+   mart_* views (main_process)                        ▼
+   one per dashboard: stacks the           ONE Power BI model (TMDL)
+   mtr_* views of the metrics mapped       22 relationships fact → dim,
+   to that process, plus slot, label       10 DAX measures on the facts,
+   and status from the seeds               process_metric_map says which
+                │                          metric goes on which dashboard
+                ▼                                     │
+   SQL users / any BI tool                            ▼
+   select * from mart_o2c                  9 dashboards (reports) built
+                                           by hand on the one model
+```
+
+**The SQL route is two layers above the core.** A `mart_*` view never reads a
+fact directly: it stacks the `mtr_*` views of the metrics mapped to its
+process, and each `mtr_*` view aggregates one fact. `mart_i2d`, for example,
+stacks `mtr_inventory_accuracy` (from `fct_inventory_count_line`),
+`mtr_on_time_delivery_rate` and `mtr_cost_per_shipment` (both from
+`fct_shipment`). Metrics from different facts can share a view because it is
+long — one row per metric per dimension combination — rather than a wide join.
+The rows carry dimension *keys*, not attributes, so join to `dim_site` or
+`dim_date` for names and periods. And they are pre-aggregated, so a
+`mart_*` view cannot drill to an individual shipment; the facts can.
+
+**The Power BI route skips both layers.** The model loads the facts and
+dimensions as they are, relates them itself, and computes every metric in DAX
+directly on the facts — correct at any grain, down to a single shipment, and
+sliceable by any dimension attribute. From the dashboard side it needs only
+`process_metric_map` and `metric_registry`: which metric sits in which tile,
+and what status and owner to show.
+
+Both routes are generated from the same YAML, and
+`scripts/test_metric_parity.py` checks that the `mtr_*` models agree with the
+facts the DAX computes from.
+
 **Hand-written and staying that way**: the 10 intermediate models, the 11 core
 models, all model YAML, the seeds, and the singular tests. That is where the
 thinking is. Everything generated is mechanical, and mechanical code written by
