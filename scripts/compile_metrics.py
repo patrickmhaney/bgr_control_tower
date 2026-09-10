@@ -2,11 +2,11 @@
 
     python scripts/compile_metrics.py            # all targets
     python scripts/compile_metrics.py --check     # validate only
-    python scripts/compile_metrics.py sql dax     # named targets
+    python scripts/compile_metrics.py sql json    # named targets
 
 Why this exists
 ---------------
-The high-risk idea in the plan is generating both the warehouse SQL and the
+The high-risk idea in the design is generating both the warehouse SQL and the
 Power BI measures from one metric definition. If a metric is defined twice -
 once in SQL and once in DAX - the two will disagree, and the disagreement will
 surface in a meeting rather than in a test. This script is the proof that they
@@ -14,16 +14,16 @@ need only be defined once.
 
 Targets
 -------
-sql            models/marts/metrics/mtr_<name>.sql   dbt models, one per active metric
-dbt_semantic   models/semantic/_semantic_models.yml  dbt semantic models + metrics
-dax            exports/powerbi/measures.dax          DAX measure definitions
-tmdl           exports/powerbi/bgr_control_tower.tmdl    TMDL table with those measures
-cube           exports/cube/model/cubes/*.yml        Cube schema
-json           exports/semantic/metric_registry.json machine-readable contract for agents
-docs           docs/metric_catalog.md                the human-readable catalogue
+sql    models/marts/metrics/mtr_<name>.sql     dbt models, one per active metric
+seed   seeds/metric_registry.csv               the registry as a dbt seed
+json   exports/semantic/metric_registry.json   machine-readable contract for agents
+docs   docs/metric_catalog.md                  the human-readable catalogue
 
-Every target reads the same registry. Adding a tenth target does not touch a
-metric definition, and changing a metric definition does not touch a target.
+The DAX measures are not a target here: scripts/export_powerbi.py imports
+dax_measure() and writes them straight into the Power BI model it generates.
+
+Every target reads the same registry. Adding a target does not touch a metric
+definition, and changing a metric definition does not touch a target.
 """
 from __future__ import annotations
 
@@ -66,24 +66,6 @@ DAX_AGG = {
     "max": "MAX({table}[{col}])",
 }
 
-CUBE_AGG = {
-    "sum": "sum",
-    "count": "count",
-    "count_distinct": "count_distinct",
-    "avg": "avg",
-    "min": "min",
-    "max": "max",
-}
-
-DBT_SEMANTIC_AGG = {
-    "sum": "sum",
-    "count": "count",
-    "count_distinct": "count_distinct",
-    "avg": "average",
-    "min": "min",
-    "max": "max",
-}
-
 DAX_FORMAT = {
     "percent": '"0.0%"',
     "currency_usd": '"\\$#,0.00"',
@@ -92,18 +74,17 @@ DAX_FORMAT = {
 }
 
 # --------------------------------------------------------------------------
-# Filters (D7)
+# Filters
 #
 # A filter is a structured triple - column, op, and a value for the comparison
-# ops - never a SQL string. Every renderer maps the op to its own dialect from
-# the table below, so there is no parsing anywhere and a translation bug is
-# unrepresentable rather than merely guarded against.
+# ops - never a SQL string. Both renderers (SQL and DAX) map the op to their
+# own dialect from the table below, so there is no parsing anywhere and a
+# translation bug is unrepresentable rather than merely guarded against.
 #
 # This replaced a `str.split`-based SQL translator that silently mangled `>=`
 # into a column named `days_late >` - the exact class of bug this shape makes
-# impossible. It also closes the tool-neutrality claim in open question 5: the
-# supported grammar is now declared and finite instead of "whatever the parser
-# happens to cope with".
+# impossible. It also means the supported grammar is declared and finite
+# instead of "whatever the parser happens to cope with".
 #
 # `column` is strictly a column on the base model. A metric needing a
 # derivation puts it on the fact, which is already this project's rule.
@@ -122,32 +103,6 @@ OPS = {
     "lt":          (True,  "{c} < {v}",           "{t}[{c}] < {v}"),
     "lte":         (True,  "{c} <= {v}",          "{t}[{c}] <= {v}"),
     "in":          (True,  None,                  None),   # rendered specially
-}
-
-
-# --------------------------------------------------------------------------
-# P9 - time intelligence
-#
-# Year-on-year, month-to-date and rolling-12 genuinely belong in DAX: they are
-# functions of filter context rather than properties of the metric, and pushing
-# them into dbt means materialising a comparison per grain. But they are also
-# the first thing a report author hand-writes, and the moment someone types
-# "Cost Per Shipment YoY" they pick a date column - which is a measure decision
-# made in Power BI.
-#
-# Emitting them from the registry keeps that on the right side of the rule in
-# architecture.md: no measure logic authored in Power BI. The date column comes
-# from the metric's own binding in semantic/models.yml, never a guess.
-# --------------------------------------------------------------------------
-
-#: name -> (suffix, DAX wrapper around the base measure)
-TIME_COMPARISONS = {
-    "yoy": ("YoY", "CALCULATE({m}, SAMEPERIODLASTYEAR({d}))"),
-    "yoy_pct": ("YoY %", "DIVIDE({m} - CALCULATE({m}, SAMEPERIODLASTYEAR({d})), "
-                         "CALCULATE({m}, SAMEPERIODLASTYEAR({d})))"),
-    "mtd": ("MTD", "TOTALMTD({m}, {d})"),
-    "ytd": ("YTD", "TOTALYTD({m}, {d})"),
-    "rolling_12": ("Rolling 12", "CALCULATE({m}, DATESINPERIOD({d}, MAX({d}), -12, MONTH))"),
 }
 
 
@@ -236,13 +191,13 @@ def load_registry():
 
 
 # --------------------------------------------------------------------------
-# D6 - field consumption
+# Field consumption
 #
-# Four renderers walk the same YAML and each is free to interpret or ignore any
-# field. Nothing noticed when `filters` reached only the SQL target, and the
-# warehouse and the dashboard disagreed about Cost Per Order by 17.3% while the
-# generated DAX file headed itself "the dashboard and the database cannot drift
-# apart". This table makes silently ignoring a field a build failure.
+# Two renderers walk the same YAML - SQL here, DAX via export_powerbi.py - and
+# each is free to interpret or ignore any field. Nothing noticed when `filters`
+# reached only the SQL target, and the warehouse and the dashboard disagreed
+# about Cost Per Order by 17.3%. This table makes silently ignoring a field a
+# build failure.
 #
 # Adding a semantic field means adding it here and to every target that must
 # honour it. That is the point: the compiler refuses to ship a definition it
@@ -256,19 +211,13 @@ SEMANTIC_FIELDS = {"base_model", "numerator", "denominator", "filters", "dimensi
 #: Which of those each computational target actually honours.
 #:
 #: `dimensions` is honoured differently by target and that difference is real,
-#: not a loophole. sql, cube and dbt_semantic name the dimensions in the
-#: artefact itself - a GROUP BY, a cube dimension list, a semantic model's
-#: entities. dax and tmdl honour it *structurally*: scripts/export_powerbi.py
-#: builds a relationship per dimension binding, and a DAX measure is
-#: slice-agnostic by construction, so the measure text never mentions them.
-#: Both are genuine consumption. What this table forbids is a field that no
-#: target honours in any form, which is what happened to `filters`.
+#: not a loophole. sql names the dimensions in its GROUP BY. dax honours them
+#: *structurally*: scripts/export_powerbi.py builds a relationship per
+#: dimension binding, and a DAX measure is slice-agnostic by construction, so
+#: the measure text never mentions them.
 CONSUMES = {
-    "sql":          {"base_model", "numerator", "denominator", "filters", "dimensions"},
-    "dax":          {"base_model", "numerator", "denominator", "filters", "dimensions"},
-    "tmdl":         {"base_model", "numerator", "denominator", "filters", "dimensions"},
-    "cube":         {"base_model", "numerator", "denominator", "filters", "dimensions"},
-    "dbt_semantic": {"base_model", "numerator", "denominator", "filters", "dimensions"},
+    "sql": {"base_model", "numerator", "denominator", "filters", "dimensions"},
+    "dax": {"base_model", "numerator", "denominator", "filters", "dimensions"},
 }
 
 REQUIRED_FIELDS = [
@@ -369,7 +318,7 @@ def validate(dimensions, models, metrics, verbose=True):
             errors += filter_errors(spec, f"{where}: filters[{index}]",
                                     referenced, f"filters[{index}]")
 
-        # D4 - every column named must exist on the base model. Cheap now that
+        # Every column named must exist on the base model. Cheap now that
         # columns are bare references rather than arbitrary SQL. Skipped with a
         # note when the warehouse has not been built, so the compiler still
         # runs on a clean checkout.
@@ -383,7 +332,7 @@ def validate(dimensions, models, metrics, verbose=True):
                         f"{base}. Available: {', '.join(sorted(columns)[:8])}..."
                     )
 
-        # D6 - a field that no computational target honours is a definition
+        # A field that some computational target ignores is a definition
         # that compiles to something it does not describe.
         set_fields = {f for f in SEMANTIC_FIELDS if metric.get(f)}
         for target, consumed in sorted(CONSUMES.items()):
@@ -396,14 +345,6 @@ def validate(dimensions, models, metrics, verbose=True):
                     f"from SEMANTIC_FIELDS."
                 )
 
-        for comparison in metric.get("time_comparisons") or []:
-            if comparison not in TIME_COMPARISONS:
-                errors.append(f"{where}: time_comparison '{comparison}' unknown; "
-                              f"expected one of {sorted(TIME_COMPARISONS)}")
-            elif "date" not in (models[base].get("dimensions") or {}):
-                errors.append(f"{where}: time_comparisons need a date binding, and "
-                              f"base_model '{base}' has none in semantic/models.yml")
-
         if status == "provisional" and not metric.get("provisional_reason"):
             errors.append(f"{where}: provisional metrics must state provisional_reason")
 
@@ -415,7 +356,7 @@ def validate(dimensions, models, metrics, verbose=True):
             "then a\n"
             "        typo in a numerator, denominator or filter column compiles "
             "cleanly\n"
-            "        into all six artefacts and fails later, somewhere nobody "
+            "        into every artefact and fails later, somewhere nobody "
             "is watching.",
             file=sys.stderr,
         )
@@ -602,146 +543,7 @@ def target_sql(dimensions, models, metrics):
 
 
 # --------------------------------------------------------------------------
-# Target: dbt_semantic
-# --------------------------------------------------------------------------
-
-def target_dbt_semantic(dimensions, models, metrics):
-    """dbt semantic models + ratio metrics, per the dbt Semantic Layer spec.
-
-    MetricFlow requires every measure to have an aggregation time dimension, so
-    a metric whose base model has no date binding cannot be expressed. That is
-    a real limitation of the tool, not of the registry: the same metrics
-    compile to correct DAX and correct Cube schema. Such metrics are skipped
-    here and named in the header of the generated file rather than dropped
-    silently.
-    """
-    def has_time(metric):
-        return "date" in (models[metric["base_model"]].get("dimensions") or {})
-
-    supported = [m for m in active_metrics(metrics) if has_time(m)]
-    skipped = [m for m in active_metrics(metrics) if not has_time(m)]
-    used_models = sorted({m["base_model"] for m in supported})
-    semantic_models = []
-
-    for model_name in used_models:
-        model = models[model_name]
-        bound = model.get("dimensions") or {}
-        measures, entities, dims = [], [], []
-
-        for dim, column in bound.items():
-            if dim == "date":
-                dims.append({"name": "metric_date", "type": "time",
-                             "expr": column, "type_params": {"time_granularity": "day"}})
-            else:
-                entities.append({"name": dim, "type": "foreign", "expr": column})
-        for label, column in (model.get("degenerate") or {}).items():
-            dims.append({"name": label, "type": "categorical", "expr": column})
-
-        for metric in supported:
-            if metric["base_model"] != model_name:
-                continue
-            # C10: MetricFlow has no metric-level filter, so the metric's
-            # filters fold into the CASE guarding every measure alongside the
-            # per-side one. Both sides get the same guard, which is what the
-            # SQL model's WHERE does.
-            metric_conditions = filters_sql(metric.get("filters"))
-            for side in ("numerator", "denominator"):
-                spec = metric[side]
-                conditions = list(metric_conditions)
-                if spec.get("filter"):
-                    conditions.append(filter_sql(spec["filter"]))
-                expr = spec["column"]
-                if conditions:
-                    expr = f"case when {' and '.join(conditions)} then {expr} end"
-                measures.append({
-                    "name": f"{metric['name']}_{side}",
-                    "agg": DBT_SEMANTIC_AGG[spec["agg"]],
-                    "expr": expr,
-                    "description": spec.get("label", f"{metric['label']} {side}"),
-                })
-
-        semantic_models.append({
-            "name": f"sm_{model_name}",
-            "description": " ".join((model.get("description") or "").split()),
-            "model": f"ref('{model_name}')",
-            # Several facts have composite grains, so a virtual primary entity
-            # is the honest declaration - naming one column would imply a
-            # uniqueness that does not hold.
-            "primary_entity": model_name,
-            "defaults": {"agg_time_dimension": "metric_date"} if any(
-                d["name"] == "metric_date" for d in dims) else {},
-            "entities": entities,
-            "dimensions": dims,
-            "measures": measures,
-        })
-
-    metric_defs = []
-    for metric in supported:
-        # A dbt ratio metric references two *metrics*, not two measures, so
-        # each side needs a simple metric wrapping its measure first.
-        for side in ("numerator", "denominator"):
-            metric_defs.append({
-                "name": f"{metric['name']}_{side}",
-                "label": f"{metric['label']} - {side}",
-                "description": metric[side].get("label", f"{metric['label']} {side}"),
-                "type": "simple",
-                "type_params": {"measure": {"name": f"{metric['name']}_{side}"}},
-                "meta": {"component_of": metric["name"]},
-            })
-        metric_defs.append({
-            "name": metric["name"],
-            "label": metric["label"],
-            "description": " ".join(metric["description"].split()),
-            "type": "ratio",
-            "type_params": {
-                "numerator": f"{metric['name']}_numerator",
-                "denominator": f"{metric['name']}_denominator",
-            },
-            "meta": {
-                "status": metric["status"],
-                "owner": str(metric.get("owner")),
-                "definition_file": metric["_file"],
-            },
-        })
-
-    payload = {"semantic_models": semantic_models, "metrics": metric_defs}
-
-    header = [
-        f"# {GENERATED_BANNER}",
-        "#",
-        "# dbt semantic models and metrics, generated from the tool-neutral",
-        "# registry. This is one of several compilation targets - the registry,",
-        "# not this file, is the source of truth.",
-    ]
-    if skipped:
-        header += [
-            "#",
-            "# NOT EXPRESSIBLE IN METRICFLOW, and therefore absent below:",
-        ]
-        for metric in skipped:
-            header.append(
-                f"#   {metric['name']} - base model {metric['base_model']} has no date "
-                f"dimension, and MetricFlow requires an aggregation time dimension on "
-                f"every measure."
-            )
-        header += [
-            "# These metrics compile correctly to DAX and to Cube. The gap is the",
-            "# tool's, not the registry's - which is the argument for keeping the",
-            "# registry tool-neutral.",
-        ]
-    header += ["version: 2", ""]
-
-    if skipped:
-        print("  note: " + ", ".join(m["name"] for m in skipped)
-              + " skipped for dbt_semantic (no time dimension on the base model)")
-
-    return [write("models/semantic/_semantic_models.yml",
-                  "\n".join(header) + "\n"
-                  + yaml.safe_dump(payload, sort_keys=False, width=100))]
-
-
-# --------------------------------------------------------------------------
-# Target: dax
+# DAX - used by scripts/export_powerbi.py to write the Power BI measures
 # --------------------------------------------------------------------------
 
 def dax_measure(metric, models):
@@ -771,182 +573,6 @@ def dax_measure(metric, models):
     return expr
 
 
-def time_comparison_measures(metric, models):
-    """The generated time-intelligence variants (P9), if the metric asks for any."""
-    comparisons = metric.get("time_comparisons") or []
-    if not comparisons:
-        return []
-    base = metric["base_model"]
-    date_column = (models[base].get("dimensions") or {})["date"]
-    # The date the comparison walks is the conformed calendar, reached through
-    # the fact's own binding - never a column a report author picked.
-    date_ref = "dim_date[date_day]"
-    out = []
-    for name in comparisons:
-        suffix, template = TIME_COMPARISONS[name]
-        measure_ref = f"[{metric['label']}]"
-        out.append((
-            f"{metric['label']} {suffix}",
-            template.format(m=measure_ref, d=date_ref),
-            name,
-            date_column,
-        ))
-    return out
-
-
-def comment_block(text, prefix, width=88):
-    import textwrap
-    return [prefix + line for line in textwrap.wrap(" ".join(text.split()), width)]
-
-
-def target_dax(dimensions, models, metrics):
-    lines = [
-        f"// {GENERATED_BANNER}",
-        "//",
-        "// Paste into a Power BI model, or use the TMDL file next to this one.",
-        "// Every measure below is derived from the same YAML that generates the",
-        "// warehouse SQL, so the dashboard and the database cannot drift apart.",
-        "",
-    ]
-    for metric in active_metrics(metrics):
-        fmt = DAX_FORMAT.get(metric.get("format", ""), '"#,0.00"')
-        lines += [
-            f"// {metric['label']} - status {metric['status']}, owner {metric.get('owner')}",
-        ]
-        lines += comment_block(metric["description"], "// ")
-        for spec in metric.get("filters") or []:
-            lines += comment_block("FILTER: " + describe_filter(spec), "// ")
-        for caveat in metric.get("caveats", []):
-            lines += comment_block("CAVEAT: " + caveat, "// ")
-        lines += [
-            f"MEASURE '{metric['base_model']}'[{metric['label']}] = ",
-            f"    {dax_measure(metric, models)}",
-            f"    FORMAT_STRING = {fmt}",
-            "",
-        ]
-        for label, expression, _, _ in time_comparison_measures(metric, models):
-            lines += [
-                f"MEASURE '{metric['base_model']}'[{label}] = ",
-                f"    {expression}",
-                f"    FORMAT_STRING = {fmt}",
-                "",
-            ]
-        if not is_reaggregatable(metric):
-            lines.insert(len(lines) - 1,
-                         "// NOTE: DISTINCTCOUNT is used rather than a summed "
-                         "pre-aggregate, so this measure stays correct at every grain.")
-    return [write("exports/powerbi/measures.dax", "\n".join(lines) + "\n")]
-
-
-# --------------------------------------------------------------------------
-# Target: tmdl
-# --------------------------------------------------------------------------
-
-def target_tmdl(dimensions, models, metrics):
-    by_model = {}
-    for metric in active_metrics(metrics):
-        by_model.setdefault(metric["base_model"], []).append(metric)
-
-    files = []
-    for model_name, model_metrics in sorted(by_model.items()):
-        lines = [
-            f"/// {GENERATED_BANNER}",
-            f"table {model_name}",
-            "",
-        ]
-        for metric in model_metrics:
-            fmt = DAX_FORMAT.get(metric.get("format", ""), '"#,0.00"')
-            desc = " ".join(metric["description"].split())
-            lines += [
-                f"\tmeasure '{metric['label']}' = {dax_measure(metric, models)}",
-                f"\t\tformatString: {fmt}",
-                f"\t\tdisplayFolder: Metrics\\{metric['status'].title()}",
-                f"\t\t/// {desc}",
-                f"\t\tannotation MetricName = {metric['name']}",
-                f"\t\tannotation MetricStatus = {metric['status']}",
-                f"\t\tannotation MetricOwner = {metric.get('owner')}",
-                f"\t\tannotation DefinitionFile = {metric['_file']}",
-                "",
-            ]
-            for label, expression, kind, _ in time_comparison_measures(metric, models):
-                lines += [
-                    f"\tmeasure '{label}' = {expression}",
-                    f"\t\tformatString: {fmt}",
-                    f"\t\tdisplayFolder: Metrics\\Time intelligence",
-                    f"\t\tannotation MetricName = {metric['name']}",
-                    f"\t\tannotation TimeComparison = {kind}",
-                    f"\t\tannotation DefinitionFile = {metric['_file']}",
-                    "",
-                ]
-        files.append(write(f"exports/powerbi/tmdl/{model_name}.tmdl", "\n".join(lines) + "\n"))
-    return files
-
-
-# --------------------------------------------------------------------------
-# Target: cube
-# --------------------------------------------------------------------------
-
-def target_cube(dimensions, models, metrics):
-    by_model = {}
-    for metric in active_metrics(metrics):
-        by_model.setdefault(metric["base_model"], []).append(metric)
-
-    files = []
-    for model_name, model_metrics in sorted(by_model.items()):
-        model = models[model_name]
-        cube = {
-            "name": model_name,
-            "sql_table": f"main_core.{model_name}",
-            "description": model.get("description", "").strip(),
-            "dimensions": [],
-            "measures": [],
-        }
-        for dim, column in (model.get("dimensions") or {}).items():
-            cube["dimensions"].append({
-                "name": dim,
-                "sql": column,
-                "type": "time" if dim == "date" else "string",
-                "description": dimensions[dim].get("description", "").strip(),
-            })
-        for label, column in (model.get("degenerate") or {}).items():
-            cube["dimensions"].append({"name": label, "sql": column, "type": "string"})
-
-        for metric in model_metrics:
-            # C10: metric-level filters apply to both sides, exactly as the
-            # WHERE in the SQL model does. Cube has no metric-level filter, so
-            # they are folded into every measure's filter list.
-            metric_filters = [
-                {"sql": f"{{CUBE}}.{filter_sql(f)}"}
-                for f in (metric.get("filters") or [])
-            ]
-            for side in ("numerator", "denominator"):
-                spec = metric[side]
-                measure = {
-                    "name": f"{metric['name']}_{side}",
-                    "sql": spec["column"],
-                    "type": CUBE_AGG[spec["agg"]],
-                }
-                side_filters = list(metric_filters)
-                if spec.get("filter"):
-                    side_filters.append({"sql": f"{{CUBE}}.{filter_sql(spec['filter'])}"})
-                if side_filters:
-                    measure["filters"] = side_filters
-                cube["measures"].append(measure)
-            cube["measures"].append({
-                "name": metric["name"],
-                "sql": (f"{{{metric['name']}_numerator}} / "
-                        f"NULLIF({{{metric['name']}_denominator}}, 0)"),
-                "type": "number",
-                "title": metric["label"],
-                "description": " ".join(metric["description"].split()),
-                "meta": {"status": metric["status"], "owner": str(metric.get("owner"))},
-            })
-        files.append(write(f"exports/cube/model/cubes/{model_name}.yml",
-                           f"# {GENERATED_BANNER}\n"
-                           + yaml.safe_dump({"cubes": [cube]}, sort_keys=False, width=100)))
-    return files
-
-
 # --------------------------------------------------------------------------
 # Target: json
 # --------------------------------------------------------------------------
@@ -954,10 +580,10 @@ def target_cube(dimensions, models, metrics):
 def target_json(dimensions, models, metrics):
     """The contract an AI agent reads.
 
-    Deliberately includes the blocked metrics and the caveats. An agent that
-    can see "Return Rate exists and is blocked because no returns object
-    exists" answers the question correctly; an agent that cannot see it invents
-    a number.
+    Deliberately includes blocked metrics and the caveats. An agent that can
+    see "this metric exists and is blocked because its source is missing"
+    answers the question correctly; an agent that cannot see it invents a
+    number.
     """
     payload = {
         "generated_at": date.today().isoformat(),
@@ -1023,7 +649,6 @@ def target_json(dimensions, models, metrics):
             entry["filters"] = metric.get("filters") or []
             entry["filters_described"] = [
                 describe_filter(f) for f in (metric.get("filters") or [])]
-            entry["time_comparisons"] = metric.get("time_comparisons") or []
             entry["is_reaggregatable"] = is_reaggregatable(metric)
             if metric.get("provisional_reason"):
                 entry["provisional_reason"] = " ".join(metric["provisional_reason"].split())
@@ -1184,10 +809,6 @@ def target_seed(dimensions, models, metrics):
 TARGETS = {
     "sql": target_sql,
     "seed": target_seed,
-    "dbt_semantic": target_dbt_semantic,
-    "dax": target_dax,
-    "tmdl": target_tmdl,
-    "cube": target_cube,
     "json": target_json,
     "docs": target_docs,
 }

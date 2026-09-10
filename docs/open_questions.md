@@ -10,7 +10,7 @@ business answers differently than we assumed.
 
 | # | Question | Assumed for the POC | Cost to reverse |
 |---|---|---|---|
-| 1 | On-Time Delivery promise basis | Carrier promise date | One var |
+| 1 | On-Time Delivery promise basis | Carrier promise date | One metric definition |
 | 2 | DSO basis | Days-to-pay proxy | One metric definition |
 | 3 | Cost Per Order cost pool | Fulfillment only | One var + possibly a fact |
 | 4 | Fiscal calendar | Fiscal = calendar year | `dim_date` rebuild |
@@ -38,8 +38,9 @@ against the customer's requested delivery date. The two also have different
 denominators — the carrier date is present on all 3,381 delivered shipments,
 the customer date only on the 2,887 that join back to an X3 order.
 
-**Assumed.** Carrier promise (`pangea.estimated_delivery_date`).
-`var: otd_promise_basis = carrier`.
+**Assumed.** Carrier promise (`pangea.estimated_delivery_date`). The metric
+definition filters on `is_on_time_vs_carrier_promise`; `var: otd_promise_basis`
+records the choice.
 
 **Why.** Full coverage, no cross-system join, and it is the number the carrier
 can be held to. It is also the more conservative of the two.
@@ -78,12 +79,12 @@ completion rate beside the metric.
 **The finding.** There is no cash application data anywhere in the five source
 systems, and no open-AR position over time. Textbook DSO is not computable.
 What exists is `SINVOICEV.PAYDAT_0`, a single settlement date per invoice,
-giving a mean 48.2 / median 45 days to pay on the 86.2% of invoices that are
-settled.
+giving a mean 47.7 / median 45 days to pay on the 85.8% of invoice documents
+that are settled.
 
 **Assumed.** Publish the proxy under the name `dso_days_to_pay_proxy`, label
-"DSO (days-to-pay proxy)", status `provisional`, with the 13.8% unsettled rate
-as a mandatory companion figure.
+"DSO (days-to-pay proxy)", status `provisional`, with `unsettled_invoice_rate`
+(13.8% of invoice lines) as a mandatory companion figure.
 
 **Why.** The proxy is directionally useful and cheap. Labelling it "DSO" is
 not, because it structurally excludes exactly the invoices that make DSO bad —
@@ -97,9 +98,10 @@ balance-and-flow calculation and needs a periodic AR snapshot fact.
 
 ## 3. Cost Per Order — which cost pool, and what allocation basis?
 
-**The finding.** The GL in this estate contains three accounts — AR, tax, and
-revenue — and one journal type. There is no COGS, no expense, no AP. "Fully
-loaded" is not computable from the sources we have. What is computable:
+**The finding.** The GL in this estate contains five accounts — AR, AP, tax,
+revenue and purchases — across a sales and a purchasing journal. There is no
+COGS, no operating expense and no payroll posting. "Fully loaded" is not
+computable from the sources we have. What is computable:
 freight and accessorials from Pangea (5.49M USD, line level), and warehouse
 labour from Paycom, allocable to site and department via `labor_allocation_code`.
 
@@ -138,12 +140,17 @@ share a calendar.
 
 ## 5. Semantic layer tool
 
-**The finding.** Three viable options, evaluated in `docs/architecture.md`.
+**The finding.** Three viable options: dbt semantic models / MetricFlow (best
+governance, lives in the dbt project; the hosted API needs dbt Cloud), Cube
+(an API that AI agents consume well, but a second system to operate), or the
+Power BI semantic model as source of truth (no new infrastructure, but metrics
+become invisible outside Power BI, which kills the AI use case).
 
-**Assumed.** Neither, yet — and deliberately. The POC keeps the metric registry
-in tool-neutral YAML (`semantic/metrics/*.yml`) and generates the tool-specific
-artefacts from it: dbt semantic models, Cube schema, and Power BI TMDL/DAX. The
-spike (Phase 3) proved this works end to end.
+**Assumed.** None of them, yet — and deliberately. The POC keeps the metric
+registry in tool-neutral YAML (`semantic/metrics/*.yml`) and generates the
+tool-specific artefacts from it: warehouse SQL and the Power BI DAX/TMDL
+model. MetricFlow and Cube targets were prototyped the same way and then
+removed because nothing consumed them — see [architecture.md §5](architecture.md#5-one-definition-two-engines).
 
 **Why.** The tool choice has a long procurement tail and the POC should not
 wait on it. Making the registry the source of truth means the decision costs a
@@ -168,12 +175,12 @@ translation bug is unrepresentable rather than guarded against. A metric
 needing something outside that set is a compiler change — but the set is
 written down, which is the difference between a bounded claim and a vague one.
 
-*MetricFlow cannot express every metric.* `customer_unmatched_rate` has no
-aggregation time dimension on its base model, which MetricFlow requires, so it
-is absent from the generated semantic models. The generated file names it in
-its header and the compiler prints it on every run. That is a limitation of one
-target rather than of the registry — the same metric compiles correctly to DAX
-and to Cube — and it is exactly the argument for keeping the registry neutral.
+*MetricFlow cannot express every metric.* When the MetricFlow target existed,
+`customer_unmatched_rate` could not be expressed in it: its base model has no
+aggregation time dimension, which MetricFlow requires. The same metric
+compiles correctly to SQL and DAX. That is a limitation of one tool rather than
+of the registry, and it is exactly the argument for keeping the registry
+neutral — worth checking against whichever tool is chosen.
 
 ## 6. One Power BI semantic model or nine?
 
@@ -202,9 +209,9 @@ before the model is built, not after.
 HubSpot companies (65.8%); normalising punctuation and legal suffixes lifts it
 to 182 (70.0%). `hubspot.company.domain` is truncated to 18 characters and is
 not unique (198 distinct values across 260 rows), so it corroborates but cannot
-key. **Roughly 30% of HubSpot companies will not match anything in X3** and
-that number is a governance finding, published as a data quality metric, not
-something to bury.
+key. With all four probes in `int_customer_xref`, 229 companies (88.1%) find a
+candidate and **31 (11.9%) match nothing in X3**. That number is a governance
+finding, published as a data quality metric, not something to bury.
 
 **Assumed.** `int_customer_xref` emits one row per match candidate with
 `match_method` and `confidence`. `dim_customer` survives X3 for financial
@@ -241,9 +248,9 @@ carriers, PARCEL/LTL/TL modes, tracking events, accessorial charges.
 **Assumed.** It is a freight visibility platform, and `pangea.shipment` is the
 shipment fact.
 
-**Impact if wrong.** Two of the four buildable metrics (On-Time Delivery, Cost
-Per Shipment) sit entirely on this source, and a third (Cost Per Order) depends
-on it for the cost pool. If Pangea turns out to be something else — a WMS, a
+**Impact if wrong.** Two of the seven dashboard metrics (On-Time Delivery,
+Cost Per Shipment) sit entirely on this source, and a third (Cost Per Order)
+depends on it for the cost pool. If Pangea turns out to be something else — a WMS, a
 TMS with a different grain, a customs broker — the shipment grain probably
 survives but the cost semantics may not.
 
@@ -253,11 +260,11 @@ does not mention. Whatever Pangea is, it is being fed customer names from X3.
 
 ## 10. Currency policy
 
-**The finding.** Genuinely multi-currency: 3,512 USD / 688 CAD orders, 2,993
-USD / 571 CAD invoices. There is no FX rate table. The only rate signal in the
-estate is implied by `GACCENTRYD.AMTLOC_0 / AMTCUR_0`, which is **0.7400 for
-CAD on 1,690 of 1,713 lines**, the remainder within ±0.0002 of rounding. That
-is a single fixed rate applied at posting, not a rate series.
+**The finding.** Genuinely multi-currency: 3,512 USD / 688 CAD orders, 3,102
+USD / 589 CAD invoice documents. There is no FX rate table. The only rate
+signal in the estate is implied by `GACCENTRYD.AMTLOC_0 / AMTCUR_0`, which is
+**0.7400 for CAD on 1,737 of 1,767 lines**, the remainder within rounding.
+That is a single fixed rate applied at posting, not a rate series.
 
 **Assumed.** Report in USD. `int_fx_rate` derives the rate per document
 currency per month from the GL, so the model is shaped for a real rate series
@@ -283,13 +290,15 @@ legal entity, and the mock's `COMPANY` table carries no currency column to
 check it against:
 
 ```
-CPY_0    CUR_0   sum(AMTCUR_0)   sum(AMTLOC_0)   implied
-GLBCA    CAD      80,681,697      59,704,456      0.74
-GLBUS    USD     416,627,241     416,627,241      1.00
+CPY_0    CUR_0     sum(AMTCUR_0)     sum(AMTLOC_0)   implied
+GLBCA    CAD          79,695,975        58,975,021      0.74
+GLBCA    USD         350,232,832       350,232,832      1.00
+GLBUS    USD       1,183,580,006     1,183,580,006      1.00
 ```
 
 In a real X3 folder a Canadian entity posts `AMTLOC_0` in CAD, the ratio
-becomes 1.00, and **26.4M of CAD revenue reports as USD with a green build**.
+becomes 1.00, and **35.3M CAD of revenue reports as 35.3M USD instead of
+26.1M — with a green build**.
 
 Two things are already in place against that. `COMPANY.CUR_0` is on the
 extraction list in `ingestion/config.py` with a note explaining why, so the
@@ -299,8 +308,8 @@ non-reporting currency resolves to exactly 1.0, which is the symptom — it
 catches the failure even without the column. When the column arrives, restrict
 `int_fx_rate` to entities whose company currency is the reporting currency.
 
-A five-minute check against the production folder decides whether 26.4M
-converts or does not.
+A five-minute check against the production folder decides whether that
+revenue converts or does not.
 
 ---
 

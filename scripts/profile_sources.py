@@ -3,8 +3,8 @@
     python scripts/profile_sources.py            # all sections
     python scripts/profile_sources.py otd cost   # named sections
 
-Read-only against mock_sources.duckdb. No dbt required - this is the Phase 0
-audit and it deliberately runs before any model exists.
+Read-only against mock_sources.duckdb. No dbt required - this is the
+feasibility audit and it deliberately runs before any model exists.
 """
 import sys
 import duckdb

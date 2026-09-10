@@ -1,243 +1,112 @@
-# Mock source systems for the Globex data warehouse build
+# BGR Control Tower
 
-A single DuckDB file containing five mock source schemas, ~248,000 rows, covering
-Jul 2024 – Aug 2026. Built for design exploration: profiling, grain discovery,
-conformed-dimension planning, and finding out where the joins break.
+A proof of concept for a process-performance data model: nine Power BI
+dashboards, one per business process, driven by metrics that are **defined
+once** and mapped to dashboards through a seed.
+
+Five mock source systems (Sage X3, HubSpot, Paycom, Netstock, Pangea) flow
+through a dlt ingestion layer into a dbt star schema. Ten metrics compile from
+YAML into warehouse SQL, nine dashboard views, a generated Power BI model, and a
+registry an AI agent can read.
+
+## Run it
 
 ```bash
-pip install duckdb
-duckdb mock_sources.duckdb        # CLI
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+dbt deps
+export DBT_PROFILES_DIR="$PWD" BGR_CONTROL_TOWER_HOME="$PWD"
+
+python run_ingestion.py               # source systems -> landing/ -> raw.duckdb
+dbt build                             # raw -> staging -> core -> metrics -> dashboards
+python scripts/compile_metrics.py     # the metric registry ask_metric.py reads
+python scripts/export_powerbi.py      # Parquet + a Power BI model in exports/
+python scripts/q.py                   # query anything
 ```
-```python
-import duckdb
-con = duckdb.connect("mock_sources.duckdb", read_only=True)
-con.sql("SELECT * FROM sage_x3.SORDER LIMIT 5")
+
+Setup details, a full teardown-and-rebuild, and troubleshooting are in
+[docs/running_it.md](docs/running_it.md).
+
+## How it fits together
+
+```
+mock_sources.duckdb            five source systems, shipped with the repo
+      │  run_ingestion.py      ingestion/ - one dlt resource per source table
+      ▼
+landing/  ->  raw.duckdb       append-only Parquet archive, projected to raw
+      │  dbt build
+      ▼
+staging -> intermediate -> core          5 conformed dimensions, 6 facts
+      │
+      │   semantic/metrics/*.yml  --scripts/compile_metrics.py-->  mtr_* models,
+      │                                                            registry, catalogue
+      ▼
+marts/metrics (10)  ->  marts/process (9 dashboard views, via seeds/process_metric_map.csv)
+      │
+      ▼
+exports/                       Parquet + a TMDL Power BI model (scripts/export_powerbi.py)
 ```
 
-Everything is seeded (`SEED = 20260905`), so re-running the generator reproduces
-the same data exactly.
+## What's where
 
-**Looking for the pictures?** [`docs/atlas.md`](docs/atlas.md) is all 17 pipeline
-and data-model diagrams on one page, captioned. GitHub renders them inline.
-[`docs/README.md`](docs/README.md) indexes the rest of the documentation.
-
----
-
-## 1. Fidelity — read this before you trust anything
-
-| Schema | Fidelity | What it's based on |
-|---|---|---|
-| `sage_x3` | **High** | Real X3 naming conventions: `_0` suffixes, array columns (`_1`, `_2`), `UPDTICK_0` optimistic-lock counters, CHAR padding, SQL Server sentinel dates, integer local menus, no enforced FKs. Table and column *names* are close but not guaranteed complete — validate against the client's folder before writing production DDL. |
-| `hubspot` | **High** | Shaped like a Fivetran/Airbyte landing, which is how you'd actually get it. Properties arrive as strings, associations are a separate many-to-many, `archived` instead of hard deletes. |
-| `paycom` | **Low by nature** | Paycom has no queryable backend and a thin API. This is modeled as **flat report exports**, which is the real constraint. Dates are `MM/DD/YYYY` strings, amounts are strings. |
-| `netstock` | **Inferred** | Grain and column semantics are right (item × location, forecast periods, ABC/XYZ, ROP). Exact names are my construction. |
-| `pangea` | **Inferred, and the product is a guess** | The whiteboard was cut off at "Pange…". This is modeled as a generic freight/parcel visibility platform. Tell me what it actually is and I'll re-cut it. |
-
-Three things to note in `sage_x3`. `STOCOUNT` / `STOCOUNTD` are **constructed
-names** — X3 has a physical-inventory module and the counting mechanism modelled
-here is right, but the table names must be checked against the client's folder
-before anything is pointed at them. The same caveat applies less strongly to
-`SRETURN`/`SRETURND`, `PRECEIPT`/`PRECEIPTD` and `PINVOICE`/`PINVOICED`, which
-follow X3's documented sales and purchasing naming but are still unverified.
-The local-menu table is named `APLSTD` here, and
-you should verify that name against the install — the mechanism (integer enums
-resolved through a menu table plus `ATEXTRA` for translations) is right even if
-the table name isn't. And `ITMDES1_0` in `SORDERP` is denormalized at
-order time, so it drifts from `ITMMASTER` — that's real X3 behavior, not a bug here.
-
----
-
-## 2. Table inventory and grain
-
-**`sage_x3`** — ERP
-| Table | Grain |
+| Path | What |
 |---|---|
-| `COMPANY`, `FACILITY` | Legal entity / site. Two companies (US + CA), three sites. |
-| `BPARTNER` | One row per business partner; `BPCFLG_0`/`BPSFLG_0` flag customer vs supplier. |
-| `BPCUSTOMER`, `BPSUPPLIER` | Role-specific extension of `BPARTNER`. |
-| `BPADDRESS` | Partner × address code. Multiple ship-tos per customer. |
-| `ITMMASTER` | Item. |
-| `ITMFACILIT` | **Item × site** — replenishment policy, safety stock, lead time. |
-| `SORDER` | Sales order header. |
-| `SORDERQ` / `SORDERP` | Order **line**, split across two tables: quantities in Q, prices in P. Join on `SOHNUM_0 + SOPLIN_0`. |
-| `SINVOICEV` / `SINVOICED` | Invoice header / line. Line carries `SOHNUM_0` back to the order. `SIVTYP_0` is `SIN` (invoice) or `SCR` (credit memo, negative). |
-| `SRETURN` / `SRETURND` | Customer return header / line. Raises a credit memo. Dated on the return, not the order. |
-| `STOCK` | Item × site × lot × location, current on-hand. |
-| `STOJOU` | Stock movement (transaction-level). Every row resolves to the document that caused it via `VCRNUM_0`. |
-| `STOCOUNT` / `STOCOUNTD` | Count session / counted position. `QTYTHEO_0` is the system quantity **at count time**. Names constructed — verify. |
-| `PORDER` / `PORDERQ` | Purchase order header / line. `RCPQTY_0`/`RCPDAT_0` are a denormalised copy of the last receipt. |
-| `PRECEIPT` / `PRECEIPTD` | Goods receipt header / line — the receipt as a document, carrying the PO line reference. |
-| `PINVOICE` / `PINVOICED` | Supplier (AP) invoice header / line, with PO and receipt references. Either may be null, meaningfully. |
-| `GACCENTRY` / `GACCENTRYD` | GL journal header / line. Sales (`SAL`) and purchasing (`PUR`) journals. |
-| `REPRESENT` | Sales rep. |
-| `APLSTD`, `ATEXTRA` | Local-menu labels and translations. |
+| `ingestion/` | The extraction spec (`config.py`), dlt resources, the landing-to-raw projection and the schema contract. `simulators/` stands in for the real source clients. |
+| `models/` | dbt: `staging/` (generated), `intermediate/`, `marts/core/`, `marts/metrics/` (generated), `marts/process/` (generated). |
+| `semantic/` | One YAML per metric, plus the fact-to-dimension bindings and the conformed dimensions. |
+| `seeds/` | The process list, the process-to-metric map, the site crosswalk, legal suffixes, and the compiled metric registry. |
+| `snapshots/`, `tests/`, `macros/` | Type 2 history, singular tests, name-matching macros. |
+| `scripts/` | Generators, the query tool and checks - see below. |
+| `generate_mock_sources.py`, `mock_sources.duckdb`, `schema.sql` | The mock source data, its generator, and portable DDL for it. |
 
-**`hubspot`** — `company`, `contact`, `deal`, `deal_stage_history`, `association`,
-`engagement`, `owner`, `pipeline_stage`.
+| Script | What it does |
+|---|---|
+| `run_ingestion.py` | Source systems → landing → raw. `--explain` prints the extraction spec, `--state` the watermarks. |
+| `scripts/q.py` | Query the sources, raw and the warehouse from one prompt. |
+| `scripts/compile_metrics.py` | Compiles `semantic/metrics/` into the `mtr_*` models, the registry seed and JSON, and the catalogue. |
+| `scripts/generate_process_views.py` | Generates the nine dashboard views from the seed map. |
+| `scripts/generate_staging.py` | Generates the staging models from a column spec. |
+| `scripts/freeze_schema_contract.py` | Pins the expected source schema. |
+| `scripts/regenerate.py` | Runs every generator in order. `--check` fails if any generated file was stale. |
+| `scripts/test_metric_parity.py` | Reconciles every metric model against its base fact, and writes the Power BI parity queries. |
+| `scripts/export_powerbi.py` | Writes the Parquet export and the generated Power BI (TMDL) model. |
+| `scripts/ask_metric.py` | Answers a metric question from the registry alone - the AI use case. |
+| `scripts/verify_ingestion.py` | Builds via the pipeline and directly from source, and diffs the two. |
+| `scripts/profile_sources.py` | Reproduces the numbers in the feasibility audit. |
 
-**`paycom`** — `employee`, `check`, `earning_detail`, `deduction_detail`,
-`tax_detail`, `gl_mapping`. Check grain is one row per employee per pay period
-(biweekly); detail tables are one row per check per code.
+## Documentation
 
-**`netstock`** — `item_location`, `forecast` (item × location × month),
-`forecast_accuracy`, `replenishment_recommendation`, `supplier`.
+Roughly in reading order:
 
-**`pangea`** — `shipment`, `shipment_leg`, `tracking_event` (event-level),
-`charge`, `carrier`.
+| Document | Read it for |
+|---|---|
+| [architecture.md](docs/architecture.md) | The design: one conformed core, how a metric is added, entity resolution, what is generated. |
+| [metric_feasibility.md](docs/metric_feasibility.md) | Whether each metric can be computed, and the business decision each one hides. |
+| [open_questions.md](docs/open_questions.md) | What the data could not answer, what was assumed, and the cost to reverse each assumption. |
+| [running_it.md](docs/running_it.md) | Hands on: run, step through, query, change. |
+| [sources.md](docs/sources.md) | The five mock source systems: fidelity, grain, the cross-system join map, the deliberate data-quality landmines. |
+| [ingestion.md](docs/ingestion.md) | Source systems to raw: extraction strategies, per-system difficulty, pitfalls. |
+| [data_model.md](docs/data_model.md) | Diagrams: source ERDs, the star schema, the pipeline DAGs. |
+| [powerbi_model.md](docs/powerbi_model.md) | The Power BI model, the I2D dashboard, and how to open it. |
+| [metric_catalog.md](docs/metric_catalog.md) | Generated. Every metric's definition, grain, owner and lineage. |
 
----
+## Where it stands
 
-## 3. Cross-system join map
+All ten metrics compute. Five are provisional because each waits on a business
+decision recorded in [open_questions.md](docs/open_questions.md).
 
-This is the part that matters for your design. Solid lines are reliable keys;
-dashed lines are the ones that will eat your sprint.
+| Metric | Dashboard | Value | Status |
+|---|---|---|---|
+| On-Time Delivery | I2D | 75.6% | active |
+| Cost Per Shipment | I2D | $1,564.18 | active |
+| Inventory Accuracy | I2D | 93.4% | provisional |
+| DSO (days-to-pay proxy) | O2C | 48.0 days | provisional |
+| Return Rate | O2C | 1.27% | provisional |
+| Cost Per Order | O2C | $1,560.78 | provisional |
+| Match Rate | S2P | 70.7% | provisional |
+| Unmatched CRM Customers | — | 11.9% | active, data quality |
+| Shipment Order Reference Coverage | — | 85.4% | active, data quality |
+| Unsettled Invoice Rate | — | 13.8% | active, companion to DSO |
 
-```
-                        sage_x3.ITMMASTER
-                          ITMREF_0  ────────────  netstock.item_location.item_code
-                             │                     (clean, but 35 orphans)
-                             │
-        sage_x3.SORDERQ.ITMREF_0 (CHAR-padded — needs trim)
-                             │
-                             │
-  hubspot.deal ─ ─ ─ ─►  sage_x3.SORDER  ─ ─ ─ ─►  pangea.shipment
-   erp_order_number         SOHNUM_0              reference_number
-   (40% clean match)                              (85% clean match)
-        │                       │
-        │                       │ BPCORD_0 (CHAR-padded)
-        │                       ▼
-        │                sage_x3.BPCUSTOMER
-        └ ─ ─ ─ ─ ─ ─ ─ ─►  (NO KEY — name only,
-   hubspot.company.name       and names have drifted)
-
-  sage_x3.REPRESENT.REPNAM_0  ─ ─ ─ ─►  paycom.employee (first+last name only)
-  sage_x3.FACILITY.FCY_0      ─ ─ ─ ─►  paycom.employee.location_code
-                                          (US001 → DAL-01, etc. — needs a map)
-  paycom.gl_mapping.gl_account ────────►  sage_x3.GACCENTRYD.ACC_0
-  netstock.item_location.location_code ─►  sage_x3.FACILITY.FCY_0  (clean)
-```
-
-**The four decisions this data is meant to force:**
-1. What is your conformed customer? There is no shared key between HubSpot and X3.
-   You need a matching strategy (name + domain + fuzzy) and a survivorship rule.
-2. What is your conformed employee/rep? Paycom and X3 share only names.
-3. Is `pangea.shipment` a fact or a dimension-ish event stream? `tracking_event`
-   is a much better fit for a shipment-milestone fact than the header is.
-4. Do you land Netstock forecasts as a snapshot fact (they're regenerated
-   wholesale each sync, `last_sync_at = 2026-09-02`) or as an SCD?
-
----
-
-## 4. Deliberate landmines
-
-Each of these is real behavior from the corresponding system. Verified present:
-
-1. **CHAR padding in X3.** `SORDERQ.ITMREF_0`, `SORDERP.ITMREF_0`,
-   `STOJOU.ITMREF_0` and `SORDER.BPCORD_0` are space-padded; the master tables
-   are not. A naive equi-join returns **zero rows**.
-   ```sql
-   SELECT count(*) FROM sage_x3."SORDERQ" q JOIN sage_x3."ITMMASTER" m
-     ON q."ITMREF_0" = m."ITMREF_0";              -- 0
-   SELECT count(*) FROM sage_x3."SORDERQ" q JOIN sage_x3."ITMMASTER" m
-     ON trim(q."ITMREF_0") = m."ITMREF_0";        -- 11,575
-   ```
-2. **Sentinel dates.** `1753-01-01` means "no date", not 1753. Present in
-   `SORDER.SHIDAT_0` (402), `SINVOICEV.PAYDAT_0` (492), `PORDERQ.RCPDAT_0` (576).
-   Any `datediff` that doesn't filter these will produce a ~99,000-day average.
-3. **Split line tables.** Quantity and price live in different tables and both
-   carry `ITMREF_0`. They agree here — but check that assumption in production.
-4. **Array columns.** `BPCUSTOMER.REP_0` / `REP_1` (~18% have a second rep),
-   `ITMMASTER.TSICOD_0..2`. These need unpivoting, and `REP_1` will silently
-   double-count commission if you don't decide on ownership.
-5. **Local menus.** `ORDSTA_0`, `ITMSTA_0`, `TRSTYP_0`, `REOMODE_0` are integers.
-   Labels are in `APLSTD`; French translations in `ATEXTRA`.
-6. **HubSpot strings.** `deal.amount` and `hs_deal_stage_probability` are
-   varchar. Cast, and handle the nulls.
-7. **HubSpot archived records.** ~4% of companies, 3% of contacts, 2% of deals.
-   Connectors land these; they are not deletes.
-8. **Duplicate contacts.** 40 near-duplicate contact records with mangled emails.
-9. **The ERP handoff.** Of 238 closed-won deals, only 145 have
-   `erp_order_number` populated, and only **96 join cleanly** — the rest are
-   lowercased, prefix-stripped, or contain two order numbers in one field.
-10. **Paycom exports.** All dates `MM/DD/YYYY` strings, all amounts strings,
-    `employee_code` is text. `location_code` (`DAL-01`) does not match
-    `FACILITY.FCY_0` (`US001`).
-11. **Netstock lag and orphans.** `last_sync_at = 2026-09-02`, so it's stale
-    relative to X3. 35 item-locations reference items with no `ITMMASTER` row.
-12. **Pangea event ordering.** ~4% of `tracking_event` rows have timestamps
-    out of sequence relative to `event_seq` — carrier-supplied data. Don't
-    assume `min(event_ts)` is the pickup.
-13. **Pangea charges ≠ cost.** `shipment.total_cost_usd` does not always equal
-    `sum(charge.amount_usd)` — accessorials post late.
-14. **CDC hooks.** X3 tables carry `UPDTICK_0`. HubSpot has
-    `hs_lastmodifieddate`. Paycom exports have neither — full refresh only.
-    That asymmetry should drive your ingestion pattern.
-15. **Unresolvable return references.** ~8% of `SRETURND.SOHNUM_0` values are
-    blank or lowercased — keyed from a packing slip rather than copied from the
-    order. They cannot be attributed to an order line and must not be dropped:
-    doing so shrinks a return rate's numerator while leaving its denominator
-    intact, which makes the metric quietly optimistic.
-16. **Uncredited returns.** 14% of returns carry no credit memo at extract
-    time. Any recent month's return rate rises as credits post, so the last two
-    or three months of the series are not comparable with the rest.
-17. **`PORDERQ.RCPDAT_0` is a denormalised copy of the LAST receipt.** Where a
-    PO line was received in two deliveries, `PRECEIPTD` has two rows and the PO
-    line has one date. A three-way match built on the PO line silently treats
-    every partial delivery as a variance — worth 11 points of match rate here.
-18. **Count sessions are not recoverable.** `STOCOUNTD.QTYTHEO_0` is the system
-    quantity *at the moment of the count*. It cannot be reconstructed later
-    from `STOCK`. If the count tables are missed in the extract, inventory
-    accuracy cannot be built retrospectively at any price.
-
----
-
-## 5. Starter queries
-
-```sql
--- Revenue by site and quarter
-SELECT v."SALFCY_0", date_trunc('quarter', v."INVDAT_0") AS qtr,
-       sum(v."AMTNOTLIN_0") AS net_rev
-FROM sage_x3."SINVOICEV" v GROUP BY 1,2 ORDER BY 1,2;
-
--- Forecast accuracy by ABC class (Netstock -> ERP item)
-SELECT il.abc_class, count(*) AS periods,
-       round(median(fa.abs_pct_error),1) AS median_mape
-FROM netstock.forecast_accuracy fa
-JOIN netstock.item_location il
-  ON fa.item_code = il.item_code AND fa.location_code = il.location_code
-WHERE fa.abs_pct_error IS NOT NULL
-GROUP BY 1 ORDER BY 1;
-
--- Order-to-ship lead time, guarding the sentinel
-SELECT o."SALFCY_0",
-       round(avg(date_diff('day', o."ORDDAT_0", o."SHIDAT_0")),1) AS avg_days
-FROM sage_x3."SORDER" o
-WHERE o."SHIDAT_0" > DATE '1900-01-01'
-GROUP BY 1;
-
--- How bad is the CRM-to-ERP customer match, really?
-SELECT count(*) AS hs_companies,
-       count(*) FILTER (WHERE c."BPCNUM_0" IS NOT NULL) AS exact_name_match
-FROM hubspot.company h
-LEFT JOIN sage_x3."BPCUSTOMER" c ON upper(h.name) = upper(c."BPCNAM_0");
-```
-
----
-
-## 6. Regenerating and rescaling
-
-**Running the whole thing end to end, including a full teardown to an empty
-baseline, is in [`docs/running_it.md`](docs/running_it.md)** — see "Reset to an
-empty baseline and rebuild". Everything in this project is derived and rebuilds
-in about fifteen seconds, so tearing it down is the cheap first move when
-something looks wrong.
-
-`generate_mock_sources.py` is self-contained. The `SCALE` block near the top
-controls volumes (`N_ORDERS`, `N_ITEMS`, `N_CUSTOMERS`, date range). Bump
-`N_ORDERS` to 400,000 if you want to test whether DuckDB alone gets the client
-through the Snowflake decision.
-
-`schema.sql` is portable DDL generated from the loaded database — drop it into
-Postgres or SQL Server when you move from exploration to extraction design.
-Note that DuckDB will not reproduce source-system *behavior* (concurrency,
-referential integrity, CDC), so plan on a real RDBMS for that phase.
+Six of the nine dashboards have no defined metrics yet. Their views exist,
+typed and empty, so the architecture is exercised against the empty case.

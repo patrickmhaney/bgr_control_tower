@@ -1,8 +1,48 @@
-# Power BI: the I2D slice
+# Power BI: the model and the I2D dashboard
 
-Phase 6 builds one dashboard end to end — I2D, the only process whose metrics
-are both computable — and documents the semantic model structure and the
-measure-generation approach behind it.
+One dashboard designed end to end — I2D — plus the semantic model structure
+behind all nine, and how to open the generated model yourself.
+
+---
+
+## Opening the generated model
+
+```bash
+dbt build                              # warehouse
+python scripts/export_powerbi.py       # exports/parquet/ + exports/powerbi/model/
+```
+
+Then in Power BI Desktop:
+
+1. Open the generated model at `exports/powerbi/model/definition/` — as the
+   definition folder of a Power BI Project (`.pbip`), or through Tabular Editor.
+2. Set the `ExportFolder` parameter to the absolute path of
+   `exports/parquet/`, with a trailing separator. Power BI prompts for it.
+3. Refresh.
+
+**Status.** The model is generated from the live warehouse schema and the
+metric registry, and is structurally consistent, but it has **not yet been
+opened in Power BI Desktop** — that was not possible in the environment it was
+built in. Treat it as a validated starting point. The guarantee it carries is
+narrower and more useful than "it opens": no measure in it was typed by hand,
+and no column or relationship was transcribed. If it does not open cleanly,
+the fix belongs in `scripts/export_powerbi.py`, not in the model.
+
+### Release gate: run the parity queries
+
+`python scripts/test_metric_parity.py --write-dax-gate` writes one DAX query
+per metric to `exports/powerbi/parity/`, with the warehouse's answer beside
+it. Paste each into Power BI Desktop's DAX Query View and compare.
+
+This is the only check that proves the two *engines* agree rather than that the
+two *definitions* agree — the compiler can consume every field correctly and
+still differ on semantics: DAX `DISTINCTCOUNT` counts BLANK where SQL
+`count(distinct)` ignores nulls, which is a one-row difference on any metric
+with an unresolved key.
+
+About thirty minutes per release. A mismatch is a compiler bug, not a data
+problem — both engines read the same warehouse — so report the metric and both
+numbers.
 
 ---
 
@@ -15,7 +55,7 @@ raised as a recommendation rather than assumed.
 
 The nine processes overlap heavily on the same facts and the same dimensions.
 Cost Per Order and Cost Per Shipment both consume Pangea charges. DSO and
-anything in R2P both consume invoices. All nine need customer, item, site and
+Return Rate both consume invoices. All nine need customer, item, site and
 date.
 
 Nine independent models would mean:
@@ -28,18 +68,17 @@ Nine independent models would mean:
 
 One shared model means "the same metric shows the same number on two
 dashboards" is structurally guaranteed rather than maintained by discipline.
-`scripts/test_metric_reuse.py` asserts that property at the warehouse level;
-one semantic model is what preserves it in Power BI.
+The warehouse guarantees it with one definition per metric; one semantic model
+is what preserves it in Power BI.
 
 ### Performance
 
 A star schema in import mode outperforms wide flat tables in VertiPaq. Wide
 tables repeat every dimension attribute on every fact row, which destroys the
-dictionary compression VertiPaq depends on. The flat-table instinct is a
-holdover from tools that could not handle relationships — Power BI can.
+dictionary compression VertiPaq depends on.
 
-Model size here is trivial: the largest fact is 24,504 rows and the whole
-Parquet export is under 1 MB. Nothing about this decision is performance-driven
+Model size here is trivial: the largest fact is 24,504 rows and the Parquet
+export is around a megabyte. Nothing about this decision is performance-driven
 at POC scale; it is about correctness and maintenance cost, and it will still
 be right at 400,000 orders.
 
@@ -50,10 +89,10 @@ scroll past twenty O2C fields. Two mechanisms:
 
 - **Perspectives** — a named subset of tables, columns and measures per
   process. Requires Tabular Editor or a Premium/Fabric workspace to author.
-- **Display folders** — measures are already emitted into
-  `Metrics` and `Metrics\Provisional` folders by the generator, and the folder
-  path comes from the metric's status. Adding a per-process folder is a
-  one-line change to `measure_lines()` in `scripts/export_powerbi.py`.
+- **Display folders** — measures are already emitted into `Metrics` and
+  `Metrics\Provisional` folders by the generator, and the folder comes from
+  the metric's status. Adding a per-process folder is a one-line change to
+  `measure_lines()` in `scripts/export_powerbi.py`.
 
 ### What the client has to decide
 
@@ -74,45 +113,57 @@ Exported to `exports/parquet/` and referenced by the generated TMDL.
 | Table | Role | Rows |
 |---|---|---|
 | `dim_date` | Conformed calendar, 2024-2027 | 1,461 |
-| `dim_customer` | Conformed across X3 and HubSpot | 251 |
-| `dim_site` | Conformed across X3, Paycom, Netstock | 3 |
-| `dim_item` | X3 master with Netstock planning attributes | 420 |
-| `dim_carrier` | Pangea carriers | 7 |
+| `dim_customer` | Conformed across X3 and HubSpot | 252 |
+| `dim_site` | Conformed across X3, Paycom, Netstock | 4 |
+| `dim_item` | X3 master with Netstock planning attributes | 421 |
+| `dim_carrier` | Pangea carriers | 8 |
 | `fct_shipment` | Shipment header | 3,509 |
 | `fct_shipment_event` | Tracking events | 24,504 |
-| `fct_sales_order_line` | Order lines | 11,575 |
-| `fct_invoice_line` | Invoice lines | 9,767 |
+| `fct_sales_order_line` | Order lines, with invoiced and returned value | 11,575 |
+| `fct_invoice_line` | Invoice and credit-memo lines | 9,923 |
+| `fct_supplier_invoice_line` | Supplier invoice lines with their three-way match result | 2,498 |
+| `fct_inventory_count_line` | Counted stock positions | 2,843 |
 | `metric_registry` | Metric metadata: status, owner, caveats | 10 |
 | `process_metric_map` | Which metric appears on which dashboard | 7 |
 | `process` | The nine processes | 9 |
 
-The last three are unusual on a Power BI model and they are there deliberately.
-They let a report show *why* a tile is empty — "Inventory Accuracy is blocked:
-no cycle count data exists" — instead of showing a blank card that reads as
-zero. They also let a dashboard display each metric's owner and status without
-a second source of truth.
+Dimension row counts include an UNKNOWN member. The last three tables are
+unusual on a Power BI model and they are there deliberately. They let a report
+show *why* a tile is empty or provisional instead of showing a blank card that
+reads as zero, and let a dashboard display each metric's owner and status
+without a second source of truth.
 
 ### Relationships
 
-Sixteen, all single-direction, all many-to-one from fact to dimension.
+Twenty-two, all single-direction, all many-to-one from fact to dimension.
 
 ```
-                          dim_date
-                        (date_key)
-                             ▲
-          ┌──────────────────┼──────────────────┐
-          │                  │                  │
-   fct_shipment      fct_sales_order_line   fct_invoice_line
-   ship_date_key     order_date_key         invoice_date_key
-          │                  │                  │
-          ├──► dim_customer (customer_key) ◄────┤
-          ├──► dim_site     (site_code)    ◄────┤
-          ├──► dim_carrier  (carrier_scac)      │
-          │                  └──► dim_item ◄────┘
-          │                       (item_code)
-          ▼
-   fct_shipment_event
+                                dim_date
+                              (date_key)
+                                   ▲
+      ┌──────────────┬─────────────┼─────────────┬──────────────┬─────────────┐
+      │              │             │             │              │             │
+ fct_shipment  fct_shipment   fct_sales     fct_invoice   fct_supplier   fct_inventory
+               _event         _order_line   _line         _invoice_line  _count_line
+      │              │             │             │              │             │
+      ├── dim_customer ◄───────────┴─────────────┤              │             │
+      ├── dim_site ◄──── every fact ─────────────┴──────────────┴─────────────┤
+      ├── dim_carrier (shipment facts)                                        │
+      └── dim_item ◄──── order, invoice, supplier-invoice and count lines ────┘
 ```
+
+| Fact | date | customer | site | carrier | item |
+|---|---|---|---|---|---|
+| `fct_shipment` | `ship_date_key` | ✓ | ✓ | ✓ | |
+| `fct_shipment_event` | `event_date_key` | ✓ | ✓ | ✓ | |
+| `fct_sales_order_line` | `order_date_key` | ✓ | ✓ | | ✓ |
+| `fct_invoice_line` | `invoice_date_key` | ✓ | ✓ | | ✓ |
+| `fct_supplier_invoice_line` | `invoice_date_key` | | ✓ | | ✓ |
+| `fct_inventory_count_line` | `count_date_key` | | ✓ | | ✓ |
+
+Purchasing and counting have no customer or carrier, so those facts join three
+of the five conformed dimensions. That is what a conformed bus matrix looks
+like when it is honest.
 
 Single-direction cross-filtering throughout. Bidirectional filtering on a star
 this shape creates ambiguous filter paths as soon as a second fact is added,
@@ -121,26 +172,18 @@ diagnose. Every one of these relationships is already asserted by a dbt
 `relationships` test, so the model is not relying on Power BI to discover a
 join that does not hold.
 
-**What the sixteen do not cover: secondary dates.** They are the *primary* date
-on each fact plus the non-date dimensions. Three role-playing date keys exist
-on the facts and are unrelated in the model:
-
-| Key | Populated | The question it would answer |
-|---|---|---|
-| `delivered_date_key` | 3,381 | on-time delivery by *delivery* month rather than ship month |
-| `payment_date_key` | 8,432 | the DSO proxy by *settlement* month |
-| `requested_delivery_date_key` | 11,575 | order lines by the date the customer asked for |
-
-Those are the two or three most obvious follow-ups a user will have on these
-dashboards, and none is answerable in the exported model. Out of POC scope
-deliberately — each needs an inactive relationship plus a `USERELATIONSHIP`
-variant measure, which is a decision about how many measures a report author
-should see rather than a technical obstacle.
+**What the relationships do not cover: secondary dates.** Each fact is related
+on its primary date only. Role-playing keys such as `delivered_date_key`
+(on-time by *delivery* month), `payment_date_key` (DSO by *settlement* month)
+and `requested_delivery_date_key` exist on the facts and are unrelated in the
+model. Each needs an inactive relationship plus a `USERELATIONSHIP` variant
+measure — a decision about how many measures a report author should see
+rather than a technical obstacle.
 
 **Every dimension carries an UNKNOWN member** and every fact coalesces its
 foreign keys to it, so an unresolved key lands on a labelled row rather than a
 blank one. In Power BI a blank dimension row reads to a user as a real member;
-"Unresolved" does not. Nothing is unresolved today.
+"Unresolved" does not.
 
 `discourageImplicitMeasures` is set. Every number on a report should come from
 a defined measure, not from a column someone dragged onto a visual and Power BI
@@ -150,8 +193,7 @@ decided to sum.
 
 ## Measures: generated, never written
 
-All seven active and provisional metrics become DAX measures. Zero are
-hand-written. The chain:
+All ten metrics become DAX measures. Zero are hand-written. The chain:
 
 ```
 semantic/metrics/on_time_delivery_rate.yml
@@ -159,20 +201,19 @@ semantic/metrics/on_time_delivery_rate.yml
         │  scripts/compile_metrics.py
         ├────────────────────────────► models/marts/metrics/mtr_*.sql   (warehouse)
         │
-        │  scripts/export_powerbi.py, importing the same generator
+        │  scripts/export_powerbi.py, importing the same compiler
         └────────────────────────────► exports/powerbi/model/definition/ (Power BI)
 ```
 
 Because both sides derive from the same file, a change to a metric cannot land
-in one and not the other. That is the property that makes "one definition per
-metric" true in practice rather than aspirationally.
+in one and not the other.
 
 Each generated measure carries annotations back to its definition:
 
 ```
 measure 'On-Time Delivery' = DIVIDE(
-    CALCULATE(COUNTA(fct_shipment[shipment_id]), fct_shipment[is_on_time] = TRUE()),
-    CALCULATE(COUNTA(fct_shipment[shipment_id]), NOT ISBLANK(fct_shipment[is_on_time])))
+    CALCULATE(COUNTA(fct_shipment[shipment_id]), fct_shipment[is_on_time_vs_carrier_promise] = TRUE()),
+    CALCULATE(COUNTA(fct_shipment[shipment_id]), NOT ISBLANK(fct_shipment[is_on_time_vs_carrier_promise])))
     formatString: "0.0%"
     displayFolder: Metrics
     /// The share of delivered shipments that arrived on or before the promised...
@@ -185,8 +226,6 @@ measure 'On-Time Delivery' = DIVIDE(
 
 An analyst who wonders where a number comes from can read the definition file
 path out of the model.
-
-### The one measure that needed special handling
 
 Cost Per Order has a distinct-count denominator. Its DAX uses
 `DISTINCTCOUNT(fct_shipment[sales_order_number])` against the fact rather than
@@ -201,7 +240,7 @@ Three of I2D's four slots are filled; the fourth is undefined and out of scope.
 
 | Slot | Metric | Status | Value |
 |---|---|---|---|
-| M1 | Inventory Accuracy | **blocked** | — no cycle count data exists |
+| M1 | Inventory Accuracy | provisional | **93.4%** — tolerance not yet set (Q15) |
 | M2 | On-Time Delivery | active | **75.6%** |
 | M3 | Cost Per Shipment | active | **$1,564.18** |
 | M4 | — | undefined | out of scope for the POC |
@@ -213,14 +252,14 @@ Three of I2D's four slots are filled; the fourth is undefined and out of scope.
 │  I2D                              [Date] [Site] [Carrier] [Mode] │
 ├────────────────┬────────────────┬────────────────────────────────┤
 │ On-Time        │ Cost Per       │ Inventory Accuracy             │
-│ Delivery       │ Shipment       │                                │
-│                │                │ ┌────────────────────────────┐ │
-│    75.6%       │   $1,564.18    │ │ BLOCKED                    │ │
-│    ▲ 4.9 pts   │   ▲ $110.86    │ │ No cycle count data exists │ │
-│    better      │   worse        │ │ in any source system.      │ │
-│    vs prior Q  │   vs prior Q   │ │ Owner: TBD                 │ │
-│  3,381 of      │  3,509         │ └────────────────────────────┘ │
-│  3,509 deliv.  │  shipments     │                                │
+│ Delivery       │ Shipment       │                  PROVISIONAL   │
+│                │                │                                │
+│    75.6%       │   $1,564.18    │    93.4%                       │
+│    ▲ 4.9 pts   │   ▲ $110.86    │    2,656 of 2,843 positions    │
+│    better      │   worse        │    Exact-match tolerance       │
+│    vs prior Q  │   vs prior Q   │    assumed - Operations to     │
+│  3,381 of      │  3,509         │    confirm (Q15)               │
+│  3,509 deliv.  │  shipments     │    Owner: TBD                  │
 ├────────────────┴────────────────┴────────────────────────────────┤
 │  On-Time Delivery by quarter        Cost per shipment by quarter │
 │  ▁▃▁▁▂▁▅▁▄  73.1% → 81.3%          ▅▃▂▂▄▃▅▂▅  $1,509 → $1,631   │
@@ -243,10 +282,12 @@ Three of I2D's four slots are filled; the fourth is undefined and out of scope.
 
 Three things about that layout are deliberate:
 
-**The blocked tile is a tile.** Inventory Accuracy occupies its slot and states
-why it is empty, sourced from `metric_registry[blocked_reason]`. A missing tile
-gets forgotten; a tile that says "no cycle count data exists in any source
-system" gets escalated.
+**Provisional tiles say so.** Inventory Accuracy is a real number, but it
+measures an assumed policy — exact match, by position — as much as it measures
+the warehouse. The tile carries the status and the pending decision, sourced
+from `metric_registry`, so nobody benchmarks it before Operations confirms the
+tolerance. A blocked metric renders the same way, with its `blocked_reason` in
+place of a number.
 
 **Coverage warnings are on the dashboard, not in an appendix.** 14.6% of
 shipments cannot be tied to an order, which bounds what any order-level cut of
@@ -291,51 +332,6 @@ like. Do not read a story into the FY2026-Q1 spike.
 
 ---
 
-## Building it
-
-```bash
-dbt build                                    # warehouse
-python scripts/export_powerbi.py --process I2D
-```
-
-Then in Power BI Desktop:
-
-1. Open the generated model at
-   `exports/powerbi/model/definition/` (Power BI Project / `.pbip` format, or
-   import via Tabular Editor).
-2. Set the `ExportFolder` parameter to the absolute path of
-   `exports/parquet/`.
-3. Refresh.
-
-Or, to build the model by hand and take only the measures, paste
-`exports/powerbi/measures.dax`.
-
-### Release gate: run the parity queries once per release
-
-`exports/powerbi/parity/` holds one DAX query per metric with the warehouse's
-answer beside it, generated by `scripts/test_metric_parity.py --write-dax-gate`.
-Paste each into Power BI Desktop's DAX Query View and compare.
-
-This is the only check that proves the two *engines* agree rather than that the
-two *definitions* agree — the compiler can consume every field correctly and
-still differ on semantics, and it already has: DAX `DISTINCTCOUNT` counts BLANK
-where SQL `count(distinct)` ignores nulls, which is a one-row difference on any
-metric with an unresolved key.
-
-About thirty minutes per release. A mismatch is a compiler bug, not a data
-problem — both engines read the same warehouse — so report the metric and both
-numbers.
-
-### Status of the generated model
-
-Structurally generated from the live warehouse schema and schema-checked, but
-**not opened in Power BI Desktop** — that is not possible in this environment.
-Treat it as a validated starting point for the model author. The guarantee it
-carries is narrower and more useful than "it opens": no measure in it was typed
-by hand, and no column or relationship was transcribed.
-
----
-
 ## Production path
 
 Parquet is a POC decision, not a recommendation. For production:
@@ -343,14 +339,14 @@ Parquet is a POC decision, not a recommendation. For production:
 | Option | When it fits |
 |---|---|
 | Direct Lake over Fabric OneLake | If the client is on Fabric. The dbt models land as Delta tables and Power BI reads them without import. |
-| Import from the warehouse | Snowflake, Databricks, Synapse — whatever the Phase 8 platform decision lands on. Import mode stays right at this data volume. |
+| Import from the warehouse | Snowflake, Databricks, Synapse — whatever the platform decision lands on. Import mode stays right at this data volume. |
 | DirectQuery | Only if near-real-time is a stated requirement. It is not, and it would cost the VertiPaq compression this model benefits from. |
 
 The dbt project does not change under any of these. The `dbt-duckdb` adapter is
-swapped for another adapter and the models are portable — the SQL uses no
-DuckDB-specific syntax except `filter (where ...)` (ANSI, supported by Snowflake
-and Postgres) and `arg_min`/`arg_max`/`string_agg` in three intermediate models,
-which have direct equivalents everywhere.
+swapped for another adapter and the models are portable — the SQL uses little
+DuckDB-specific syntax beyond `filter (where ...)` (ANSI, supported by
+Snowflake and Postgres) and `arg_min`/`arg_max`/`string_agg`, which have direct
+equivalents everywhere.
 
 ---
 

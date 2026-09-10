@@ -132,8 +132,8 @@ models:
       Carries both on-time bases (75.6% carrier, 84.1% customer) and both cost
       bases (charge lines 5,488,709; header 6,030,476) so that the two open
       business decisions are metric-definition changes rather than model
-      changes. is_on_time and shipment_cost_usd resolve to whichever basis the
-      project vars select."
+      changes. The on-time basis is chosen by the column the metric definition
+      names; shipment_cost_usd resolves to var('shipment_cost_basis')."
     columns:
       - name: shipment_id
         tests: [unique, not_null]
@@ -163,10 +163,12 @@ models:
               arguments:
                 to: ref('dim_date')
                 field: date_key
-      - name: is_on_time
+      - name: is_on_time_vs_carrier_promise
         description: >
-          Resolves to var('otd_promise_basis'). Null on the 128 undelivered
-          shipments - deliberately not false, see open question 1.
+          Delivered on or before the carrier's promised date. Null on the 128
+          undelivered shipments - deliberately not false, see open question 1.
+          is_on_time_vs_customer_request is the other basis; the metric
+          definition picks one.
       - name: shipment_cost_usd
         description: Resolves to var('shipment_cost_basis'). Default is the charge lines.
         tests: [not_null]

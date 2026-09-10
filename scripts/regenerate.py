@@ -37,15 +37,12 @@ STEPS = [
     ("schema contract", ["scripts/freeze_schema_contract.py"]),
     ("metric artefacts", ["scripts/compile_metrics.py"]),
     ("process views", ["scripts/generate_process_views.py"]),
-    # Reads the Mermaid out of docs/, so it is stale whenever a diagram is edited.
-    ("diagram atlas", ["scripts/build_atlas.py", "docs/atlas.md"]),
 ]
 
 #: These need a built warehouse, so they are not part of the default chain -
 #: they run after `dbt build`. --with-exports includes them.
 POST_BUILD = [
-    ("build statistics", ["scripts/update_build_stats.py"]),
-    ("metric parity (L3)", ["scripts/test_metric_parity.py", "--write-dax-gate"]),
+    ("metric parity", ["scripts/test_metric_parity.py", "--write-dax-gate"]),
     ("Power BI export", ["scripts/export_powerbi.py"]),
 ]
 
@@ -61,9 +58,8 @@ def main() -> int:
     parser.add_argument("--check", action="store_true",
                         help="fail if regeneration changes any tracked file")
     parser.add_argument("--with-exports", action="store_true",
-                        help="also run the post-build chain: build statistics, the "
-                             "metric parity test and the Power BI export. Needs a "
-                             "built warehouse.")
+                        help="also run the post-build chain: the metric parity "
+                             "test and the Power BI export. Needs a built warehouse.")
     args = parser.parse_args()
 
     before = git("status", "--porcelain")
@@ -78,16 +74,6 @@ def main() -> int:
             print(f"FAILED: {label}", file=sys.stderr)
             return 1
         print(f"  ok  {label}")
-
-    # Build statistics live in the docs and are generated like everything else,
-    # so a stale count is a build failure rather than something nobody notices.
-    if args.check and os.path.exists(os.path.join(ROOT, "target", "run_results.json")):
-        stats = subprocess.run(
-            [PYTHON, "scripts/update_build_stats.py", "--check"],
-            cwd=ROOT, capture_output=True, text=True)
-        print(stats.stdout.strip() or stats.stderr.strip())
-        if stats.returncode != 0:
-            return 1
 
     after = git("status", "--porcelain")
 

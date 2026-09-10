@@ -1,22 +1,22 @@
 #!/usr/bin/env python
-"""Prove the renderers agree, at the levels that can actually be executed.
+"""Prove the SQL and DAX renderings of each metric agree, as far as can be
+executed without Power BI.
 
     python scripts/test_metric_parity.py
     python scripts/test_metric_parity.py --write-dax-gate   # also emit L4 queries
 
-C10 - the warehouse and the dashboard disagreeing about Cost Per Order by
-17.3% - was found by reading, not by a test. D6 now stops a field being
-silently dropped, but it cannot catch a renderer that consumes a field and
-interprets it *differently*: DAX's DISTINCTCOUNT counts BLANK where SQL's
-count(distinct) ignores nulls, for instance. Only execution catches that.
+The warehouse and the dashboard once disagreed about Cost Per Order by 17.3%,
+found by reading rather than by a test. compile_metrics.validate() now stops a
+field being silently dropped, but it cannot catch a renderer that consumes a
+field and interprets it *differently*: DAX's DISTINCTCOUNT counts BLANK where
+SQL's count(distinct) ignores nulls, for instance. Only execution catches that.
 
-Five rungs. Three are reachable without a Power BI runtime:
+Four rungs. Three are reachable without a Power BI runtime:
 
-  L1  field-consumption assert       silently dropped fields    -> D6, in validate()
-  L2  structured filters             translation bugs           -> D7, by construction
+  L1  field-consumption assert       silently dropped fields    -> compile_metrics.validate()
+  L2  structured filters             translation bugs           -> by construction
   L3  mtr_* model vs the base fact   re-aggregation, agg errors -> this script
   L4  execute the DAX and diff       everything else            -> needs Power BI
-  L5  one engine (Cube / dbt SL)     drift impossible           -> open question 5
 
 L3 recomputes every active metric two ways - the way a consumer reads the
 pre-aggregated model, and directly from the base fact with the declared

@@ -43,7 +43,6 @@ LAYERS = {
     "main_process": "process      the nine dashboard views",
     "main_seed": "seed         process map, crosswalk, metric registry",
     "snapshot": "snapshot     Type 2 history, accumulating. Nothing reads it yet",
-    "main_semantic": "semantic     MetricFlow time spine",
 }
 
 EXAMPLES = """

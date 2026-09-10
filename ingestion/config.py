@@ -87,9 +87,9 @@ class SourceSpec:
 # ---------------------------------------------------------------------------
 # Sage X3 - read from the ERP database
 # ---------------------------------------------------------------------------
-# Measured against the extract: 19 of 22 tables carry NO modification date, and
+# Measured against the extract: 27 of 30 tables carry NO modification date, and
 # the three that do carry a DATE, not a timestamp - so even the good case is
-# day-grain. UPDTICK_0 is present on 14 tables and is NOT a watermark: it is a
+# day-grain. UPDTICK_0 is present on 19 tables and is NOT a watermark: it is a
 # per-row optimistic-lock counter, not a table-wide monotonic sequence, so
 # `WHERE UPDTICK_0 > :last` is meaningless. Use it to detect whether a specific
 # row changed during reconciliation, never to drive an extract.
@@ -108,7 +108,7 @@ SAGE_X3 = SourceSpec(
         "answer and is an infrastructure request, not a data-engineering one."
     ),
     pitfalls=(
-        "A real X3 folder holds 2,000-4,000 tables. The 22 below are the ones "
+        "A real X3 folder holds 2,000-4,000 tables. The 30 above are the ones "
         "that matter for the current metric set - that selection is the single "
         "biggest piece of discovery work this POC already did.",
         "X3 installs have multiple folders (SEED plus a production folder). "

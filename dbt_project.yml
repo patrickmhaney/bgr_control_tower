@@ -27,6 +27,9 @@ vars:
   # --- decision is a config change, not a remodel.
 
   # Q1 On-Time Delivery promise basis: carrier | customer
+  #     DECLARATIVE, like return_rate_basis. fct_shipment carries both
+  #     is_on_time_vs_carrier_promise and is_on_time_vs_customer_request, and
+  #     the metric YAML names the one it uses. This var only labels the fact.
   otd_promise_basis: carrier
 
   # Q10 Reporting currency and the FX policy used to get there.
@@ -92,8 +95,6 @@ models:
         +schema: process
         +materialized: view
         +tags: ["process"]
-    semantic:
-      +schema: semantic
 
 snapshots:
   bgr_control_tower:

@@ -51,7 +51,7 @@ DLT_HOME = os.path.join(ROOT, "ingestion", "_state")
 #: Airbyte lowercase by default, which would turn ITMREF_0 into itmref_0 and
 #: break every staging model. Because staging is GENERATED from a column spec,
 #: adapting to a normalising connector is one flag in
-#: scripts/generate_staging.py rather than 46 file edits - but the default here
+#: scripts/generate_staging.py rather than 54 file edits - but the default here
 #: is fidelity, so landing records what the source actually sent.
 NAMING_CONVENTION = "direct"
 

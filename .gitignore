@@ -31,7 +31,6 @@ warehouse.duckdb
 landing/
 ingestion/_state/
 exports/
-atlas.html
 
 # --- Secrets and local config ---------------------------------------------
 .env

@@ -4,7 +4,7 @@ seeds:
   - name: process
     description: >
       The nine business processes, by acronym. Expansions are not confirmed by
-      the business and are deliberately absent - see PLAN.md section 2. Six of
+      the business and are deliberately absent - do not guess at them. Six of
       the nine currently carry no metrics; they are listed here so the
       architecture is exercised against the empty case rather than assuming it
       away.

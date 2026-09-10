@@ -1,7 +1,10 @@
 """Export the Power BI slice: Parquet data plus a generated TMDL model.
 
     python scripts/export_powerbi.py
-    python scripts/export_powerbi.py --process I2D
+
+Writes exports/parquet/ (the data) and exports/powerbi/model/definition/ (a
+TMDL model - tables, relationships and every metric as a DAX measure). That
+folder is what you open in Power BI; see docs/powerbi_model.md.
 
 Parquet rather than a live DuckDB connection because fighting
 DuckDB-to-Power-BI connectivity is not what a POC is for. Import mode is also
@@ -314,10 +317,7 @@ def generate_tmdl(con, dimensions, models, metrics):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--process", default=None,
-                        help="report which process the slice targets (documentation only)")
-    args = parser.parse_args()
+    argparse.ArgumentParser(description=__doc__).parse_args()
 
     dimensions, models, metrics = load_registry()
     validate(dimensions, models, metrics)
@@ -342,7 +342,6 @@ def main():
               f"{measures} generated measures, 0 hand-written")
 
         summary = {
-            "target_process": args.process,
             "parquet": manifest,
             "metric_tables": metric_tables,
             "process_tables": process_tables,

@@ -1,4 +1,4 @@
-# Phase 0 — Metric feasibility audit
+# Metric feasibility audit
 
 Every number below was measured against `mock_sources.duckdb` (SEED 20260905),
 not inferred. The queries are reproducible from `scripts/profile_sources.py`.
@@ -91,8 +91,8 @@ Two further wrinkles:
   denominator. `fct_shipment` therefore carries **both** flags and both promise
   dates, and the metric YAML selects between them.
 
-**Decision taken for the POC:** carrier promise
-(`var: otd_promise_basis = carrier`), because it covers 100% of delivered
+**Decision taken for the POC:** carrier promise (the metric filters on
+`is_on_time_vs_carrier_promise`), because it covers 100% of delivered
 shipments and needs no cross-system join. Open question 1.
 
 ---
@@ -106,12 +106,14 @@ The available cost data is thinner than it looks:
 - `pangea.charge` — freight and accessorials, 5.49M USD. Real, line-level.
 - `paycom.earning_detail` — 9,526 rows of payroll, allocable to site and
   department via `labor_allocation_code` (`DAL-01-200` = Dallas Warehouse).
-- `sage_x3.GACCENTRYD` — **only three accounts exist**: 11100 (AR), 22300
-  (tax), 41000 (revenue). There is no COGS account, no expense account, and no
-  AP subledger. `GACCENTRY` contains exactly one journal type: `SAL`/`SIH`.
+- `sage_x3.GACCENTRYD` — **five accounts exist**: 11100 (AR), 21000 (AP),
+  22300 (tax), 41000 (revenue), 50000 (purchases). `GACCENTRY` carries two
+  journals: sales (`SAL`, invoices and credit memos) and purchasing (`PUR`).
+  There is no COGS account, no operating expense and no payroll posting.
 
 So "fully loaded cost per order" is not computable — the general ledger in this
-estate contains revenue and receivables and nothing else. A fulfillment cost
+estate holds sales, receivables and purchasing, and no cost of fulfilment or
+overhead. A fulfillment cost
 pool is computable, and a fulfillment-plus-warehouse-labour pool is computable
 with an allocation basis that someone has to choose (per order? per line? per
 shipped weight?).
@@ -129,20 +131,23 @@ over time and cash application. Neither exists:
 
 - No cash receipt, payment, or open-item table in any schema.
 - `SINVOICEV.PAYDAT_0` is a single settlement date stamped on the invoice.
-- 492 of 3,564 invoices (13.8%) carry the `1753-01-01` sentinel in `PAYDAT_0`,
-  meaning unpaid. **An unguarded `date_diff` over the full invoice set returns
-  a mean of −13,708 days** — this is landmine 2 and it lands squarely on this
+- 523 of 3,691 invoice documents (14.2%) carry the `1753-01-01` sentinel in
+  `PAYDAT_0`, meaning unpaid — 492 of the 3,564 invoices and 31 of the 127
+  credit memos. **An unguarded `date_diff` over the full set returns a mean of
+  about −14,000 days** — this is landmine 2 and it lands squarely on this
   metric.
 
-Measured on the 3,072 settled invoices: mean 48.2 days, median 45, range
-28–90. The distribution is plausible and the metric is stable, but it is
+Measured on the 3,168 settled documents: mean 47.7 days, median 45, range
+21–90. The metric itself, at invoice-line grain, is 48.0 days. The
+distribution is plausible and the metric is stable, but it is
 *days-to-pay on settled invoices*, which is a different and more flattering
 number than DSO — it structurally excludes the invoices that are late enough to
 be unpaid.
 
 **Decision taken for the POC:** publish as `dso_days_to_pay_proxy`, labelled
 "DSO (days-to-pay proxy)", status `provisional`, with the 13.8% unsettled rate
-published alongside it as a required companion figure. Do not label it "DSO" on
+(13.8% of invoice lines) published alongside it as a required companion figure.
+Do not label it "DSO" on
 a dashboard. Open question 2.
 
 ---
@@ -151,9 +156,9 @@ a dashboard. Open question 2.
 
 Each of these was blocked on a document that did not exist in the extract.
 Adding it changed nothing about how the metric is defined or compiled — the
-grammar, the compiler and the six output targets were untouched. That is the
-result worth reporting: the cost of a new metric here is a source and a
-definition, not an architecture.
+grammar and the compiler were untouched. That is the result worth reporting:
+the cost of a new metric here is a source and a definition, not an
+architecture.
 
 ### Return Rate — needed a returns object
 
@@ -266,24 +271,25 @@ retrospectively at any price.
 These came out of the same audit and are not metric-specific.
 
 1. **CHAR padding is total, not partial.** Every row of `SORDERQ.ITMREF_0`
-   (11,575), `SORDERP.ITMREF_0` (11,575), `STOJOU.ITMREF_0` (16,421) and
+   (11,575), `SORDERP.ITMREF_0` (11,575), `STOJOU.ITMREF_0` (14,226) and
    `SORDER.BPCORD_0` (4,200) is padded. The master tables carry no padding at
    all. A naive equi-join returns exactly zero rows, which at least fails
    loudly. After `trim()` every one of these joins is 100% clean.
 
-2. **`STOJOU` reconciles on the sales side and not the purchase side.** All
-   10,421 shipment movements (`VCRTYP_0 = 'SDH'`) resolve to a `SORDER`; none
-   of the 4,217 purchase movements (`PTH`) resolve to a `PORDER`. Any future
-   `fct_inventory_movement` can attribute an issue to an order and cannot
-   attribute a receipt to a purchase order. Worth confirming against the real
-   X3 folder — in a live install `PRECEIPT`/`PRECEIPTD` would normally carry
-   this and may simply be absent from the extract.
+2. **`STOJOU` reconciles on both sides.** All 10,421 shipment movements
+   (`VCRTYP_0 = 'SDH'`) resolve to a `SORDER`, and all 2,664 receipt movements
+   (`PTH`) resolve to a `PRECEIPT`. Before the receipt documents were sourced,
+   none of the purchase movements resolved to anything — worth checking first
+   against the real X3 folder, because it decides whether a three-way match is
+   possible at all.
 
 3. **The X3 internal joins are otherwise perfect.** `SORDERQ`→`ITMMASTER` 11,575/11,575,
-   `SORDER`→`BPCUSTOMER` 4,200/4,200, `SINVOICED`→`SINVOICEV` 9,767/9,767,
-   invoice line→order line 9,767/9,767, and `SORDERQ.ITMREF_0` agrees with
-   `SORDERP.ITMREF_0` on all 11,575 lines. All declared grains are unique. The
-   risk in this estate is entirely at the system boundaries.
+   `SORDER`→`BPCUSTOMER` 4,200/4,200, `SINVOICED`→`SINVOICEV` 9,923/9,923,
+   invoice line→order line 9,767/9,767 (the 156 credit-memo lines carry no
+   order line), and `SORDERQ.ITMREF_0` agrees with `SORDERP.ITMREF_0` on all
+   11,575 lines. All declared grains are unique. The one exception is the
+   hand-keyed return reference above. Otherwise the risk in this estate is
+   entirely at the system boundaries.
 
 4. **`pangea.shipment.customer_name` matches `BPCUSTOMER.BPCNAM_0` on 220 of
    220 distinct values.** This is not in the README join map and it is a better
@@ -328,10 +334,10 @@ These came out of the same audit and are not metric-specific.
    Paycom `DAL-01/RNO-01/TOR-01`, Netstock uses the X3 codes directly (clean).
    The crosswalk is a seed, not derived logic.
 
-10. **Currency is genuinely multi.** 3,512 USD and 688 CAD orders; 2,993 USD and
-   571 CAD invoices. The only FX signal in the estate is the implied rate in
-   `GACCENTRYD` (`AMTLOC_0 / AMTCUR_0`), which is **0.7400 for CAD on 1,690 of
-   1,713 lines**, with the remainder within ±0.0002 of rounding. That is a
+10. **Currency is genuinely multi.** 3,512 USD and 688 CAD orders; 3,102 USD and
+   589 CAD invoice documents. The only FX signal in the estate is the implied
+   rate in `GACCENTRYD` (`AMTLOC_0 / AMTCUR_0`), which is **0.7400 for CAD on
+   1,737 of 1,767 lines**, with the remainder within rounding. That is a
    single fixed rate, not a rate table — real reporting will need a proper rate
    source. Open question 10.
 

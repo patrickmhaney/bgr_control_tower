@@ -1,16 +1,14 @@
-# Ingestion: source systems to usable metrics
+# Ingestion: source systems to raw
 
-The scope document for the half of the work the original POC stubbed out.
-
-Everything before this was a transformation project handed a DuckDB file.
-There is now a working extraction layer in front of it, built to the shape of
-the real access patterns rather than the convenience of a local database, and
-proven to change no number:
+The dbt model downstream was first built against a DuckDB file of the sources.
+This layer puts a real extraction design in front of it — built to the shape of
+the real access patterns rather than the convenience of a local database — and
+is proven to change no number:
 
 ```
 source systems  →  dlt extract  →  landing/  →  raw.duckdb  →  dbt  →  metrics
-   5 systems       46 resources    Parquet      5 schemas      80        7
-                                   append-only  233,150 rows   models    live
+   5 systems       54 resources    Parquet      5 schemas              10
+                                   append-only  247,851 rows
 ```
 
 ```bash
@@ -58,14 +56,14 @@ flowchart TB
 
     subgraph KEEP["everything above the seam &mdash; unchanged"]
         direction TB
-        c2["ingestion/sources.py<br/><small>46 dlt resources, watermarks, dispositions</small>"]
+        c2["ingestion/sources.py<br/><small>54 dlt resources, watermarks, dispositions</small>"]
         c4["ingestion/pipeline.py<br/><small>landing archive + projection to raw</small>"]
-        c5["80 dbt models<br/><small>staging &rarr; intermediate &rarr; core &rarr; metrics</small>"]
+        c5["dbt models<br/><small>staging &rarr; intermediate &rarr; core &rarr; metrics</small>"]
         c2 --> c4 --> c5
     end
 
-    spec["ingestion/config.py<br/><small>46 table specs, 6 strategies</small>"]
-    contract["ingestion/schema_contract.json<br/><small>46 tables, 422 columns, pinned</small>"]
+    spec["ingestion/config.py<br/><small>54 table specs, 6 strategies</small>"]
+    contract["ingestion/schema_contract.json<br/><small>54 tables, 497 columns, pinned</small>"]
 
     a1 --> c2
     a2 --> c2
@@ -87,10 +85,10 @@ rows, and a row from a real ERP looks exactly like a row from this one.
 ```mermaid
 flowchart LR
     sys(["five source systems"])
-    dlt["dlt extract<br/><small>46 resources</small>"]
+    dlt["dlt extract<br/><small>54 resources</small>"]
     land[("landing/<br/><small>&lt;source&gt;/&lt;table&gt;/load_date=YYYY-MM-DD/</small><br/><small><b>append-only &middot; nothing is ever deleted</b></small>")]
     proj{{"project_landing_to_raw()<br/><small>pure SQL &middot; no source access</small>"}}
-    raw[("raw.duckdb<br/><small>5 schemas &middot; 46 tables &middot; 233,150 rows</small>")]
+    raw[("raw.duckdb<br/><small>5 schemas &middot; 54 tables &middot; 247,851 rows</small>")]
     dbt["dbt sources"]
 
     sys -->|"read once,<br/>per strategy"| dlt
@@ -164,25 +162,24 @@ Roughly **5–9 engineer-weeks of build**, and that is not what sets the date.
 
 ## 4. The finding that shapes the ERP extract
 
-**19 of 22 Sage X3 tables carry no modification date**, and the three that do
+**27 of 30 Sage X3 tables carry no modification date**, and the three that do
 carry a `DATE` rather than a timestamp — so even the good case is day-grain.
 
-`UPDTICK_0` is present on 14 tables and **is not a watermark.** It is a
+`UPDTICK_0` is present on 19 tables and **is not a watermark.** It is a
 per-row optimistic-lock counter, not a table-wide monotonic sequence, so
 `WHERE UPDTICK_0 > :last` is meaningless. Use it to detect whether a specific
 row changed during reconciliation; never to drive an extract.
 
-So the line tables are windowed through their parent's *business* date:
+So transaction tables are windowed on a *business* date:
 
-| Table | Strategy | Window | Rows |
-|---|---|---|---|
-| `SORDERQ` / `SORDERP` | header window | `SORDER.ORDDAT_0` | 11,575 ea. |
-| `SINVOICED` | header window | `SINVOICEV.INVDAT_0` | 9,767 |
-| `GACCENTRYD` | header window | `GACCENTRY.ACCDAT_0` | 10,692 |
-| `PORDERQ` | header window | `PORDER.ORDDAT_0` | 2,959 |
-| `STOJOU` | header window | own `IPTDAT_0` | 16,421 |
-| `SORDER`, `ITMMASTER`, `BPCUSTOMER` | modified date | `UPDDAT_0` | — |
-| 10 reference tables | full refresh | — | small |
+| Tables | Strategy | Window |
+|---|---|---|
+| `SORDER`, `ITMMASTER`, `BPCUSTOMER` | modified date | their own `UPDDAT_0` |
+| `SINVOICEV`, `PORDER`, `GACCENTRY`, `SRETURN`, `PRECEIPT`, `PINVOICE`, `STOCOUNT`, `STOJOU` | header window | their own business date |
+| `SORDERQ`, `SORDERP`, `SINVOICED`, `PORDERQ`, `GACCENTRYD`, `SRETURND`, `PRECEIPTD`, `PINVOICED`, `STOCOUNTD` | header window | through the parent header's date, e.g. `SORDER.ORDDAT_0` |
+| 10 reference tables | full refresh | — |
+
+`python run_ingestion.py --explain` prints the note on every table.
 
 ```mermaid
 flowchart LR
@@ -190,7 +187,7 @@ flowchart LR
         hdr["SORDER<br/><small>ORDDAT_0 &mdash; a <b>business</b> date<br/>UPDDAT_0 &mdash; a DATE, day-grain</small>"]
         lineq["SORDERQ<br/><small>11,575 lines<br/><b>no date column</b></small>"]
         linep["SORDERP<br/><small>11,575 lines<br/><b>no date column</b></small>"]
-        tick["UPDTICK_0<br/><small>on 14 tables</small>"]
+        tick["UPDTICK_0<br/><small>on 19 tables</small>"]
     end
 
     wm["watermark<br/><small>high-water mark<br/>minus 90-day lookback</small>"]
@@ -215,8 +212,9 @@ lookback (`config.DEFAULT_LOOKBACK_DAYS`) buys margin, not correctness.
 
 `PORDERQ` is the sharpest case: `RCPQTY_0` and `RCPDAT_0` are updated in place
 when goods arrive, so a PO ordered outside the window and received inside it is
-silently lost. That is called out in the spec, and it is the strongest argument
-for the real fix.
+silently lost. `PRECEIPT` makes that survivable — a receipt is a document with
+its own date, so it lands inside the window on its own merit — but it is still
+the strongest argument for the real fix.
 
 **The real fix is SQL Server Change Tracking or CDC.** It is an infrastructure
 request rather than a data-engineering one, so raise it early. Failing that,
@@ -227,17 +225,17 @@ Measured effect of the incremental design on a second run:
 
 | Source | Run 1 | Run 2 | Saved | Why |
 |---|---|---|---|---|
-| `sage_x3` | 79,374 | 12,233 | 85% | windowed on business/modification dates |
+| `sage_x3` | 94,075 | 13,296 | 86% | windowed on business/modification dates |
 | `pangea` | 41,712 | 4,799 | 88% | `created_at` cursor with lookback |
 | `hubspot` | 11,291 | 7,531 | 33% | `hs_lastmodifieddate` cursor |
 | `paycom` | 66,680 | 66,680 | **0%** | no change signal, ever |
 | `netstock` | 34,093 | 34,093 | **0%** | snapshot source — full replace is correct |
-| **total** | **233,150** | **125,336** | **46%** | |
+| **total** | **247,851** | **126,399** | **49%** | |
 
 ```mermaid
 flowchart TB
     subgraph CAN["can be read incrementally"]
-        s1["<b>sage_x3</b> &middot; 22 tables<br/><small>3 modified-date &middot; 9 header-window<br/>10 full refresh</small>"]
+        s1["<b>sage_x3</b> &middot; 30 tables<br/><small>3 modified-date &middot; 17 header-window<br/>10 full refresh</small>"]
         s2["<b>hubspot</b> &middot; 8 tables<br/><small>4 API cursor &middot; 4 full refresh</small>"]
         s3["<b>pangea</b> &middot; 5 tables<br/><small>1 API cursor &middot; 3 header-window<br/>1 full refresh</small>"]
     end
@@ -246,7 +244,7 @@ flowchart TB
         s5["<b>netstock</b> &middot; 5 tables<br/><small>snapshot &middot; regenerated wholesale<br/><b>incremental would be WRONG</b></small>"]
     end
 
-    s1 -->|"79,374 &rarr; 12,233<br/>85% saved"| out[("second run<br/>125,336 of 233,150 rows<br/><small>46% saved overall</small>")]
+    s1 -->|"94,075 &rarr; 13,296<br/>86% saved"| out[("second run<br/>126,399 of 247,851 rows<br/><small>49% saved overall</small>")]
     s2 -->|"11,291 &rarr; 7,531<br/>33% saved"| out
     s3 -->|"41,712 &rarr; 4,799<br/>88% saved"| out
     s4 -->|"66,680 &rarr; 66,680<br/>0%"| out
@@ -307,8 +305,8 @@ This is not a dlt defect — Fivetran, Airbyte and every hand-rolled extractor
 share it, because a column that is null everywhere is indistinguishable from a
 column that is not there.
 
-> Pin the schema. `ingestion/schema_contract.json` declares all 46 tables and
-> 422 columns; every resource is given those types as hints, and every run
+> Pin the schema. `ingestion/schema_contract.json` declares all 54 tables and
+> 497 columns; every resource is given those types as hints, and every run
 > compares what arrived against them. A lost column is reported as an
 > **INCIDENT** and the run exits non-zero.
 >
@@ -397,18 +395,17 @@ What actually differs from what is committed here.
 
 **What does not change:** `config.py`, `sources.py`, `pipeline.py`,
 `contract.py`, the schema contract, the landing layout, the projection SQL, and
-every one of the 80 dbt models.
+every dbt model.
 
 ### Connector naming conventions
 
 dlt is configured with the `direct` naming convention so `ITMREF_0` stays
 `ITMREF_0`. **Fivetran and Airbyte lowercase by default**, which would turn
-every X3 column name into `itmref_0` and break all 46 staging models.
+every X3 column name into `itmref_0` and break every staging model.
 
 Because staging is *generated* from a column spec rather than hand-written,
-adapting is one flag in `scripts/generate_staging.py` rather than 46 file
-edits. That is the clearest payoff yet from generating the staging layer, and
-it was not the reason for doing it.
+adapting is one flag in `scripts/generate_staging.py` rather than 54 file
+edits.
 
 ---
 
@@ -421,23 +418,20 @@ Named so the scope is honest.
   needs full refresh, a periodic key reconciliation, or database CDC — a real
   gap, not a POC shortcut.
 
-  The *decision* is no longer only prose: `TableSpec.reconcile_keys` declares
-  it per table (`weekly` on all 20 merge-disposition tables, `never` on the 26
-  that are replaced wholesale), and `run_ingestion.py --explain` prints it in a
-  `deletes` column beside the strategy. The reconciliation itself is not built.
-  Declaring the intent next to the strategy and the lookback is what stops it
-  being re-derived by whoever eventually builds it.
+  The *decision* is declared per table: `TableSpec.reconcile_keys` is `weekly`
+  on all 28 merge-disposition tables and `never` on the 26 that are replaced
+  wholesale, and `run_ingestion.py --explain` prints it in a `deletes` column
+  beside the strategy. The reconciliation itself is not built.
 - **Schema evolution beyond detection.** Drift is reported; nothing adapts
   automatically, which is deliberate. A new column should be a decision.
 - **Backfill chunking.** The first load reads everything in one pass. Fine at
-  233,150 rows, wrong at 50 million.
+  a quarter of a million rows, wrong at 50 million.
 - **Archive rescan cost.** `project_landing_to_raw()` rescans the *entire*
   landing archive on every run for every merge-disposition table, keeping the
-  latest row per key. Elegant and correct, and *O*(all history) forever — so it
-  degrades with **archive age**, not with source volume. That is the less
-  obvious of the two and the one that surprises people: a pipeline that has run
-  nightly for a year is reading a year of Parquet to rebuild a table that did
-  not change. The fix when it bites is a compacted "current" partition plus
+  latest row per key. Correct, and *O*(all history) forever — so it degrades
+  with **archive age**, not with source volume: a pipeline that has run nightly
+  for a year is reading a year of Parquet to rebuild a table that did not
+  change. The fix when it bites is a compacted "current" partition plus
   incremental projection over newer load packages only, which is a rewrite of
   one function.
 - **Retry and backoff.** The rate limiter raises rather than backing off. In

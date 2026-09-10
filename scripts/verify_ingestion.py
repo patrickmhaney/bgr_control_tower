@@ -29,12 +29,16 @@ union all select 'dso_days_to_pay_proxy',        round(sum(numerator)/sum(denomi
 union all select 'unsettled_invoice_rate',       round(sum(numerator)/sum(denominator), 6) from main_metrics.mtr_unsettled_invoice_rate
 union all select 'order_reference_coverage_rate',round(sum(numerator)/sum(denominator), 6) from main_metrics.mtr_order_reference_coverage_rate
 union all select 'customer_unmatched_rate',      round(sum(numerator)/sum(denominator), 6) from main_metrics.mtr_customer_unmatched_rate
+union all select 'return_rate',                  round(sum(numerator)/sum(denominator), 6) from main_metrics.mtr_return_rate
+union all select 'match_rate',                   round(sum(numerator)/sum(denominator), 6) from main_metrics.mtr_match_rate
+union all select 'inventory_accuracy',           round(sum(numerator)/sum(denominator), 6) from main_metrics.mtr_inventory_accuracy
 order by 1
 """
 
 CORE_TABLES = [
     "dim_customer", "dim_item", "dim_site", "dim_carrier", "dim_date",
     "fct_shipment", "fct_shipment_event", "fct_sales_order_line", "fct_invoice_line",
+    "fct_supplier_invoice_line", "fct_inventory_count_line",
 ]
 
 failures = []

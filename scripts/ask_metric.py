@@ -5,21 +5,22 @@
     python scripts/ask_metric.py on_time_delivery_rate \
         --where site.city=Reno --period 2026-Q2
     python scripts/ask_metric.py on_time_delivery_rate --by carrier.carrier_name
-    python scripts/ask_metric.py return_rate
+    python scripts/ask_metric.py dso_days_to_pay_proxy
 
-The plan's secondary goal is that an agent should be able to answer "what was
-on-time delivery for the Reno site last quarter" without being handed SQL or a
-data dictionary. This is the smallest thing that demonstrates the semantic
-layer actually supports that: it reads only
-exports/semantic/metric_registry.json, resolves the metric, its base model, its
-conformed dimensions and their attributes, writes the SQL itself, and runs it.
+A secondary goal of the design is that an agent should be able to answer
+"what was on-time delivery for the Reno site last quarter" without being
+handed SQL or a data dictionary. This is the smallest thing that demonstrates
+the semantic layer actually supports that: it reads only
+exports/semantic/metric_registry.json (written by compile_metrics.py),
+resolves the metric, its base model, its conformed dimensions and their
+attributes, writes the SQL itself, and runs it.
 
 There is no metric knowledge in this file. Point it at a registry with fifty
 metrics and it answers fifty kinds of question.
 
-The behaviour that matters most is the last example. Asked for a blocked
-metric, it reports why the number does not exist instead of producing one - an
-agent that cannot see the gap will confidently invent a number to fill it.
+Caveats travel with the number: a provisional metric is labelled as one, and
+a blocked metric reports why the number does not exist instead of producing
+one - an agent that cannot see the gap will confidently invent a number.
 """
 import argparse
 import json

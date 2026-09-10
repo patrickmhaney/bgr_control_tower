@@ -25,7 +25,8 @@ version of the DAGs, `dbt docs generate && dbt docs serve`.
 ### 1.1 Sage X3 (ERP) — high fidelity
 
 The ERP is where the transactional volume lives, and its internal referential
-integrity is perfect: every relationship below resolves 100% **after trimming**.
+integrity is near-perfect: every relationship below resolves 100% **after
+trimming**, except the return-to-order reference, which is keyed by hand.
 Two things to notice in the diagram — `SORDERQ`/`SORDERP` split one logical
 order line across two physical tables, and `APLSTD` is a generic enum table that
 every status column resolves through.
@@ -72,6 +73,26 @@ erDiagram
 
     PORDER ||--o{ PORDERQ : "POHNUM_0"
     GACCENTRY ||--o{ GACCENTRYD : "NUM_0"
+
+    BPCUSTOMER ||--o{ SRETURN : "BPCNUM_0"
+    SRETURN ||--o{ SRETURND : "SRHNUM_0"
+    SORDERQ ||--o{ SRETURND : "order line, 8 percent unresolvable"
+    SINVOICEV ||--o| SRETURN : "SIVNUM_0 credit memo, 14 percent pending"
+
+    BPSUPPLIER ||--o{ PRECEIPT : "BPSNUM_0"
+    PRECEIPT ||--o{ PRECEIPTD : "PTHNUM_0"
+    PORDERQ ||--o{ PRECEIPTD : "POHNUM_0 and POPLIN_0"
+    PRECEIPT ||--o{ STOJOU : "VCRNUM_0 where PTH"
+
+    BPSUPPLIER ||--o{ PINVOICE : "BPSNUM_0"
+    PINVOICE ||--o{ PINVOICED : "NUM_0"
+    PORDERQ ||--o{ PINVOICED : "PO line, may be null"
+    PRECEIPTD ||--o{ PINVOICED : "PTHNUM_0, may be null"
+    PINVOICE ||--o| GACCENTRY : "PUR journal"
+
+    FACILITY ||--o{ STOCOUNT : "STOFCY_0"
+    STOCOUNT ||--o{ STOCOUNTD : "SESNUM_0"
+    ITMMASTER ||--o{ STOCOUNTD : "ITMREF_0"
 
     APLSTD ||--o{ ITMMASTER : "chapter 20 ITMSTA_0"
     APLSTD ||--o{ SORDER : "chapter 415 ORDSTA_0"
@@ -163,19 +184,19 @@ erDiagram
         numeric AMTNOTLIN_0
     }
     SINVOICEV {
-        varchar NUM_0 PK "3564 rows"
+        varchar NUM_0 PK "3691 rows"
         varchar BPR_0 FK
         date INVDAT_0
-        date PAYDAT_0 "492 rows carry 1753-01-01"
-        varchar SIVTYP_0 "only value is SIN"
+        date PAYDAT_0 "492 invoices carry 1753-01-01"
+        varchar SIVTYP_0 "SIN 3564, SCR 127 credit memos"
         numeric AMTNOTLIN_0
     }
     SINVOICED {
-        varchar NUM_0 PK "9767 rows"
+        varchar NUM_0 PK "9923 rows"
         bigint SIDLIN_0 PK
-        varchar SOHNUM_0 FK "back-reference, 100 percent clean"
+        varchar SOHNUM_0 FK "all 9767 invoice lines resolve"
         bigint SOPLIN_0 FK
-        numeric AMTNOTLIN_0 "sums to GL 41000 exactly"
+        numeric AMTNOTLIN_0 "reconciles to GL 41000"
     }
     PORDER {
         varchar POHNUM_0 PK "1400 rows"
@@ -185,7 +206,7 @@ erDiagram
     PORDERQ {
         varchar POHNUM_0 PK "2959 rows"
         bigint POPLIN_0 PK
-        numeric RCPQTY_0 "receipt is a column, not a table"
+        numeric RCPQTY_0 "copy of the LAST receipt only"
         date RCPDAT_0 "576 rows carry 1753-01-01"
     }
     STOCK {
@@ -196,35 +217,87 @@ erDiagram
         numeric QTYSTU_0
     }
     STOJOU {
-        bigint ROWID PK "16421 rows"
+        bigint ROWID PK "14226 rows"
         varchar ITMREF_0 FK "CHAR-padded, all rows"
-        bigint TRSTYP_0 "local menu ch 700, no return type"
-        varchar VCRTYP_0 "SDH PTH ADJ only"
-        varchar VCRNUM_0 "PTH rows do not resolve to PORDER"
+        bigint TRSTYP_0 "local menu ch 700, 6 is customer return"
+        varchar VCRTYP_0 "SDH PTH SRH ADJ TRF"
+        varchar VCRNUM_0 "resolves to its document"
         numeric QTYSTU_0
     }
     GACCENTRY {
-        varchar NUM_0 PK "3564 rows"
-        varchar JOU_0 "only value is SAL"
-        varchar TYP_0 "only value is SIH"
-        varchar VCRNUM_0 FK "the invoice"
+        varchar NUM_0 PK "4877 rows"
+        varchar JOU_0 "SAL sales, PUR purchasing"
+        varchar TYP_0 "SIH SCH PIH"
+        varchar VCRNUM_0 FK "the invoice or credit memo"
         varchar CUR_0
     }
     GACCENTRYD {
-        varchar NUM_0 PK "10692 rows"
+        varchar NUM_0 PK "14631 rows"
         bigint LIN_0 PK
-        varchar ACC_0 "only 11100, 22300, 41000"
+        varchar ACC_0 "11100 21000 22300 41000 50000"
         numeric AMTCUR_0 "document currency"
         numeric AMTLOC_0 "company currency, implies FX"
     }
+    SRETURN {
+        varchar SRHNUM_0 PK "146 rows"
+        varchar BPCNUM_0 FK
+        date RTNDAT_0 "the return date, not the order date"
+        varchar SIVNUM_0 FK "credit memo, null until credited"
+    }
+    SRETURND {
+        varchar SRHNUM_0 PK "179 rows"
+        bigint SRDLIN_0 PK
+        varchar SOHNUM_0 FK "8 percent blank or lowercased"
+        bigint SOPLIN_0 FK
+        numeric AMTNOTLIN_0
+    }
+    PRECEIPT {
+        varchar PTHNUM_0 PK "1743 rows"
+        varchar POHNUM_0 FK
+        varchar BPSNUM_0 FK
+        date RCPDAT_0 "a document with its own date"
+    }
+    PRECEIPTD {
+        varchar PTHNUM_0 PK "2664 rows"
+        bigint PTDLIN_0 PK
+        varchar POHNUM_0 FK
+        bigint POPLIN_0 FK "multi-delivery lines split here"
+        numeric QTYUOM_0
+    }
+    PINVOICE {
+        varchar NUM_0 PK "1186 rows"
+        varchar BPSNUM_0 FK
+        date INVDAT_0
+        varchar INVSTA_0
+    }
+    PINVOICED {
+        varchar NUM_0 PK "2498 rows"
+        bigint PIDLIN_0 PK
+        varchar POHNUM_0 FK "null means no PO"
+        varchar PTHNUM_0 FK "null means not received"
+        numeric QTY_0
+        numeric NETPRI_0
+    }
+    STOCOUNT {
+        varchar SESNUM_0 PK "78 sessions, name constructed"
+        varchar STOFCY_0 FK
+        date CNTDAT_0
+    }
+    STOCOUNTD {
+        varchar SESNUM_0 PK "2843 counted positions"
+        bigint CNTLIN_0 PK
+        varchar ITMREF_0 FK
+        numeric QTYTHEO_0 "system qty AT COUNT TIME"
+        numeric QTYCNT_0
+    }
     APLSTD {
-        bigint CHAPTER_0 PK "16 rows"
+        bigint CHAPTER_0 PK "28 rows"
         bigint CODE_0 PK
         varchar LANNUM_0 PK
         varchar TEXTE_0
     }
     ATEXTRA {
-        varchar CODFIC_0 PK "136 rows"
+        varchar CODFIC_0 PK "148 rows"
         varchar ZONE_0 PK
         varchar LANNUM_0 PK "FRA translations"
         varchar IDENT1_0 PK
@@ -238,18 +311,23 @@ erDiagram
   the trim, `SORDERQ → ITMMASTER` returns **zero rows**, not fewer rows.
 - **`SORDERQ ||--o| SINVOICED` is one-to-at-most-one.** All 9,767 invoice lines
   resolve to an order line, no order line is invoiced twice, and 9,767 of the
-  11,575 order lines have been invoiced. Order-to-cash is fully traceable
-  inside X3.
-- **`STOJOU` has three document types and only one of them reconciles.** The
-  10,421 `SDH` (shipment) rows all resolve to a `SORDER`. The 4,217 `PTH`
-  (receipt) rows carry `PTH######` document numbers that match **nothing** in
-  `PORDER` — so there is no path from a goods receipt back to its purchase
-  order except the `RCPQTY_0`/`RCPDAT_0` columns on the PO line itself. That
-  matters for Match Rate.
-- **The GL is one journal wide.** `JOU_0` is `SAL` on all 3,564 rows, `TYP_0`
-  is `SIH`, and `GACCENTRYD.ACC_0` holds exactly three accounts. There is no AP
-  subledger and no cost accounting. This single fact blocks Match Rate and caps
-  Cost Per Order at a fulfillment-only pool.
+  11,575 order lines have been invoiced. The 156 credit-memo lines carry no
+  order line; returns reach the order through `SRETURND` instead.
+  Order-to-cash is fully traceable inside X3.
+- **Every `STOJOU` movement resolves to the document that caused it.** The
+  10,421 `SDH` (shipment) rows resolve to a `SORDER`, and all 2,664 `PTH`
+  (receipt) rows resolve to a `PRECEIPT`. Receipts are documents in their own
+  right, which is what makes a three-way match possible: `PORDERQ.RCPQTY_0` is
+  only a copy of the *last* receipt, and matching against it treats every
+  partial delivery as a variance.
+- **The GL has sales and purchasing, and nothing else.** Two journals (`SAL`,
+  `PUR`) and five accounts — AR 11100, AP 21000, tax 22300, revenue 41000,
+  purchases 50000. There is no COGS, no operating expense and no payroll, which
+  caps Cost Per Order at a fulfillment-only pool.
+- **Returns are keyed by hand.** 8% of `SRETURND.SOHNUM_0` values are blank or
+  lowercased, and 14% of returns have no credit memo yet. Both are carried
+  rather than cleaned — see Return Rate in
+  [metric_feasibility.md](metric_feasibility.md).
 
 ### 1.2 HubSpot (CRM) — connector landing
 
@@ -404,8 +482,8 @@ Two findings sit in this diagram:
   is why `int_employee_xref` deduplicates before it matches.
 - **`gl_mapping` is drawn as a solid line in the README's join map and it is
   not one.** None of its 11 GL accounts exist in `GACCENTRYD`, which holds only
-  11100, 22300 and 41000. Payroll is not posted to the general ledger in this
-  extract.
+  11100, 21000, 22300, 41000 and 50000. Payroll is not posted to the general
+  ledger in this extract.
 
 ### 1.4 Netstock (demand planning) — inferred
 
@@ -540,7 +618,7 @@ flowchart TB
         x3_order["SORDER<br/>4,200 orders"]
         x3_po["PORDER<br/>1,400 POs"]
         x3_rep["REPRESENT<br/>28 reps"]
-        x3_gl["GACCENTRYD<br/>3 accounts"]
+        x3_gl["GACCENTRYD<br/>5 accounts"]
     end
 
     subgraph HS["hubspot (CRM)"]
@@ -607,7 +685,7 @@ name-based path is not.
 
 ## 3. The dimensional model
 
-Star schema. Five conformed dimensions, four atomic facts, all in
+Star schema. Five conformed dimensions, six atomic facts, all in
 `marts/core/`. Process-agnostic by design — nothing in this layer knows what a
 dashboard is.
 
@@ -617,6 +695,13 @@ erDiagram
     dim_date ||--o{ fct_shipment_event : "event_date_key"
     dim_date ||--o{ fct_sales_order_line : "order_date_key"
     dim_date ||--o{ fct_invoice_line : "invoice_date_key"
+    dim_date ||--o{ fct_supplier_invoice_line : "invoice_date_key"
+    dim_date ||--o{ fct_inventory_count_line : "count_date_key"
+
+    dim_site ||--o{ fct_supplier_invoice_line : "site_code"
+    dim_site ||--o{ fct_inventory_count_line : "site_code"
+    dim_item ||--o{ fct_supplier_invoice_line : "item_code"
+    dim_item ||--o{ fct_inventory_count_line : "item_code"
 
     dim_customer ||--o{ fct_shipment : "customer_key"
     dim_customer ||--o{ fct_shipment_event : "customer_key"
@@ -715,12 +800,33 @@ erDiagram
         boolean fx_rate_is_fallback "0 rows today"
     }
     fct_invoice_line {
-        varchar invoice_number PK "9767 rows"
+        varchar invoice_number PK "9923 rows incl credit memos"
         bigint invoice_line_number PK
         varchar customer_key FK
-        numeric line_net_amount_usd "sums to GL 41000 exactly"
+        numeric line_net_amount_usd "reconciles to GL 41000"
         integer days_to_pay_settled_only "the only one - null, never zero, when unpaid"
-        boolean is_unsettled "1335 lines, 13.7 percent"
+        boolean is_unsettled "1372 lines, 13.8 percent"
+    }
+    fct_supplier_invoice_line {
+        varchar supplier_invoice_number PK "2498 rows"
+        bigint supplier_invoice_line_number PK
+        integer invoice_date_key FK
+        varchar site_code FK
+        varchar item_code FK
+        varchar receipt_number "the receipt it names, not every receipt"
+        varchar match_result "matched 1766, price 295, qty 274, not received 107, no PO 56"
+        boolean is_three_way_matched "70.7 percent"
+        boolean is_maverick_spend
+    }
+    fct_inventory_count_line {
+        varchar count_session_number PK "2843 rows"
+        bigint count_line_number PK
+        integer count_date_key FK
+        varchar site_code FK
+        varchar item_code FK
+        numeric system_qty "at count time"
+        numeric counted_qty
+        boolean is_accurate_position "93.4 percent"
     }
 ```
 
@@ -736,9 +842,11 @@ erDiagram
 | `fct_shipment` | one shipment | 3,509 |
 | `fct_shipment_event` | one tracking event on one shipment | 24,504 |
 | `fct_sales_order_line` | one sales order line | 11,575 |
-| `fct_invoice_line` | one sales invoice line | 9,767 |
+| `fct_invoice_line` | one sales invoice or credit-memo line | 9,923 |
+| `fct_supplier_invoice_line` | one supplier invoice line | 2,498 |
+| `fct_inventory_count_line` | one counted stock position | 2,843 |
 
-Every one of the 16 fact-to-dimension relationships above is asserted by a dbt
+Every one of the 22 fact-to-dimension relationships above is asserted by a dbt
 `relationships` test, so the Power BI model is not relying on the tool to
 discover a join that does not hold.
 
@@ -764,8 +872,8 @@ them.
 ## 4. Pipeline DAGs
 
 Extracted from `target/manifest.json` — this is what actually builds, not a
-sketch. 80 models across five layers, fed by 46 dlt extraction resources.
-See [ingestion.md](ingestion.md) for the extraction spec and its pitfalls.
+sketch. Five layers, fed by 54 dlt extraction resources. See
+[ingestion.md](ingestion.md) for the extraction spec and its pitfalls.
 
 ### 4.1 The whole pipeline, by layer
 
@@ -779,24 +887,24 @@ flowchart TB
         y5["Pangea<br/><i>REST + children</i>"]
     end
 
-    subgraph ING["ingestion · dlt · 46 resources"]
-        ext["extract<br/><br/>10 full refresh · 3 modified-date<br/>12 header-window · 5 API cursor<br/>5 snapshot · 6 file drop<br/><br/>schema contract enforced"]
+    subgraph ING["ingestion · dlt · 54 resources"]
+        ext["extract<br/><br/>15 full refresh · 3 modified-date<br/>20 header-window · 5 API cursor<br/>5 snapshot · 6 file drop<br/><br/>schema contract enforced"]
         land[("landing/<br/>Parquet · append-only<br/>partitioned by load_date<br/><i>replayable · auditable</i>")]
     end
 
-    subgraph SRC["raw.duckdb · 46 tables · 233,150 rows"]
-        s1["sage_x3 · 22"]
+    subgraph SRC["raw.duckdb · 54 tables · 247,851 rows"]
+        s1["sage_x3 · 30"]
         s2["hubspot · 8"]
         s3["paycom · 6"]
         s4["netstock · 5"]
         s5["pangea · 5"]
     end
 
-    subgraph STG["staging · 46 models · generated"]
+    subgraph STG["staging · 54 models · generated"]
         stg["stg_&lt;source&gt;__&lt;table&gt;<br/><br/>trim · sentinel to null · cast<br/>parse dates · decode local menus<br/>flag archived, never filter<br/><br/>NO business logic"]
     end
 
-    subgraph INT["intermediate · 8 models · hand-written"]
+    subgraph INT["intermediate · 10 models · hand-written"]
         i1["int_customer_xref"]
         i2["int_employee_xref"]
         i3["int_deal_erp_order_number"]
@@ -805,18 +913,20 @@ flowchart TB
         i6["int_shipment_order"]
         i7["int_shipment_charge"]
         i8["int_shipment_milestone"]
+        i9["int_sales_return_line"]
+        i10["int_supplier_invoice_match"]
     end
 
-    subgraph CORE["marts/core · 9 models · hand-written · THE data model"]
+    subgraph CORE["marts/core · 11 models · hand-written · THE data model"]
         d["dim_date · dim_customer · dim_site<br/>dim_item · dim_carrier"]
-        f["fct_shipment · fct_shipment_event<br/>fct_sales_order_line · fct_invoice_line"]
+        f["fct_shipment · fct_shipment_event<br/>fct_sales_order_line · fct_invoice_line<br/>fct_supplier_invoice_line · fct_inventory_count_line"]
     end
 
     subgraph SEM["semantic · 10 metric definitions · YAML"]
         reg["semantic/metrics/*.yml<br/>semantic/models.yml<br/>semantic/dimensions.yml<br/><br/>no process field"]
     end
 
-    subgraph MTR["marts/metrics · 7 models · generated"]
+    subgraph MTR["marts/metrics · 10 models · generated"]
         m["mtr_&lt;metric&gt;<br/>numerator + denominator by dimension"]
     end
 
@@ -825,7 +935,7 @@ flowchart TB
     end
 
     subgraph OUT["exports"]
-        o["Parquet · TMDL · DAX<br/>Cube schema · agent JSON"]
+        o["Parquet · TMDL model with DAX measures<br/>agent JSON"]
     end
 
     seed[("seeds<br/>process_metric_map<br/>site_code_crosswalk<br/>process · metric_registry")]
@@ -834,7 +944,7 @@ flowchart TB
     SRC --> STG --> INT --> CORE
     CORE --> reg
     reg -->|"scripts/compile_metrics.py"| MTR
-    reg -->|"scripts/compile_metrics.py"| OUT
+    reg -->|"scripts/export_powerbi.py"| OUT
     MTR --> PROC
     seed -->|"scripts/generate_process_views.py"| PROC
     seed --> CORE
@@ -846,9 +956,9 @@ The two arrows out of `semantic/` are the point of the whole design: the same
 YAML produces the warehouse SQL *and* the Power BI measures, so they cannot
 drift.
 
-### 4.2 Shipment path — the I2D metrics
+### 4.2 Shipment path — On-Time Delivery, Cost Per Shipment, Cost Per Order
 
-The deepest chain in the project, and the one carrying both computable metrics.
+The deepest chain in the project.
 
 ```mermaid
 flowchart LR
@@ -904,30 +1014,66 @@ flowchart LR
     src_gl[("GACCENTRY<br/>GACCENTRYD")] --> stg_gl["stg_sage_x3__gaccentry(d)"]
     src_bc[("BPCUSTOMER")] --> stg_bc["stg_sage_x3__bpcustomer"]
     src_ap[("APLSTD")] --> stg_ap["stg_sage_x3__aplstd"]
+    src_rt[("SRETURN<br/>SRETURND")] --> stg_rt["stg_sage_x3__sreturn(d)"]
 
     stg_ap -.->|"decode ORDSTA_0"| stg_so
     stg_sq --> int_sol["int_sales_order_line<br/><i>rejoins the split tables</i>"]
     stg_sp --> int_sol
     stg_gl --> int_fx["int_fx_rate<br/><i>rate recovered from the GL</i>"]
+    stg_rt --> int_rt["int_sales_return_line<br/><i>return to order line, 8% unresolvable</i>"]
+    int_sol --> int_rt
 
-    int_sol --> fsol["fct_sales_order_line<br/><i>11,575 rows</i>"]
+    int_sol --> fsol["fct_sales_order_line<br/><i>11,575 rows · ordered, invoiced, returned</i>"]
     stg_so --> fsol
     int_fx --> fsol
+    int_rt --> fsol
+    stg_id --> fsol
+    stg_iv --> fsol
 
-    stg_id --> fil["fct_invoice_line<br/><i>9,767 rows · ties to GL 41000</i>"]
+    stg_id --> fil["fct_invoice_line<br/><i>9,923 rows · ties to GL 41000</i>"]
     stg_iv --> fil
     stg_bc --> fil
     int_fx --> fil
 
     fil --> mtr_dso["mtr_dso_days_to_pay_proxy"]
     fil --> mtr_uns["mtr_unsettled_invoice_rate<br/><i>mandatory companion</i>"]
+    fsol --> mtr_rr["mtr_return_rate"]
     mtr_dso --> o2c["mart_o2c"]
+    mtr_rr --> o2c
 ```
 
 `int_fx_rate` feeding both money facts is what stops USD and CAD amounts being
 added together by accident — every monetary column exists as `_doc` and `_usd`.
 
-### 4.4 Entity resolution path
+### 4.4 Purchasing and inventory path — Match Rate, Inventory Accuracy
+
+```mermaid
+flowchart LR
+    src_pq[("PORDERQ")] --> stg_pq["stg_sage_x3__porderq"]
+    src_rd[("PRECEIPTD")] --> stg_rd["stg_sage_x3__preceiptd"]
+    src_pi[("PINVOICE<br/>PINVOICED")] --> stg_pi["stg_sage_x3__pinvoice(d)"]
+    src_sc[("STOCOUNT<br/>STOCOUNTD")] --> stg_sc["stg_sage_x3__stocount(d)"]
+
+    stg_pq --> match["int_supplier_invoice_match<br/><i>invoice vs the receipt it names</i><br/><i>and the PO line</i>"]
+    stg_rd --> match
+    stg_pi --> match
+
+    match --> fsil["fct_supplier_invoice_line<br/><i>2,498 rows · match_result</i>"]
+    stg_sc --> fcnt["fct_inventory_count_line<br/><i>2,843 positions</i>"]
+
+    fsil --> mtr_mr["mtr_match_rate"]
+    fcnt --> mtr_ia["mtr_inventory_accuracy"]
+    mtr_mr --> s2p["mart_s2p"]
+    mtr_ia --> i2d["mart_i2d"]
+```
+
+Comparing each invoice line to the receipt *it names*, rather than to the
+cumulative received quantity on the PO line, is the decision that matters
+here: 514 lines are multi-delivery, and the cumulative comparison would report
+a variance on both halves of a perfectly good transaction — 59.2% matched
+instead of 70.7%.
+
+### 4.5 Entity resolution path
 
 ```mermaid
 flowchart LR
@@ -976,31 +1122,27 @@ a dashboard consumes them. When `fct_payroll_earning` or
 That is a deliberate choice, not an oversight, and it is the kind of thing a
 DAG makes visible.
 
-### 4.5 Metric and process generation
+### 4.6 Metric and process generation
 
 The part with no dbt lineage, because the edges are scripts rather than `ref()`.
 
 ```mermaid
 flowchart TB
-    yml["semantic/metrics/*.yml<br/><b>10 definitions</b><br/>5 active · 2 provisional · 3 blocked"]
+    yml["semantic/metrics/*.yml<br/><b>10 definitions</b><br/>5 active · 5 provisional"]
     mdl["semantic/models.yml<br/><i>fact to dimension bindings</i>"]
     dim["semantic/dimensions.yml<br/><i>the conformed dimensions</i>"]
     map["seeds/process_metric_map.csv<br/><b>7 rows</b><br/><i>the many-to-many</i>"]
 
     comp{{"scripts/compile_metrics.py<br/><i>validates, then compiles</i>"}}
     gen{{"scripts/generate_process_views.py"}}
-    pbi{{"scripts/export_powerbi.py"}}
+    pbi{{"scripts/export_powerbi.py<br/><i>imports dax_measure()</i>"}}
 
     yml --> comp
     mdl --> comp
     dim --> comp
 
-    comp --> t1["models/marts/metrics/*.sql<br/><i>7 dbt models</i>"]
-    comp --> t2["models/semantic/_semantic_models.yml<br/><i>MetricFlow · 1 metric skipped</i>"]
+    comp --> t1["models/marts/metrics/*.sql<br/><i>10 dbt models</i>"]
     comp --> t3["seeds/metric_registry.csv<br/><i>lets dbt test map vs registry</i>"]
-    comp --> t4["exports/powerbi/measures.dax"]
-    comp --> t5["exports/powerbi/tmdl/*.tmdl"]
-    comp --> t6["exports/cube/model/cubes/*.yml"]
     comp --> t7["exports/semantic/metric_registry.json<br/><i>the agent contract</i>"]
     comp --> t8["docs/metric_catalog.md"]
 
@@ -1009,32 +1151,31 @@ flowchart TB
     gen --> views["models/marts/process/*.sql<br/><i>9 views · 3 populated · 6 empty</i>"]
     t1 --> views
 
-    t5 --> pbi
-    pbi --> model["exports/powerbi/model/definition/<br/><i>12 tables · 16 relationships</i><br/><i>7 measures · 0 hand-written</i>"]
+    yml --> pbi
+    pbi --> model["exports/powerbi/model/definition/<br/><i>14 tables · 22 relationships</i><br/><i>10 measures · 0 hand-written</i>"]
 
     t3 -.->|"relationships test"| map
     t7 --> agent["scripts/ask_metric.py<br/><i>answers from the registry alone</i>"]
 ```
 
-Two edges are worth tracing:
+One edge is worth tracing: **`metric_registry.csv` back to
+`process_metric_map.csv`.** The registry is compiled into a seed so dbt can
+enforce referential integrity between the map and the definitions with an
+ordinary `relationships` test. A typo in the map fails the build instead of
+producing an empty dashboard tile.
 
-- **`metric_registry.csv` back to `process_metric_map.csv`.** The registry is
-  compiled into a seed so dbt can enforce referential integrity between the map
-  and the definitions with an ordinary `relationships` test. A typo in the map
-  fails the build instead of producing an empty dashboard tile.
-- **`mart_s2p` has no incoming edge at all.** Its only metric, Match Rate, is
-  blocked, so the view emits a single typed row carrying the blocked reason and
-  references no model. Six other process views are the same. The DAG showing
-  nothing upstream of them is correct and is what the empty case should look
-  like.
+The six empty process views have no incoming edge at all: with no metric
+mapped, each emits typed, empty output and references no model. The DAG
+showing nothing upstream of them is correct and is what the empty case should
+look like.
 
-### 4.6 What the DAGs do not show
+### 4.7 What the DAGs do not show
 
-- **210 tests.** They attach to models rather than sitting between them. 203
-  pass, 4 warn with documented thresholds, 0 error.
+- **Tests.** They attach to models rather than sitting between them. Four warn
+  with documented thresholds; none error.
 - **Materialisation.** Staging, intermediate ratios and process views are
-  views; `marts/core` and the three heavier intermediate models are tables.
-  Everything is a full refresh — correct at 233,000 rows.
+  views; `marts/core` and the heavier intermediate models are tables.
+  Everything is a full refresh — correct at this volume.
 - **The ingestion asymmetry that will drive the real design.** X3 carries
   `UPDTICK_0` and HubSpot carries `hs_lastmodifieddate`, so both support
   incremental extraction. Paycom carries neither and is full-refresh-only. That
