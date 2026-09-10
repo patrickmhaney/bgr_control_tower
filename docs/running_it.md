@@ -453,6 +453,9 @@ which is a good way to learn the metric models.
 
 ### Add or edit a metric
 
+The full walkthrough, with worked examples, is
+[adding_a_metric.md](adding_a_metric.md). In short:
+
 1. Edit or add a file in `semantic/metrics/`.
 2. Add a row to `seeds/process_metric_map.csv` to put it on a dashboard.
 3. `python scripts/regenerate.py && dbt build`

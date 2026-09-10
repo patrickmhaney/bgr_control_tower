@@ -106,111 +106,21 @@ valid state.
 
 ## 3. Runbook: adding a metric
 
-This is the number the design is optimising. Here is exactly what you do.
+This is the number the design is optimising. The step-by-step guide, with two
+worked examples run against this repo, is
+[adding_a_metric.md](adding_a_metric.md). In summary:
 
-### The common case: a metric on a fact that already exists
-
-**One file, one line, two commands.**
-
-**Step 1.** Write `semantic/metrics/<metric_name>.yml`:
-
-```yaml
-name: average_order_value
-label: Average Order Value
-status: active
-
-description: >
-  The average net value of a sales order line, in reporting currency.
-  <One paragraph, in business language. This is what an analyst reads
-  when they want to know what the number means.>
-
-grain: One sales order line.
-
-base_model: fct_sales_order_line
-
-numerator:
-  agg: sum
-  column: line_net_amount_usd
-  label: Order value
-
-denominator:
-  agg: count
-  column: sales_order_number
-  label: Order lines
-
-filters: []                    # or e.g. [{column: is_invoiced, op: is_true}]
-dimensions: [date, customer, site, item]
-
-format: currency_usd
-decimals: 2
-direction: higher_is_better
-
-owner: TBD
-owner_proposed: Director of Sales Operations
-
-lineage_notes: >
-  <Source columns, and every assumption you made. This is the field that
-  makes the metric auditable a year from now.>
-
-blocked_reason: null
-```
-
-**Step 2.** Add one line to `seeds/process_metric_map.csv`:
-
-```
-O2C,average_order_value,M4,4
-```
-
-**Step 3.**
-
-```bash
-python scripts/regenerate.py
-dbt build
-```
-
-That is the whole task. The compiler wrote the SQL model, the catalogue entry,
-the JSON contract and the registry seed; the view generator put it on the O2C
-dashboard; `dbt build` tested it, and the referential-integrity test between
-the seed and the registry caught the typo if you made one. The next
-`scripts/export_powerbi.py` run adds the DAX measure to the Power BI model.
-
-**Nothing else was touched.** No fact model, no dimension, no other metric, no
-other dashboard.
-
-### The less common case: the fact does not exist yet
-
-Add the fact first, then the metric above. Three files:
-
-1. `models/marts/core/fct_<event>.sql` — atomic grain, stated in a comment at
-   the top and in the YAML description.
-2. An entry in `models/marts/core/_core__models.yml` — the grain in the
-   description, a uniqueness test on the declared grain, and a `relationships`
-   test on every dimension key.
-3. An entry in `semantic/models.yml` binding the fact to the conformed
-   dimensions:
-
-```yaml
-  fct_purchase_order_line:
-    label: Purchase Order Line
-    grain: One purchase order line.
-    description: X3 purchase order lines with expected and actual receipt.
-    dimensions:
-      date: order_date_key
-      site: site_code
-      item: item_code
-    degenerate:
-      order_status: order_status
-```
-
-If Power BI should see it, add the table to `CORE_TABLES` and its keys to
-`RELATIONSHIPS` in `scripts/export_powerbi.py`.
-
-Facts already named and grained, so this decision is made once rather than
-rediscovered: `fct_inventory_movement` (`STOJOU.ROWID`),
-`fct_inventory_balance` (item × site × lot snapshot), `fct_purchase_order_line`
-(`POHNUM_0` + `POPLIN_0`), `fct_gl_entry_line` (`NUM_0` + `LIN_0`),
-`fct_forecast` (item × location × period snapshot), `fct_deal_stage_change`
-(`deal_id` + transition), `fct_payroll_earning` (`check_id` + `earning_code`).
+- **The fact already has the columns** — the common case. One YAML file in
+  `semantic/metrics/`, one row in `seeds/process_metric_map.csv`, then
+  `python scripts/regenerate.py && dbt build`. The compiler writes the SQL
+  model, catalogue entry, JSON contract and registry seed; the view generator
+  puts it on the dashboard; the next `export_powerbi.py` run adds the DAX
+  measure. No fact model, dimension, other metric or other dashboard changes.
+- **The fact has the inputs but not the exact column** — a comparison between
+  two columns, or arithmetic. Add the column to the fact first; the metric
+  grammar deliberately cannot express it.
+- **No fact exists at the right grain.** Build the fact, test its grain, bind it
+  to the conformed dimensions in `semantic/models.yml`, then add the metric.
 
 ### When the data does not exist: register it as blocked
 

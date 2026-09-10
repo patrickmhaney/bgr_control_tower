@@ -84,6 +84,7 @@ Roughly in reading order:
 | [metric_feasibility.md](docs/metric_feasibility.md) | Whether each metric can be computed, and the business decision each one hides. |
 | [open_questions.md](docs/open_questions.md) | What the data could not answer, what was assumed, and the cost to reverse each assumption. |
 | [running_it.md](docs/running_it.md) | Hands on: run, step through, query, change. |
+| [adding_a_metric.md](docs/adding_a_metric.md) | A new metric from data already in the warehouse: start with SQL against the star schema, translate it into a metric definition, check the two agree. Worked examples. |
 | [sources.md](docs/sources.md) | The five mock source systems: fidelity, grain, the cross-system join map, the deliberate data-quality landmines. |
 | [ingestion.md](docs/ingestion.md) | Source systems to raw: extraction strategies, per-system difficulty, pitfalls. |
 | [data_model.md](docs/data_model.md) | Diagrams: source ERDs, the star schema, the pipeline DAGs. |
