@@ -379,7 +379,7 @@ typo in the seed map fails here, on the test that ties the map to the registry.
 ### Step 5. Check the number
 
 Compare with your SQL as in [§2.5](#25-compile-then-compare-with-your-sql),
-and run the parity check, which reconciles every metric model against its
+and run the parity check, which reconciles every metric view against its
 fact:
 
 ```bash
@@ -529,7 +529,7 @@ Shipped by Requested Date (active)
 
 When no fact's row is the thing your denominator counts — say a metric on
 purchase order lines, which no fact holds today — your query will want to
-start `FROM` a staging model. That query is the first draft of a new fact. The
+start `FROM` a staging view. That query is the first draft of a new fact. The
 data is already in staging (`stg_sage_x3__porderq` and friends); this is
 modelling work only.
 
@@ -606,8 +606,8 @@ Registry validation failed:
 | `note: column existence NOT checked` | Not an error — the column check needs `target/catalog.json`. Run `dbt docs generate`, then `python scripts/compile_metrics.py --check`, to catch a misspelt column before `dbt build` does. |
 | `process_metric_map references unknown metric(s): [...]` | The seed row's `metric_name` does not match any YAML `name`. |
 | dbt fails `assert_metric_slots_are_within_four` or `process_metric_map_one_metric_per_slot` | The process already has four metrics, or the slot is taken. |
-| Parity prints `[ -- ] not re-aggregatable` | Expected for a `count_distinct`. The metric is computed from the base fact in Power BI and `ask_metric.py`; do not sum its `mtr_*` model. |
-| Parity `FAIL` | The pre-aggregated model disagrees with the fact — usually a filter or dimension choice. Fix the definition before shipping. |
+| Parity prints `[ -- ] not re-aggregatable` | Expected for a `count_distinct`. The metric is computed from the base fact in Power BI and `ask_metric.py`; do not sum its `mtr_*` view. |
+| Parity `FAIL` | The pre-aggregated view disagrees with the fact — usually a filter or dimension choice. Fix the definition before shipping. |
 
 To change an existing metric, edit its YAML and run the same steps from
 step 3. To take a metric off a dashboard, delete its seed row; to move it,

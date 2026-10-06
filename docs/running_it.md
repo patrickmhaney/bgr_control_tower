@@ -131,7 +131,7 @@ archive. When an incremental extract returns more or fewer rows than you
 expected, this is the first place to look.
 
 ```
-watermarks  (17 stored)
+watermarks  (25 stored)
   sage_x3      SORDER           2026-09-29   minus 90d lookback
   ...
 sources with no watermark - these read everything, every run
@@ -445,7 +445,7 @@ On-Time Delivery (active)
 ```
 
 It writes its own SQL from the registry. `--sql` shows what it generated,
-which is a good way to learn the metric models.
+which is a good way to learn the metric views.
 
 ---
 
@@ -488,13 +488,13 @@ python scripts/regenerate.py --with-exports   # + parity test and Power BI expor
 ```
 
 `--with-exports` needs a built warehouse. Its two post-build steps reconcile
-every metric between its pre-aggregated model and its base fact, and regenerate
+every metric between its pre-aggregated view and its base fact, and regenerate
 the Parquet and the Power BI model.
 
 ### Check the metrics agree with themselves
 
 ```bash
-python scripts/test_metric_parity.py                    # metric model vs base fact
+python scripts/test_metric_parity.py                    # metric view vs base fact
 python scripts/test_metric_parity.py --write-dax-gate   # + the DAX queries for Power BI
 ```
 
@@ -553,7 +553,7 @@ snapshots.
 | Non-zero exit from `run_ingestion.py` | extraction failed, or a schema-contract **INCIDENT** — a source lost a column |
 | Non-zero exit from `dbt build` | a test failed at `error` severity. The four `warn` tests do not affect exit status |
 | A stale Paycom export | `read_latest()` raises rather than loading it. A missing file is indistinguishable from an unchanged one |
-| Non-zero exit from `test_metric_parity.py` | a metric no longer reconciles between its pre-aggregated model and its base fact — a compiler or modelling bug, not a data one |
+| Non-zero exit from `test_metric_parity.py` | a metric no longer reconciles between its pre-aggregated view and its base fact — a compiler or modelling bug, not a data one |
 | Snapshots skipped | history stops accumulating, and it cannot be backfilled |
 | `rows read` far from its usual value | a watermark reset, or a source stopped changing. `run_ingestion.py --state` tells you which |
 

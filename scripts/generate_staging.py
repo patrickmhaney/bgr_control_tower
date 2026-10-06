@@ -1,6 +1,6 @@
 """Generate the staging layer.
 
-Staging is mechanical: one model per source table, cleaning only. Writing 44
+Staging is mechanical: one model per source table, cleaning only. Writing 54
 near-identical models by hand invites inconsistency in exactly the place where
 consistency is the whole point, so the models are generated from the column
 spec below and committed. The spec is the source of truth for source->staging

@@ -21,7 +21,7 @@ business answers differently than we assumed.
 | 9 | What Pangea actually is | Freight visibility platform | Re-cut one source |
 | 10 | Currency policy | Report in USD at a derived rate | One var |
 | 11 | As-was vs as-is-today attribution | Type 1 throughout | **Unrecoverable, and rising** |
-| 12 | Can one order ship more than once? | One shipment per order | One metric model |
+| 12 | Can one order ship more than once? | One shipment per order | One metric definition |
 | 13 | Is the Pangea customer name typed or system-populated? | A reliable key | Customer attribution falls to 85.4% |
 | 14 | Three-way match tolerance | Exact quantity, 2% price | Two vars |
 | 15 | Inventory accuracy tolerance and basis | Exact match, by position | One var + one fact column |
@@ -340,7 +340,7 @@ deletes the history the decision would need.
 
 **Already done, regardless of the answer.** `dbt snapshot` now runs on
 `stg_sage_x3__bpcustomer`, `stg_sage_x3__represent` and
-`stg_netstock__item_location`. Three models, nothing consumes them, and they
+`stg_netstock__item_location`. Three snapshot tables, nothing consumes them, and they
 cost one command in the schedule. They buy the option: if the answer is "yes,
 we need as-was", history accumulates from today rather than from the day
 someone asks.
@@ -364,7 +364,7 @@ backorders, multi-site fulfilment, partial releases. Partial and split
 shipments are ordinary in freight, so the honest expectation is that this
 assumption does not survive contact with real data.
 
-**Cost to reverse.** One metric model. The risk was never the fix; it was that
+**Cost to reverse.** One metric definition. The risk was never the fix; it was that
 nothing failed when the assumption broke. That is now covered from two sides:
 `ask_metric.py` computes non-re-aggregatable metrics against the base fact
 rather than summing a pre-aggregate, and `scripts/test_metric_parity.py`

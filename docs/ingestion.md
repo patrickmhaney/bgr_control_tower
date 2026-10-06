@@ -322,8 +322,8 @@ with them, never the extractor.
 
 ### 5.4 N+1 child fetches die on the backfill
 
-Charges and tracking events hang off the shipment. Fetching them per shipment
-is **10,535 API calls**; batching parent ids is **24**. Invisible at POC scale,
+Charges, tracking events and legs hang off the shipment. Fetching them per
+shipment is **10,527 API calls**; batching parent ids is **24**. Invisible at POC scale,
 fatal on a historical backfill.
 
 If the real API has no bulk or date-ranged child endpoint, that has to be found
@@ -404,8 +404,8 @@ dlt is configured with the `direct` naming convention so `ITMREF_0` stays
 every X3 column name into `itmref_0` and break every staging model.
 
 Because staging is *generated* from a column spec rather than hand-written,
-adapting is one flag in `scripts/generate_staging.py` rather than 54 file
-edits.
+adapting is a one-line change to the `q()` helper that quotes column names in
+`scripts/generate_staging.py`, then a re-run, rather than 54 file edits.
 
 ---
 

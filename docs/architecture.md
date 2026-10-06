@@ -1,5 +1,126 @@
 # Architecture
 
+## At a glance
+
+```mermaid
+flowchart LR
+    x3["<b>Sage X3</b><br/>orders, invoices, stock"]
+    hs["<b>HubSpot</b><br/>customers and deals"]
+    pc["<b>Paycom</b><br/>people and payroll"]
+    ns["<b>Netstock</b><br/>demand planning"]
+    pg["<b>Pangea</b><br/>shipments and freight"]
+
+    bronze["<b>BRONZE</b><br/>Raw<br/><br/>An untouched copy of what each system sent, so nothing is ever lost"]
+    silver["<b>SILVER</b><br/>Clean and connected<br/><br/>Errors fixed and records matched across systems: one customer, one site, one item"]
+    gold["<b>GOLD</b><br/>Business-ready<br/><br/>One trusted model of the business, shared by every process"]
+    sem["<b>SEMANTIC LAYER</b><br/>Metric definitions<br/><br/>Every KPI defined once on top of Gold, with an owner and a status"]
+
+    dash["<b>Nine process dashboards</b><br/>Power BI"]
+    views["<b>Metric views</b><br/>for analysts and other tools"]
+    ai["<b>AI assistant</b><br/>answers KPI questions"]
+
+    x3 & hs & pc & ns & pg --> bronze --> silver --> gold --> sem
+    sem --> dash & views & ai
+
+    classDef src fill:#e8f0fe,stroke:#4a6fa5,color:#1a2b45
+    classDef bronze fill:#f6e3cf,stroke:#a0522d,stroke-width:2px,color:#3b2412
+    classDef silver fill:#eef1f3,stroke:#78909c,stroke-width:2px,color:#263238
+    classDef gold fill:#fff3c4,stroke:#b8860b,stroke-width:2px,color:#3d2e00
+    classDef sem fill:#f1e8fd,stroke:#7e57c2,stroke-width:2px,color:#2e1a4f
+    classDef use fill:#e6f4ea,stroke:#3c8d50,color:#173d22
+
+    class x3,hs,pc,ns,pg src
+    class bronze bronze
+    class silver silver
+    class gold gold
+    class sem sem
+    class dash,views,ai use
+```
+
+Five business systems feed one shared foundation, refined in three stages.
+**Bronze** keeps an exact copy of what each system sent. **Silver** cleans it
+and connects the systems to each other, so a customer in the CRM and the same
+customer in the ERP become one customer. **Gold** is the single version of the
+business that every process reads from. On top of Gold, the **semantic layer**
+defines each KPI once, and the dashboards, the metric views and the AI
+assistant are all generated from those definitions, so the same metric shows
+the same number wherever it appears.
+
+### The same picture, with the technology
+
+Every tool used here is free, open source and runs on a single machine. Each
+one also stands for a category of product, and any of them can stay as it is
+or be swapped for a managed service. The trade is the same every time: licence
+cost against code your team owns and runs.
+
+```mermaid
+flowchart LR
+    x3["<b>Sage X3</b><br/>database"]
+    hs["<b>HubSpot</b><br/>REST API"]
+    pc["<b>Paycom</b><br/>SFTP file drop"]
+    ns["<b>Netstock</b><br/>vendor API"]
+    pg["<b>Pangea</b><br/>vendor API"]
+
+    ing["<b>INGESTION</b><br/>Copies data out of each system<br/><br/>Used here: dlt, open-source Python<br/>Alternatives: Fivetran, Airbyte"]
+
+    subgraph WH["DATA WAREHOUSE · used here: DuckDB · alternatives: Snowflake, Databricks, BigQuery, Fabric"]
+        direction LR
+        bronze["<b>BRONZE</b><br/>Raw<br/><br/>Used here: Parquet files<br/>Alternatives: S3, ADLS, GCS"]
+        silver["<b>SILVER</b><br/>Clean and connected<br/><br/>SQL, built by dbt Core"]
+        gold["<b>GOLD</b><br/>Business-ready<br/><br/>Star schema, built by dbt Core"]
+    end
+
+    sem["<b>SEMANTIC LAYER</b><br/>Metric definitions<br/><br/>Used here: YAML + a Python compiler<br/>Alternatives: dbt Semantic Layer, Cube, Snowflake semantic views"]
+
+    dash["<b>Nine process dashboards</b><br/>Power BI, model generated from the definitions"]
+    views["<b>Metric views</b><br/>SQL views, readable by any SQL tool"]
+    ai["<b>AI assistant</b><br/>An LLM agent over the same definitions<br/><br/>e.g. Snowflake Cortex Analyst"]
+
+    x3 & hs & pc & ns & pg --> ing --> bronze --> silver --> gold --> sem
+    sem --> dash & views & ai
+
+    classDef src fill:#e8f0fe,stroke:#4a6fa5,color:#1a2b45
+    classDef ing fill:#e3f2f1,stroke:#2e7d74,stroke-width:2px,color:#123b36
+    classDef bronze fill:#f6e3cf,stroke:#a0522d,stroke-width:2px,color:#3b2412
+    classDef silver fill:#eef1f3,stroke:#78909c,stroke-width:2px,color:#263238
+    classDef gold fill:#fff3c4,stroke:#b8860b,stroke-width:2px,color:#3d2e00
+    classDef sem fill:#f1e8fd,stroke:#7e57c2,stroke-width:2px,color:#2e1a4f
+    classDef use fill:#e6f4ea,stroke:#3c8d50,color:#173d22
+
+    class x3,hs,pc,ns,pg src
+    class ing ing
+    class bronze bronze
+    class silver silver
+    class gold gold
+    class sem sem
+    class dash,views,ai use
+    style WH fill:#fafafa,stroke:#9e9e9e,stroke-dasharray:4 3,color:#333
+```
+
+| Piece | Used here | What it stands for | Alternatives |
+|---|---|---|---|
+| **Source access** | Clients that read a mock copy of each system | A live connection to each system | A read replica for Sage X3; the HubSpot REST API; Paycom's SFTP drop; the Netstock and Pangea vendor APIs |
+| **Ingestion** | dlt, an open-source Python library, configured per table | An extract-and-load tool | Fivetran (managed, priced by data volume); Airbyte (open source to self-run, or a paid cloud service) |
+| **Raw archive** | Parquet files in a folder | File storage | Amazon S3, Azure Data Lake Storage, Google Cloud Storage |
+| **Warehouse** | DuckDB, a single file | A data warehouse | Snowflake, Databricks, Google BigQuery, Microsoft Fabric; MotherDuck is a managed DuckDB |
+| **Transformation** | dbt Core: SQL files, run from the command line | The same tool | dbt Cloud (paid), which adds hosted scheduling and the dbt Semantic Layer API |
+| **Semantic layer** | YAML definitions and a Python compiler written for this project | A metrics layer | dbt Semantic Layer (MetricFlow; its query API needs dbt Cloud); Cube (open source, or a paid cloud service); Snowflake semantic views |
+| **Dashboards** | A Power BI model generated as files, loading Parquet | Power BI on the warehouse | Power BI importing from the warehouse, or Direct Lake on Fabric |
+| **AI assistant** | Not built. The registry it would read is, and `scripts/ask_metric.py` shows that registry is enough to answer from | An LLM agent | An LLM agent given the registry as a tool; Snowflake Cortex Analyst, through Snowflake Intelligence, over Snowflake semantic views |
+| **Orchestration** | Run by hand | A scheduler | GitHub Actions for a daily batch at this volume; Dagster, Prefect or Airflow as it grows |
+
+The warehouse is the choice that moves the most cost and changes the least
+code: the dbt models are SQL, and move between warehouses with a change of
+adapter. Ingestion is the opposite: a managed tool removes the most code to
+maintain, and is usually priced by volume.
+
+On Snowflake specifically, the premium path covers both ends. Cortex Analyst
+answers business questions over semantic views, and Snowflake CoCo, an AI
+coding agent, helps the data team build and maintain the SQL and dbt models
+themselves. Neither is required: everything here runs without them.
+
+---
+
 A proof of concept for the process performance data model: nine Power BI
 dashboards, one per business process, driven by metrics that are defined once
 and mapped to dashboards through a seed. How to run it is in
@@ -14,62 +135,69 @@ and mapped to dashboards through a seed. How to run it is in
         │  ingestion/ - one dlt resource per source table, 6 extraction strategies
         │  landing/   - append-only Parquet archive, replayable
         ▼
-  raw.duckdb                              5 schemas · 54 tables · ~248,000 rows
+  BRONZE · raw.duckdb                     5 schemas · 54 tables · ~248,000 rows
         │
-  ┌─────▼──────────────────────────────────────────────────────────┐
-  │ staging/            54 models, 1:1 with source tables, generated │
-  │                                                                 │
-  │   Cleaning only, no business logic. Every landmine in           │
-  │   sources.md is handled here and nowhere else: CHAR padding     │
-  │   trimmed, 1753-01-01 nulled, HubSpot strings cast, Paycom      │
-  │   MM/DD/YYYY parsed, local menus decoded through APLSTD,        │
-  │   archived records flagged rather than filtered.                │
-  └─────┬──────────────────────────────────────────────────────────┘
+  ┌─────▼────────────────────────────────────────────────────────────┐
+  │ SILVER · staging/        54 views, one per source table          │
+  │                          generated                               │
+  │                                                                  │
+  │   Cleaning only, no business logic. Every landmine in            │
+  │   sources.md is handled here and nowhere else: CHAR padding      │
+  │   trimmed, 1753-01-01 nulled, HubSpot strings cast, Paycom       │
+  │   MM/DD/YYYY parsed, local menus decoded through APLSTD,         │
+  │   archived records flagged rather than filtered.                 │
+  └─────┬────────────────────────────────────────────────────────────┘
         │
-  ┌─────▼──────────────────────────────────────────────────────────┐
-  │ intermediate/       10 models — crosswalks, resolution, matching │
-  │                                                                 │
-  │   int_customer_xref          HubSpot ↔ X3, 4 probes, confidence │
-  │   int_employee_xref          Paycom deduplicated, then matched  │
-  │   int_deal_erp_order_number  CRM→ERP reference repair           │
-  │   int_fx_rate                rates recovered from the GL        │
-  │   int_shipment_order         shipment → order → customer        │
-  │   int_shipment_charge        charge lines → shipment cost       │
-  │   int_shipment_milestone     events → milestones, by event_code │
-  │   int_sales_order_line       X3 split line tables rejoined      │
-  │   int_sales_return_line      returns → the order line they hit  │
-  │   int_supplier_invoice_match three-way match, per receipt       │
-  └─────┬──────────────────────────────────────────────────────────┘
+  ┌─────▼────────────────────────────────────────────────────────────┐
+  │ SILVER · intermediate/   10 models: crosswalks, resolution,      │
+  │                          matching                                │
+  │                                                                  │
+  │   int_customer_xref          HubSpot ↔ X3, 4 probes, confidence  │
+  │   int_employee_xref          Paycom deduplicated, then matched   │
+  │   int_deal_erp_order_number  CRM→ERP reference repair            │
+  │   int_fx_rate                rates recovered from the GL         │
+  │   int_shipment_order         shipment → order → customer         │
+  │   int_shipment_charge        charge lines → shipment cost        │
+  │   int_shipment_milestone     events → milestones, by event_code  │
+  │   int_sales_order_line       X3 split line tables rejoined       │
+  │   int_sales_return_line      returns → the order line they hit   │
+  │   int_supplier_invoice_match three-way match, per receipt        │
+  └─────┬────────────────────────────────────────────────────────────┘
         │
-  ┌─────▼──────────────────────────────────────────────────────────┐
-  │ marts/core/         11 models — the data model. Process-agnostic.│
-  │                                                                 │
-  │   dim_date  dim_customer  dim_site  dim_item  dim_carrier       │
-  │   fct_shipment  fct_shipment_event  fct_sales_order_line        │
-  │   fct_invoice_line  fct_supplier_invoice_line                   │
-  │   fct_inventory_count_line                                      │
-  └─────┬──────────────────────────────────────────────────────────┘
-        │
-  ┌─────▼──────────────────────────────────────────────────────────┐
-  │ semantic/           10 metric definitions, tool-neutral YAML     │
-  │                                                                 │
-  │   One definition per metric. No process field — a metric does   │
-  │   not know which dashboards it appears on.                      │
-  └─────┬──────────────────────────────────────────────────────────┘
-        │  scripts/compile_metrics.py → SQL models, registry seed,
-        │                               agent JSON, catalogue
-        ├──── seeds/process_metric_map.csv ─────┐
-        │     the many-to-many. 7 rows.          │
-        │                                        │
-  ┌─────▼────────────────────┬───────────────────▼────────────────┐
-  │ marts/metrics/ 10 models │ marts/process/  9 views            │
-  │ numerator + denominator  │ 3 populated, 6 typed and empty     │
-  │ by dimension             │ generated from the seed map        │
-  └──────────────────────────┴────────────────────────────────────┘
-        │  scripts/export_powerbi.py
-  ┌─────▼──────────────────────────────────────────────────────────┐
-  │ exports/   Parquet + a generated TMDL model with DAX measures   │
-  └─────────────────────────────────────────────────────────────────┘
+  ┌─────▼────────────────────────────────────────────────────────────┐
+  │ GOLD · marts/core/       11 tables: the data model               │
+  │                                                                  │
+  │   dim_date  dim_customer  dim_site  dim_item  dim_carrier        │
+  │   fct_shipment  fct_shipment_event  fct_sales_order_line         │
+  │   fct_invoice_line  fct_supplier_invoice_line                    │
+  │   fct_inventory_count_line                                       │
+  │                                                                  │
+  │   Process-agnostic. Knows nothing about metrics or dashboards.   │
+  └─────┬────────────────────────────────────────────────────┬───────┘
+        │                                                    │
+        │ SQL route                           Power BI route │
+        │                                                    │
+        │       ┌────────────────────────────────────┐       │
+        │       │ SEMANTIC LAYER · text, no data     │       │
+        │       │ semantic/  10 metric definitions   │       │
+        │       │ seeds/process_metric_map.csv       │       │
+        │       │ which metric on which dashboard    │       │
+        │       └───┬────────────────────────────┬───┘       │
+        │           ┊ scripts             script ┊           │
+        │           ┊ write SQL       writes DAX ┊           │
+  ┌─────▼───────────▼────────────┐ ┌─────────────▼───────────▼───────┐
+  │ marts/metrics/  10 views     │ │ exports/                        │
+  │ one per metric: numerator    │ │ Gold tables as Parquet,         │
+  │ and denominator, by dim      │ │ plus a generated Power BI       │
+  │         │                    │ │ model whose DAX measures        │
+  │         ▼                    │ │ compute on the facts            │
+  │ marts/process/  9 views      │ │                                 │
+  │ one per dashboard,           │ │ Does not read the mtr_*         │
+  │ 3 populated, 6 empty         │ │ or mart_* views                 │
+  └──────────────────────────────┘ └─────────────────────────────────┘
+    analysts, AI agent               Power BI dashboards
+
+  │ data flows      ┊ a script writes code from the metric definitions
 ```
 
 `dbt build` prints the current model and test counts. Diagrams of every layer
@@ -304,7 +432,7 @@ HubSpot rather than a data problem here.
 
 The high-risk idea in the design was generating both the warehouse SQL and the
 Power BI DAX from one metric definition. It works: `compile_metrics.py` writes
-the `mtr_*` SQL models, and `export_powerbi.py` imports the same compiler's
+the `mtr_*` SQL views, and `export_powerbi.py` imports the same compiler's
 `dax_measure()` to write every measure into the Power BI model. No measure
 anywhere is hand-written. Three things came out of building it.
 
@@ -319,9 +447,9 @@ That is the right trade: when a metric needs arithmetic, the arithmetic belongs
 in the fact model as a column, which is also where it becomes testable.
 
 **Not every metric is re-aggregatable.** Cost Per Order has a `count_distinct`
-denominator. A pre-aggregated SQL model is correct at the grain it was
+denominator. A pre-aggregated SQL view is correct at the grain it was
 aggregated to and wrong if summed to a coarser one — an order spanning two
-sites would be counted twice. The compiler detects this: the SQL model carries
+sites would be counted twice. The compiler detects this: the SQL view carries
 a header warning, the registry records `is_reaggregatable: false`, and the DAX
 uses `DISTINCTCOUNT` over the fact, which stays correct at every grain. This is
 the single most common way a semantic layer produces confidently wrong numbers,
@@ -418,7 +546,7 @@ handed nine wide tables and left to infer the relationships.
 
 **It reports blocked metrics as blocked.** None is blocked today, but a blocked
 metric returns no number: it prints the `blocked_reason` and what would unblock
-it. A model that cannot see a gap will fill it with something plausible.
+it. An AI model that cannot see a gap will fill it with something plausible.
 
 **It carries the caveats with the number.** The DSO proxy arrives labelled
 provisional, with "publish alongside `unsettled_invoice_rate`" attached. Cost
@@ -466,7 +594,7 @@ it is a test and not a sentence.
 
 ### Current values
 
-Each reconciles between its metric model and its base fact on every build
+Each reconciles between its metric view and its base fact on every build
 (`scripts/test_metric_parity.py`).
 
 | Metric | Value | Status |
@@ -498,9 +626,11 @@ regenerate is worse than hand-written code.
 | `scripts/export_powerbi.py` | Parquet + the TMDL model, DAX measures included | re-run after `dbt build` |
 | `scripts/freeze_schema_contract.py` | the pinned source schema contract | re-run, then **review** |
 
-`scripts/regenerate.py` runs the first four generators in order, because they
-have an ordering dependency — editing a metric definition changes the compiled
-registry, which changes the process views. `--check` fails if regeneration
+`scripts/regenerate.py` runs the staging generator, the schema contract
+freeze, the metric compiler and the process view generator, in that order;
+`--with-exports` adds the parity test and the Power BI export, which need a
+built warehouse. The order matters: editing a metric definition changes the
+compiled registry, which changes the process views. `--check` fails if regeneration
 moves the working tree. That is the CI guard, and it exists because the failure
 happened once: a blocked reason was edited, the metric artefacts were
 recompiled, the process views were not, and `mart_s2p.sql` sat in the repo for
@@ -512,7 +642,7 @@ dangerous.
 
 | Output | Consumed by |
 |---|---|
-| `mtr_*` SQL models | the `mart_*` views, `ask_metric.py`, the parity test |
+| `mtr_*` SQL views | the `mart_*` views, `ask_metric.py`, the parity test |
 | `metric_registry` seed | the `mart_*` views, dbt referential tests, the Power BI model |
 | agent JSON | `ask_metric.py` |
 | DAX / TMDL | the Power BI model — generated, not yet opened in Power BI Desktop |
@@ -572,7 +702,7 @@ sliceable by any dimension attribute. From the dashboard side it needs only
 and what status and owner to show.
 
 Both routes are generated from the same YAML, and
-`scripts/test_metric_parity.py` checks that the `mtr_*` models agree with the
+`scripts/test_metric_parity.py` checks that the `mtr_*` views agree with the
 facts the DAX computes from.
 
 **Hand-written and staying that way**: the 10 intermediate models, the 11 core
@@ -650,7 +780,7 @@ definition changes whenever the business answers. One is not.
 | 9 | What Pangea is | Freight visibility platform | source description |
 | 10 | Currency policy | USD at the GL-derived rate | `var: reporting_currency` |
 | 11 | As-was vs as-is attribution | Type 1 throughout | **unrecoverable, and rising** |
-| 12 | Can one order ship twice? | One shipment per order | one metric model |
+| 12 | Can one order ship twice? | One shipment per order | one metric definition |
 | 13 | Is the Pangea customer name typed? | A reliable key | attribution falls to 85.4% |
 | 14 | Three-way match tolerance | Exact quantity, 2% price | `var: match_*_tolerance_pct` |
 | 15 | Inventory accuracy tolerance and basis | Exact match, by position | `var: inventory_accuracy_tolerance_pct` |

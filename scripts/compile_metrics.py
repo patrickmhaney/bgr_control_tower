@@ -743,7 +743,7 @@ def target_docs(dimensions, models, metrics):
                  + "  ") if metric.get("filters") else "",
                 f"**Base model** `{metric['base_model']}`  ",
                 f"**Dimensions** {', '.join(metric.get('dimensions') or []) or '_none_'}  ",
-                f"**Generated SQL model** `mtr_{metric['name']}`  ",
+                f"**Generated SQL view** `mtr_{metric['name']}`  ",
                 f"**Re-aggregatable** {'yes' if is_reaggregatable(metric) else 'no'}",
                 "",
             ]

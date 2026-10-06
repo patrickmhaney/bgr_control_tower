@@ -59,13 +59,13 @@ lineage_notes: >
   - see open question 12. When it does, the divergence surfaces in
   scripts/test_metric_parity.py rather than on a dashboard, and ask_metric.py
   already computes this metric from fct_shipment directly rather than by
-  summing the pre-aggregated model.
+  summing the pre-aggregated view.
 
 caveats:
   - >
     The denominator is a distinct count, which does not re-aggregate. Summing
     the pre-aggregated denominator across dimension values will over-count any
-    order that spans them. The generated SQL model is correct at its declared
+    order that spans them. The generated SQL view is correct at its declared
     dimension grain; the generated DAX uses DISTINCTCOUNT over the fact and is
     correct at any grain. See is_reaggregatable in the compiled registry.
 

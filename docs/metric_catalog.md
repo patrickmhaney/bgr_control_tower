@@ -36,18 +36,18 @@ The average fulfillment cost of delivering one sales order, measured as carrier 
 **Metric filters** `has_order_reference is true`  
 **Base model** `fct_shipment`  
 **Dimensions** date, customer, site  
-**Generated SQL model** `mtr_cost_per_order`  
+**Generated SQL view** `mtr_cost_per_order`  
 **Re-aggregatable** no
 
 **Provisional because** The cost pool and the allocation basis are business decisions that have not been made. Fulfillment-only is the assumption; fulfillment plus warehouse labour is computable from Paycom's labor_allocation_code with an allocation rule, and fully loaded is not computable at all from the current sources. See open question 3.
 
 **Caveats**
 
-- The denominator is a distinct count, which does not re-aggregate. Summing the pre-aggregated denominator across dimension values will over-count any order that spans them. The generated SQL model is correct at its declared dimension grain; the generated DAX uses DISTINCTCOUNT over the fact and is correct at any grain. See is_reaggregatable in the compiled registry.
+- The denominator is a distinct count, which does not re-aggregate. Summing the pre-aggregated denominator across dimension values will over-count any order that spans them. The generated SQL view is correct at its declared dimension grain; the generated DAX uses DISTINCTCOUNT over the fact and is correct at any grain. See is_reaggregatable in the compiled registry.
 
 **Lineage**
 
-Numerator is pangea.charge.amount_usd via fct_shipment.shipment_cost_usd, restricted to shipments that resolve to an X3 order. Denominator is the distinct count of sage_x3.SORDER.SOHNUM_0 reached through pangea.shipment.reference_number. Coverage: 2,998 of 4,200 orders (71.4%) have a matched shipment. Orders with no shipment are outside the denominator, so this is cost per *shipped* order. The coverage rate must be published beside the metric. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: no order ships more than once. Zero of the 2,998 order-linked shipments share an order, which is why a distinct-count denominator survives pre-aggregation here at all. Partial and split shipments are ordinary in freight, so expect this to break - see open question 12. When it does, the divergence surfaces in scripts/test_metric_parity.py rather than on a dashboard, and ask_metric.py already computes this metric from fct_shipment directly rather than by summing the pre-aggregated model.
+Numerator is pangea.charge.amount_usd via fct_shipment.shipment_cost_usd, restricted to shipments that resolve to an X3 order. Denominator is the distinct count of sage_x3.SORDER.SOHNUM_0 reached through pangea.shipment.reference_number. Coverage: 2,998 of 4,200 orders (71.4%) have a matched shipment. Orders with no shipment are outside the denominator, so this is cost per *shipped* order. The coverage rate must be published beside the metric. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: no order ships more than once. Zero of the 2,998 order-linked shipments share an order, which is why a distinct-count denominator survives pre-aggregation here at all. Partial and split shipments are ordinary in freight, so expect this to break - see open question 12. When it does, the divergence surfaces in scripts/test_metric_parity.py rather than on a dashboard, and ask_metric.py already computes this metric from fct_shipment directly rather than by summing the pre-aggregated view.
 
 _Defined in `semantic/metrics/cost_per_order.yml`._
 
@@ -68,7 +68,7 @@ The average freight cost of moving one shipment, measured as total carrier charg
 
 **Base model** `fct_shipment`  
 **Dimensions** date, customer, site, carrier  
-**Generated SQL model** `mtr_cost_per_shipment`  
+**Generated SQL view** `mtr_cost_per_shipment`  
 **Re-aggregatable** yes
 
 **Lineage**
@@ -94,7 +94,7 @@ The share of CRM companies that cannot be matched to any ERP customer. The busin
 
 **Base model** `dim_customer`  
 **Dimensions** _none_  
-**Generated SQL model** `mtr_customer_unmatched_rate`  
+**Generated SQL view** `mtr_customer_unmatched_rate`  
 **Re-aggregatable** yes
 
 **Lineage**
@@ -120,7 +120,7 @@ The average number of days between invoicing a customer and that invoice being s
 
 **Base model** `fct_invoice_line`  
 **Dimensions** date, customer, site, item  
-**Generated SQL model** `mtr_dso_days_to_pay_proxy`  
+**Generated SQL view** `mtr_dso_days_to_pay_proxy`  
 **Re-aggregatable** yes
 
 **Provisional because** It is not DSO and must not be labelled as one on a dashboard. It structurally excludes unpaid invoices - which are exactly the invoices that make real DSO bad - so it is systematically more flattering. Open question 2.
@@ -154,7 +154,7 @@ The share of counted stock positions where the counted quantity agrees with the 
 
 **Base model** `fct_inventory_count_line`  
 **Dimensions** date, site, item  
-**Generated SQL model** `mtr_inventory_accuracy`  
+**Generated SQL view** `mtr_inventory_accuracy`  
 **Re-aggregatable** yes
 
 **Provisional because** Two decisions are outstanding. The tolerance band is assumed to be zero - a position is accurate only on an exact match - and many warehouses allow a quantity or value band instead. The measurement basis is assumed to be position rather than unit or value, which flatters sites whose errors are concentrated in a few large positions. See open question 15. The source table names are also unverified against a real X3 folder.
@@ -182,7 +182,7 @@ The share of supplier invoice lines that agree with both the purchase order and 
 
 **Base model** `fct_supplier_invoice_line`  
 **Dimensions** date, site, item  
-**Generated SQL model** `mtr_match_rate`  
+**Generated SQL view** `mtr_match_rate`  
 **Re-aggregatable** yes
 
 **Provisional because** The tolerance policy is a business decision that has not been made. Exact quantity and 2% price is the assumption, and the rate is highly sensitive to it - AP departments commonly allow a quantity band as well, which would move this number several points. Until AP sets a policy the rate measures the policy as much as the process. See open question 14.
@@ -210,7 +210,7 @@ The share of delivered shipments that arrived on or before the promised delivery
 
 **Base model** `fct_shipment`  
 **Dimensions** date, customer, site, carrier  
-**Generated SQL model** `mtr_on_time_delivery_rate`  
+**Generated SQL view** `mtr_on_time_delivery_rate`  
 **Re-aggregatable** yes
 
 **Caveats**
@@ -240,7 +240,7 @@ The share of shipments that resolve to a Sage X3 sales order. This bounds every 
 
 **Base model** `fct_shipment`  
 **Dimensions** date, customer, site, carrier  
-**Generated SQL model** `mtr_order_reference_coverage_rate`  
+**Generated SQL view** `mtr_order_reference_coverage_rate`  
 **Re-aggregatable** yes
 
 **Lineage**
@@ -266,7 +266,7 @@ The share of invoiced value that customers subsequently return, measured as retu
 
 **Base model** `fct_sales_order_line`  
 **Dimensions** date, customer, site, item  
-**Generated SQL model** `mtr_return_rate`  
+**Generated SQL view** `mtr_return_rate`  
 **Re-aggregatable** yes
 
 **Provisional because** The denominator basis is a business decision that has not been made. Invoiced value is the assumption; ordered value and shipped value are both computable and give different answers, because an order can be invoiced in part. The date basis is the same kind of choice - order date is used, return date is the alternative, and they move a monthly rate materially. See open questions 16 and 17.
@@ -294,7 +294,7 @@ The share of invoice lines with no settlement date. This is the mandatory compan
 
 **Base model** `fct_invoice_line`  
 **Dimensions** date, customer, site  
-**Generated SQL model** `mtr_unsettled_invoice_rate`  
+**Generated SQL view** `mtr_unsettled_invoice_rate`  
 **Re-aggregatable** yes
 
 **Lineage**

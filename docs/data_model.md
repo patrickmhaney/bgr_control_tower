@@ -832,7 +832,7 @@ erDiagram
 
 **Grain, stated once**
 
-| Model | One row is | Rows |
+| Table | One row is | Rows |
 |---|---|---|
 | `dim_date` | one calendar day | 1,461 |
 | `dim_customer` | one conformed customer | 252 |
@@ -877,84 +877,114 @@ sketch. Five layers, fed by 54 dlt extraction resources. See
 
 ### 4.1 The whole pipeline, by layer
 
+The pipeline has two halves, drawn separately because they work differently.
+
+**From the sources to Gold, data flows.** Each layer is built from the rows of
+the one before it. Gold is the end of the data pipeline: five dimensions and
+six facts that know nothing about metrics or dashboards.
+
 ```mermaid
-flowchart TB
-    subgraph SYS["source systems"]
-        y1["Sage X3<br/><i>SQL database read</i>"]
-        y2["HubSpot<br/><i>REST + cursor</i>"]
-        y3["Paycom<br/><i>SFTP report drop</i>"]
-        y4["Netstock<br/><i>snapshot API</i>"]
-        y5["Pangea<br/><i>REST + children</i>"]
+flowchart LR
+    sys(["five source<br/>systems"])
+
+    subgraph BRONZE["BRONZE · raw, exactly as sent"]
+        direction LR
+        land[("landing/<br/>Parquet archive")]
+        raw[("raw.duckdb<br/>54 tables")]
     end
 
-    subgraph ING["ingestion · dlt · 54 resources"]
-        ext["extract<br/><br/>15 full refresh · 3 modified-date<br/>20 header-window · 5 API cursor<br/>5 snapshot · 6 file drop<br/><br/>schema contract enforced"]
-        land[("landing/<br/>Parquet · append-only<br/>partitioned by load_date<br/><i>replayable · auditable</i>")]
+    subgraph SILVER["SILVER · clean and connected"]
+        direction LR
+        stg["staging<br/>54 views<br/>clean, no logic"]
+        int["intermediate<br/>10 views and tables<br/>match across systems"]
     end
 
-    subgraph SRC["raw.duckdb · 54 tables · 247,851 rows"]
-        s1["sage_x3 · 30"]
-        s2["hubspot · 8"]
-        s3["paycom · 6"]
-        s4["netstock · 5"]
-        s5["pangea · 5"]
+    subgraph GOLD["GOLD · dimensional model"]
+        core[("5 dimensions<br/>6 facts<br/>11 tables")]
     end
 
-    subgraph STG["staging · 54 models · generated"]
-        stg["stg_&lt;source&gt;__&lt;table&gt;<br/><br/>trim · sentinel to null · cast<br/>parse dates · decode local menus<br/>flag archived, never filter<br/><br/>NO business logic"]
-    end
+    sys --> land --> raw --> stg --> int --> core
 
-    subgraph INT["intermediate · 10 models · hand-written"]
-        i1["int_customer_xref"]
-        i2["int_employee_xref"]
-        i3["int_deal_erp_order_number"]
-        i4["int_fx_rate"]
-        i5["int_sales_order_line"]
-        i6["int_shipment_order"]
-        i7["int_shipment_charge"]
-        i8["int_shipment_milestone"]
-        i9["int_sales_return_line"]
-        i10["int_supplier_invoice_match"]
-    end
-
-    subgraph CORE["marts/core · 11 models · hand-written · THE data model"]
-        d["dim_date · dim_customer · dim_site<br/>dim_item · dim_carrier"]
-        f["fct_shipment · fct_shipment_event<br/>fct_sales_order_line · fct_invoice_line<br/>fct_supplier_invoice_line · fct_inventory_count_line"]
-    end
-
-    subgraph SEM["semantic · 10 metric definitions · YAML"]
-        reg["semantic/metrics/*.yml<br/>semantic/models.yml<br/>semantic/dimensions.yml<br/><br/>no process field"]
-    end
-
-    subgraph MTR["marts/metrics · 10 models · generated"]
-        m["mtr_&lt;metric&gt;<br/>numerator + denominator by dimension"]
-    end
-
-    subgraph PROC["marts/process · 9 views · generated"]
-        p["mart_o2c · mart_s2p · mart_i2d<br/>+ 6 empty and typed"]
-    end
-
-    subgraph OUT["exports"]
-        o["Parquet · TMDL model with DAX measures<br/>agent JSON"]
-    end
-
-    seed[("seeds<br/>process_metric_map<br/>site_code_crosswalk · legal_suffix<br/>process · metric_registry")]
-
-    SYS --> ext --> land -->|"projection: SQL only,<br/>no source access"| SRC
-    SRC --> STG --> INT --> CORE
-    CORE --> reg
-    reg -->|"scripts/compile_metrics.py"| MTR
-    reg -->|"scripts/export_powerbi.py"| OUT
-    MTR --> PROC
-    seed -->|"scripts/generate_process_views.py"| PROC
-    seed --> CORE
-    CORE --> OUT
-    reg -->|"compile"| seed
+    style BRONZE fill:#f6e3cf,stroke:#a0522d,color:#3b2412
+    style SILVER fill:#eef1f3,stroke:#78909c,color:#263238
+    style GOLD fill:#fff3c4,stroke:#b8860b,color:#3d2e00
 ```
 
-The two arrows out of `semantic/` are the point of the whole design: the same
-YAML produces the warehouse SQL *and* the Power BI measures, so they cannot
-drift.
+**From Gold to the consumers, the semantic layer decides what gets built.**
+Two kinds of arrow here, and the difference is the point:
+
+- **Black: data flows.** Rows are read from one place and written to the next.
+- **Purple: a script writes code.** A script reads the metric definitions and
+  writes SQL, a registry or Power BI measures. Nothing flows through the
+  definitions when anyone runs a query.
+
+```mermaid
+flowchart TB
+    subgraph GOLD["GOLD · dimensional model"]
+        core[("5 dimensions · 6 facts")]
+    end
+
+    subgraph SEM["SEMANTIC LAYER · text files, no data"]
+        direction LR
+        yml["semantic/*.yml<br/>10 metric definitions"]
+        map["process_metric_map.csv<br/>which metric on which dashboard"]
+    end
+
+    subgraph BUILT["Built from Gold, following the definitions"]
+        direction LR
+        mtr["mtr_* views<br/>one per metric"]
+        proc["mart_* views<br/>one per dashboard"]
+        reg[("metric registry<br/>seed + JSON")]
+        pbi["Power BI model<br/>Gold tables + DAX measures"]
+    end
+
+    sql(["SQL users and other tools"])
+    agent(["AI agent"])
+    dash(["Power BI dashboards"])
+
+    core --> mtr
+    mtr --> proc
+    proc --> sql
+    core -->|"as Parquet"| pbi
+    pbi --> dash
+    reg --> proc
+    reg --> pbi
+    reg --> agent
+    mtr --> agent
+
+    yml -.-> mtr
+    yml -.-> reg
+    yml -.-> pbi
+    map -.-> proc
+
+    linkStyle 9,10,11,12 stroke:#7e57c2,stroke-width:2px
+
+    style GOLD fill:#fff3c4,stroke:#b8860b,color:#3d2e00
+    style SEM fill:#f1e8fd,stroke:#7e57c2,color:#2e1a4f
+    style BUILT fill:#e6f4ea,stroke:#3c8d50,color:#173d22
+```
+
+Read it like this:
+
+- **The semantic layer describes Gold; no data flows into it.** It holds no
+  rows. It names Gold's tables and columns, the way a recipe names its
+  ingredients.
+- **Each purple arrow is a script.** `compile_metrics.py` writes the `mtr_*`
+  SQL and the registry. `generate_process_views.py` writes the `mart_*` SQL
+  from the process map and the definitions. `export_powerbi.py` writes the DAX measures.
+- **Everything a consumer touches is computed from Gold.** The views select
+  from the Gold facts. Power BI loads the Gold tables themselves and computes
+  in DAX, without using the `mtr_*` or `mart_*` views. The AI agent reads the
+  registry to learn what each metric means, then writes its own SQL against
+  the `mtr_*` views and the Gold dimensions, or against the Gold fact itself
+  for a metric that cannot be summed, such as Cost Per Order.
+
+Because every path starts from the same definition and the same Gold tables,
+a metric gives the same number in each of them.
+
+Not shown: two small seeds (site-code and legal-suffix crosswalks) feed the
+Silver and Gold layers, and the staging views are generated from a column spec
+by `scripts/generate_staging.py`.
 
 ### 4.2 Shipment path — On-Time Delivery, Cost Per Shipment, Cost Per Order
 
