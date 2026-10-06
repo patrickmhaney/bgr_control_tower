@@ -135,7 +135,7 @@ and mapped to dashboards through a seed. How to run it is in
         │  ingestion/ - one dlt resource per source table, 6 extraction strategies
         │  landing/   - append-only Parquet archive, replayable
         ▼
-  BRONZE · raw.duckdb                     5 schemas · 54 tables · ~248,000 rows
+  BRONZE · raw.duckdb                     5 schemas · 54 tables · ~246,000 rows
         │
   ┌─────▼────────────────────────────────────────────────────────────┐
   │ SILVER · staging/        54 views, one per source table          │
@@ -404,7 +404,7 @@ map** and it is far better than the name match the map proposes.
 
 **`pangea.shipment.customer_name` matches `BPCUSTOMER.BPCNAM_0` on all 220
 distinct values.** Also not in the join map. It cannot recover the order, but it
-recovers the customer for the 511 shipments (14.6%) that carry no resolvable
+recovers the customer for the 509 shipments (14.6%) that carry no resolvable
 order reference — which is why customer resolution on `fct_shipment` is 100%
 while order resolution is 85.4%. Those are different coverage numbers and
 conflating them would overstate what can be attributed to an order.
@@ -526,7 +526,7 @@ On-Time Delivery (active)
 
          74.3%    (n = 218)
 
-  CAVEAT: The 128 undelivered shipments (109 EXCEPTION, 19 IN_TRANSIT) are
+  CAVEAT: The 117 undelivered shipments (108 EXCEPTION, 9 IN_TRANSIT) are
     excluded from the denominator, which means a shipment that fails
     outright cannot make this metric worse...
 ```
@@ -569,7 +569,7 @@ would hide the finding; erroring on them would make the build permanently red.
 
 | Warning | Rows | What it means |
 |---|---|---|
-| `pangea.shipment.reference_number` → `SORDER` | 264 | Customer POs in the reference field. Errors above 600. |
+| `pangea.shipment.reference_number` → `SORDER` | 262 | Customer POs in the reference field. Errors above 600. |
 | `netstock.item_location` → `ITMMASTER` | 35 | Items planned but not mastered. Errors above 50. |
 | Paycom `work_email` uniqueness | 12 | Duplicate people in the roster. Errors above 15. |
 | `paycom.gl_mapping` → `GACCENTRYD` | 11 | **The join map draws this as a solid line. It is not one.** Payroll accounts 50100–50140 and 21500–21700 do not exist in the GL. Errors above 11. |
@@ -581,7 +581,7 @@ not computable.
 ### Reconciliation
 
 `fct_invoice_line.line_net_amount_usd` — invoices less credit memos — sums to
-**216,389,996.78** and reconciles to GL account 41000 (**216,389,996.88**)
+**215,626,593.19** and reconciles to GL account 41000 (**215,626,593.29**)
 **within \$0.10**. The residual is FX rounding: the fact converts each line
 with a `decimal(18,6)` rate against a `decimal(18,4)` amount, while the GL
 carries an amount already converted at posting.
@@ -600,13 +600,13 @@ Each reconciles between its metric view and its base fact on every build
 | Metric | Value | Status |
 |---|---|---|
 | On-Time Delivery | 75.6% | active |
-| Cost Per Shipment | $1,564.18 | active |
+| Cost Per Shipment | $1,563.34 | active |
 | Inventory Accuracy | 93.4% | provisional |
-| DSO (days-to-pay proxy) | 48.0 days | provisional |
+| DSO (days-to-pay proxy) | 47.3 days | provisional |
 | Return Rate | 1.27% | provisional |
-| Cost Per Order | $1,560.78 | provisional |
-| Match Rate | 70.7% | provisional |
-| Unsettled Invoice Rate | 13.8% | active |
+| Cost Per Order | $1,559.22 | provisional |
+| Match Rate | 70.8% | provisional |
+| Unsettled Invoice Rate | 18.7% | active |
 | Order Reference Coverage | 85.4% | active |
 | Unmatched CRM Customers | 11.9% | active |
 
@@ -626,12 +626,14 @@ regenerate is worse than hand-written code.
 | `scripts/export_powerbi.py` | Parquet + the TMDL model, DAX measures included | re-run after `dbt build` |
 | `scripts/freeze_schema_contract.py` | the pinned source schema contract | re-run, then **review** |
 
-`scripts/regenerate.py` runs the staging generator, the schema contract
-freeze, the metric compiler and the process view generator, in that order;
-`--with-exports` adds the parity test and the Power BI export, which need a
-built warehouse. The order matters: editing a metric definition changes the
-compiled registry, which changes the process views. `--check` fails if regeneration
-moves the working tree. That is the CI guard, and it exists because the failure
+`scripts/regenerate.py` runs the staging generator, the metric compiler and
+the process view generator, in that order; `--with-exports` adds the parity
+test and the Power BI export, which need a built warehouse. The order matters:
+editing a metric definition changes the compiled registry, which changes the
+process views. The schema contract is left out on purpose. Re-freezing it from
+today's sources is how a lost column gets silenced, so it is only ever re-run
+by hand, with the diff reviewed. `--check` fails if regeneration moves the
+working tree. That is the CI guard, and it exists because the failure
 happened once: a blocked reason was edited, the metric artefacts were
 recompiled, the process views were not, and `mart_s2p.sql` sat in the repo for
 a commit carrying text that no longer matched its definition. Nothing broke,

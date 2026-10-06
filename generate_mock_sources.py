@@ -593,9 +593,11 @@ for soh in sorted(inv_by_order):
     if rtn_total > 0 and rr.random() < 0.86:      # 14% not yet credited
         _credit_memos.append((srh, h, rtndat, rtn_total, credited, fcy))
 
+_memo_by_return = {}       # return -> the credit memo raised for it
 for (srh, h, rtndat, rtn_total, credited, fcy) in _credit_memos:
     inv_seq += 1
     num = f"SC{fcy[:2]}{rtndat.year % 100:02d}{inv_seq:06d}"
+    _memo_by_return[srh] = num
     for k, (lineno, itm, rqty, net, amt) in enumerate(credited):
         x3["SINVOICED"].append({
             "NUM_0": num, "SIDLIN_0": (k + 1) * 1000, "ITMREF_0": itm,
@@ -663,6 +665,7 @@ for _ln in x3["PORDERQ"]:
 rcp_seq = 0
 _rcpt_lines_by_pth = {}
 _receipt_moves = []
+_balance_parent = {}       # balance receipt -> the receipt it completes
 
 for poh in sorted(lines_by_po):
     head = po_index[poh]
@@ -710,6 +713,7 @@ for poh in sorted(lines_by_po):
                 bdat = min(rdat + timedelta(days=pr.randint(5, 25)), END)
                 rcp_seq += 1
                 bpth = f"PTH{head['POHFCY_0'][:2]}{bdat.year % 100:02d}{rcp_seq:06d}"
+                _balance_parent[bpth] = pth
                 x3["PRECEIPT"].append({
                     "PTHNUM_0": bpth, "PTHFCY_0": head["POHFCY_0"],
                     "BPSNUM_0": head["BPSNUM_0"], "POHNUM_0": poh,
@@ -744,6 +748,7 @@ for d in x3["PRECEIPTD"]:
                                        d["RCPDAT_0"])
 
 pinv_seq = 0
+_pinv_sources = {}         # supplier invoice -> the receipts it was billed from
 for poh in sorted(_rlines_by_po):
     if pr.random() >= 0.92:                       # 8% received, not yet invoiced
         continue
@@ -771,6 +776,7 @@ for poh in sorted(_rlines_by_po):
             pth_ref = ""                          # billed, never received
         amt = money(qty * price)
         tot += amt
+        _pinv_sources.setdefault(num, set()).add(rl["PTHNUM_0"])
         x3["PINVOICED"].append({
             "NUM_0": num, "PIDLIN_0": k * 1000, "POHNUM_0": poh,
             "POPLIN_0": rl["POPLIN_0"], "PTHNUM_0": pth_ref,
@@ -1391,6 +1397,100 @@ for soh in shipped_orders:
     for c, a in charges:
         pg["charge"].append({"shipment_id": sid, "charge_code": c, "amount_usd": a,
                              "currency": "USD"})
+
+# =========================================================================
+#  AS OF THE EXTRACT DATE
+#
+#  Everything above simulates forward from each document's own date, so some
+#  events land after TODAY: payments on invoices raised in August, receipts
+#  for POs placed in the summer, shipments for orders taken in the last week.
+#  An extract taken on TODAY cannot contain any of them. This pass removes or
+#  rolls back every event after TODAY, consistently across the documents that
+#  reference it.
+#
+#  It runs after generation and draws from no RNG, so every row it does not
+#  touch is exactly what the generator would otherwise write. Plans and
+#  promises - forecasts, requested and expected dates, carrier estimates, open
+#  deals' expected close dates - are future by nature and are left alone.
+# =========================================================================
+def _keep(rows, pred):
+    rows[:] = [r for r in rows if pred(r)]
+
+
+# Orders that ship after TODAY have not shipped: open, no ship date, no stock
+# movement, no Pangea shipment.
+_unshipped = {o["SOHNUM_0"] for o in x3["SORDER"]
+              if o["SHIDAT_0"] != NULL_DATE and o["SHIDAT_0"] > TODAY}
+for o in x3["SORDER"]:
+    if o["SOHNUM_0"] in _unshipped:
+        o["SHIDAT_0"], o["ORDSTA_0"], o["ORDINVSTA_0"] = NULL_DATE, 1, 1
+    o["UPDDAT_0"] = min(o["UPDDAT_0"], TODAY)
+_keep(x3["STOJOU"], lambda r: not (r["VCRTYP_0"] == "SDH" and r["VCRNUM_0"] in _unshipped))
+
+# Sales invoices raised after TODAY do not exist yet, and nor does any return
+# raised against one, or that return's credit memo and stock movement.
+_gone_invoices = {v["NUM_0"] for v in x3["SINVOICEV"]
+                  if v["SIVTYP_0"] == "SIN" and v["INVDAT_0"] > TODAY}
+_gone_returns = {r["SRHNUM_0"] for r in x3["SRETURN"] if r["SIVNUM_0"] in _gone_invoices}
+_gone_invoices |= {_memo_by_return[r] for r in _gone_returns if r in _memo_by_return}
+_keep(x3["SINVOICEV"], lambda r: r["NUM_0"] not in _gone_invoices)
+_uninvoiced = {soh for soh, (num, _d) in inv_by_order.items() if num in _gone_invoices}
+for o in x3["SORDER"]:
+    if o["SOHNUM_0"] in _uninvoiced:
+        o["ORDINVSTA_0"] = 1
+_keep(x3["SINVOICED"], lambda r: r["NUM_0"] not in _gone_invoices)
+_keep(x3["SRETURN"], lambda r: r["SRHNUM_0"] not in _gone_returns)
+_keep(x3["SRETURND"], lambda r: r["SRHNUM_0"] not in _gone_returns)
+_keep(x3["STOJOU"], lambda r: not (r["VCRTYP_0"] == "SRH" and r["VCRNUM_0"] in _gone_returns))
+
+# Payments dated after TODAY have not been received: unpaid, as X3 shows it.
+for v in x3["SINVOICEV"]:
+    if v["PAYDAT_0"] != NULL_DATE and v["PAYDAT_0"] > TODAY:
+        v["PAYDAT_0"] = NULL_DATE
+
+# Receipts dated after TODAY have not arrived, and nor has any balance receipt
+# completing one. A PO line left with no receipt is unreceived.
+_gone_receipts = {r["PTHNUM_0"] for r in x3["PRECEIPT"] if r["RCPDAT_0"] > TODAY}
+_gone_receipts |= {b for b, parent in _balance_parent.items() if parent in _gone_receipts}
+_keep(x3["PRECEIPT"], lambda r: r["PTHNUM_0"] not in _gone_receipts)
+_keep(x3["PRECEIPTD"], lambda r: r["PTHNUM_0"] not in _gone_receipts)
+_keep(x3["STOJOU"], lambda r: not (r["VCRTYP_0"] == "PTH" and r["VCRNUM_0"] in _gone_receipts))
+_still_received = {(d["POHNUM_0"], d["POPLIN_0"]) for d in x3["PRECEIPTD"]}
+for _ln in x3["PORDERQ"]:
+    if (_ln["POHNUM_0"], _ln["POPLIN_0"]) not in _still_received:
+        _ln["RCPQTY_0"], _ln["RCPDAT_0"] = 0.0, NULL_DATE
+
+# A supplier invoice billed from a receipt that has not happened is an artefact
+# of simulating forward, not a supplier billing early. Remove it.
+_gone_pinv = {n for n, srcs in _pinv_sources.items() if srcs & _gone_receipts}
+_keep(x3["PINVOICE"], lambda r: r["NUM_0"] not in _gone_pinv)
+_keep(x3["PINVOICED"], lambda r: r["NUM_0"] not in _gone_pinv)
+
+# Every GL posting whose source document is gone.
+_gone_gl = {g["NUM_0"] for g in x3["GACCENTRY"]
+            if g["VCRNUM_0"] in _gone_invoices or g["VCRNUM_0"] in _gone_pinv}
+_keep(x3["GACCENTRY"], lambda r: r["NUM_0"] not in _gone_gl)
+_keep(x3["GACCENTRYD"], lambda r: r["NUM_0"] not in _gone_gl)
+
+# Pangea: shipments for orders that have not shipped do not exist; for the rest,
+# the feed holds only what has happened - no scans after TODAY, and a leg not
+# yet completed has no arrival.
+_gone_shipments = {s["shipment_id"] for s in pg["shipment"] if s["ship_date"] > TODAY}
+for _t in ("shipment", "shipment_leg", "tracking_event", "charge"):
+    _keep(pg[_t], lambda r: r["shipment_id"] not in _gone_shipments)
+_keep(pg["tracking_event"], lambda r: r["event_ts"] <= TODAY)
+_keep(pg["shipment_leg"], lambda r: r["depart_ts"] <= TODAY)
+for _lg in pg["shipment_leg"]:
+    if _lg["arrive_ts"] > TODAY:
+        _lg["arrive_ts"] = None
+
+# HubSpot stage history: a change dated after TODAY is pulled back to the day
+# the deal closed, or to TODAY for a deal still open.
+_close = {d["id"]: (d["closedate"] if d["dealstage"] in ("closedwon", "closedlost") else None)
+          for d in hs["deal"]}
+for _h in hs["deal_stage_history"]:
+    if _h["changed_at"] > TODAY:
+        _h["changed_at"] = min(_close[_h["deal_id"]] or TODAY, TODAY)
 
 # =========================================================================
 #  LOAD

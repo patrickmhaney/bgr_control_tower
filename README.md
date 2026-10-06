@@ -71,8 +71,8 @@ semantic/metrics/*.yml        the metric definitions. They hold no data: they
 | `scripts/compile_metrics.py` | Compiles `semantic/metrics/` into the `mtr_*` views, the registry seed and JSON, and the catalogue. |
 | `scripts/generate_process_views.py` | Generates the nine dashboard views from the seed map. |
 | `scripts/generate_staging.py` | Generates the staging models from a column spec. |
-| `scripts/freeze_schema_contract.py` | Pins the expected source schema. |
-| `scripts/regenerate.py` | Runs the generators in order: staging, schema contract, metrics, dashboard views. `--with-exports` adds the parity test and the Power BI export. `--check` fails if any generated file was stale. |
+| `scripts/freeze_schema_contract.py` | Pins the expected source schema. Run by hand, and review the diff, when a source change is accepted. |
+| `scripts/regenerate.py` | Runs the generators in order: staging, metrics, dashboard views. `--with-exports` adds the parity test and the Power BI export. `--check` fails if any generated file was stale. |
 | `scripts/test_metric_parity.py` | Reconciles every metric view against its base fact, and writes the Power BI parity queries. |
 | `scripts/export_powerbi.py` | Writes the Parquet export and the generated Power BI (TMDL) model. |
 | `scripts/ask_metric.py` | Answers a metric question from the registry alone - the AI use case. |
@@ -115,15 +115,15 @@ decision recorded in [open_questions.md](docs/open_questions.md).
 | Metric | Dashboard | Value | Status |
 |---|---|---|---|
 | On-Time Delivery | I2D | 75.6% | active |
-| Cost Per Shipment | I2D | $1,564.18 | active |
+| Cost Per Shipment | I2D | $1,563.34 | active |
 | Inventory Accuracy | I2D | 93.4% | provisional |
-| DSO (days-to-pay proxy) | O2C | 48.0 days | provisional |
+| DSO (days-to-pay proxy) | O2C | 47.3 days | provisional |
 | Return Rate | O2C | 1.27% | provisional |
-| Cost Per Order | O2C | $1,560.78 | provisional |
-| Match Rate | S2P | 70.7% | provisional |
+| Cost Per Order | O2C | $1,559.22 | provisional |
+| Match Rate | S2P | 70.8% | provisional |
 | Unmatched CRM Customers | — | 11.9% | active, data quality |
 | Shipment Order Reference Coverage | — | 85.4% | active, data quality |
-| Unsettled Invoice Rate | — | 13.8% | active, companion to DSO |
+| Unsettled Invoice Rate | — | 18.7% | active, companion to DSO |
 
 Six of the nine dashboards have no defined metrics yet. Their views exist,
 typed and empty, so the architecture is exercised against the empty case.

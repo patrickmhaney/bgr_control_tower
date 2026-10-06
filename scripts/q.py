@@ -7,6 +7,7 @@
     python scripts/q.py --ls core            filtered
     python scripts/q.py -d fct_shipment      columns and types
     python scripts/q.py --csv "select ..."   pipe-friendly output
+    python scripts/q.py --ui                 SQL editor in the browser
 
 Three databases are attached read-only under stable names, so a query can
 join across the whole pipeline in one statement:
@@ -24,6 +25,7 @@ import argparse
 import csv
 import os
 import sys
+import time
 
 import duckdb
 
@@ -229,6 +231,21 @@ def repl(con, limit: int) -> None:
         print()
 
 
+def ui(con) -> None:
+    # DuckDB's own browser notebook, served by this process. The UI opens its
+    # own connections, so it sees the attached databases but not this
+    # connection's search_path - qualify names with their schema there.
+    con.execute("call start_ui()")
+    print("DuckDB UI running at http://localhost:4213 - Ctrl-C to stop")
+    print("attached: warehouse, raw, mock_sources - all read-only")
+    print("stop the UI before `dbt build` or run_ingestion.py; it holds the files open")
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        print()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -238,6 +255,7 @@ def main() -> int:
     parser.add_argument("-d", "--describe", metavar="TABLE", help="columns and row count")
     parser.add_argument("-n", "--limit", type=int, default=40, help="rows to print (default 40)")
     parser.add_argument("--csv", action="store_true", help="emit CSV instead of a table")
+    parser.add_argument("--ui", action="store_true", help="open DuckDB's SQL editor in the browser")
     args = parser.parse_args()
 
     con = connect()
@@ -247,6 +265,9 @@ def main() -> int:
             return 0
         if args.describe:
             describe(con, args.describe)
+            return 0
+        if args.ui:
+            ui(con)
             return 0
         if not args.sql:
             repl(con, args.limit)

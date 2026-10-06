@@ -162,7 +162,7 @@ erDiagram
         varchar BPCORD_0 FK "CHAR-padded, all rows"
         varchar SALFCY_0 FK
         date ORDDAT_0
-        date SHIDAT_0 "402 rows carry 1753-01-01"
+        date SHIDAT_0 "413 rows carry 1753-01-01"
         bigint ORDSTA_0 "local menu ch 415"
         varchar CUR_0 "USD 3512, CAD 688"
         varchar REP_0 FK
@@ -184,17 +184,17 @@ erDiagram
         numeric AMTNOTLIN_0
     }
     SINVOICEV {
-        varchar NUM_0 PK "3691 rows"
+        varchar NUM_0 PK "3677 rows"
         varchar BPR_0 FK
         date INVDAT_0
-        date PAYDAT_0 "492 invoices carry 1753-01-01"
-        varchar SIVTYP_0 "SIN 3564, SCR 127 credit memos"
+        date PAYDAT_0 "666 invoices carry 1753-01-01"
+        varchar SIVTYP_0 "SIN 3551, SCR 126 credit memos"
         numeric AMTNOTLIN_0
     }
     SINVOICED {
-        varchar NUM_0 PK "9923 rows"
+        varchar NUM_0 PK "9887 rows"
         bigint SIDLIN_0 PK
-        varchar SOHNUM_0 FK "all 9767 invoice lines resolve"
+        varchar SOHNUM_0 FK "all 9732 invoice lines resolve"
         bigint SOPLIN_0 FK
         numeric AMTNOTLIN_0 "reconciles to GL 41000"
     }
@@ -207,7 +207,7 @@ erDiagram
         varchar POHNUM_0 PK "2959 rows"
         bigint POPLIN_0 PK
         numeric RCPQTY_0 "copy of the LAST receipt only"
-        date RCPDAT_0 "576 rows carry 1753-01-01"
+        date RCPDAT_0 "754 rows carry 1753-01-01"
     }
     STOCK {
         varchar STOFCY_0 PK "1315 rows, current only"
@@ -217,7 +217,7 @@ erDiagram
         numeric QTYSTU_0
     }
     STOJOU {
-        bigint ROWID PK "14226 rows"
+        bigint ROWID PK "13994 rows"
         varchar ITMREF_0 FK "CHAR-padded, all rows"
         bigint TRSTYP_0 "local menu ch 700, 6 is customer return"
         varchar VCRTYP_0 "SDH PTH SRH ADJ TRF"
@@ -225,53 +225,53 @@ erDiagram
         numeric QTYSTU_0
     }
     GACCENTRY {
-        varchar NUM_0 PK "4877 rows"
+        varchar NUM_0 PK "4769 rows"
         varchar JOU_0 "SAL sales, PUR purchasing"
         varchar TYP_0 "SIH SCH PIH"
         varchar VCRNUM_0 FK "the invoice or credit memo"
         varchar CUR_0
     }
     GACCENTRYD {
-        varchar NUM_0 PK "14631 rows"
+        varchar NUM_0 PK "14307 rows"
         bigint LIN_0 PK
         varchar ACC_0 "11100 21000 22300 41000 50000"
         numeric AMTCUR_0 "document currency"
         numeric AMTLOC_0 "company currency, implies FX"
     }
     SRETURN {
-        varchar SRHNUM_0 PK "146 rows"
+        varchar SRHNUM_0 PK "145 rows"
         varchar BPCNUM_0 FK
         date RTNDAT_0 "the return date, not the order date"
         varchar SIVNUM_0 FK "credit memo, null until credited"
     }
     SRETURND {
-        varchar SRHNUM_0 PK "179 rows"
+        varchar SRHNUM_0 PK "178 rows"
         bigint SRDLIN_0 PK
         varchar SOHNUM_0 FK "8 percent blank or lowercased"
         bigint SOPLIN_0 FK
         numeric AMTNOTLIN_0
     }
     PRECEIPT {
-        varchar PTHNUM_0 PK "1743 rows"
+        varchar PTHNUM_0 PK "1600 rows"
         varchar POHNUM_0 FK
         varchar BPSNUM_0 FK
         date RCPDAT_0 "a document with its own date"
     }
     PRECEIPTD {
-        varchar PTHNUM_0 PK "2664 rows"
+        varchar PTHNUM_0 PK "2464 rows"
         bigint PTDLIN_0 PK
         varchar POHNUM_0 FK
         bigint POPLIN_0 FK "multi-delivery lines split here"
         numeric QTYUOM_0
     }
     PINVOICE {
-        varchar NUM_0 PK "1186 rows"
+        varchar NUM_0 PK "1092 rows"
         varchar BPSNUM_0 FK
         date INVDAT_0
         varchar INVSTA_0
     }
     PINVOICED {
-        varchar NUM_0 PK "2498 rows"
+        varchar NUM_0 PK "2314 rows"
         bigint PIDLIN_0 PK
         varchar POHNUM_0 FK "null means no PO"
         varchar PTHNUM_0 FK "null means not received"
@@ -309,13 +309,13 @@ erDiagram
 - **Every X3 join resolves 100% after `trim()`.** The `trim needed` labels are
   not warnings about data quality — they are warnings about *your SQL*. Without
   the trim, `SORDERQ → ITMMASTER` returns **zero rows**, not fewer rows.
-- **`SORDERQ ||--o| SINVOICED` is one-to-at-most-one.** All 9,767 invoice lines
-  resolve to an order line, no order line is invoiced twice, and 9,767 of the
-  11,575 order lines have been invoiced. The 156 credit-memo lines carry no
+- **`SORDERQ ||--o| SINVOICED` is one-to-at-most-one.** All 9,732 invoice lines
+  resolve to an order line, no order line is invoiced twice, and 9,732 of the
+  11,575 order lines have been invoiced. The 155 credit-memo lines carry no
   order line; returns reach the order through `SRETURND` instead.
   Order-to-cash is fully traceable inside X3.
 - **Every `STOJOU` movement resolves to the document that caused it.** The
-  10,421 `SDH` (shipment) rows resolve to a `SORDER`, and all 2,664 `PTH`
+  10,390 `SDH` (shipment) rows resolve to a `SORDER`, and all 2,464 `PTH`
   (receipt) rows resolve to a `PRECEIPT`. Receipts are documents in their own
   right, which is what makes a three-way match possible: `PORDERQ.RCPQTY_0` is
   only a copy of the *last* receipt, and matching against it treats every
@@ -553,32 +553,32 @@ erDiagram
     shipment ||--o{ charge : "shipment_id"
 
     shipment {
-        varchar shipment_id PK "3509 rows"
-        varchar reference_number "X3 order on 2998, null on 247"
+        varchar shipment_id PK "3498 rows"
+        varchar reference_number "X3 order on 2989, null on 247"
         varchar customer_name "matches X3 on all 220 values"
         varchar carrier_scac FK
         varchar origin_site_code "matches X3 FCY_0 on all rows"
         date ship_date
         date estimated_delivery_date "carrier promise"
-        date delivered_date "null on 128"
-        varchar status "DELIVERED 3381, EXCEPTION 109, IN_TRANSIT 19"
+        date delivered_date "null on 117"
+        varchar status "DELIVERED 3381, EXCEPTION 108, IN_TRANSIT 9"
         numeric total_cost_usd "disagrees with charges on all rows"
     }
     tracking_event {
-        varchar shipment_id PK "24504 rows"
+        varchar shipment_id PK "24418 rows"
         bigint event_seq PK
         varchar event_code "PU DP AR IT OD DL EX"
         date event_ts "316 rows out of order vs event_seq"
         varchar event_location
     }
     charge {
-        varchar shipment_id PK "8277 rows"
+        varchar shipment_id PK "8252 rows"
         varchar charge_code PK "FREIGHT FUEL DETENTION LIFTGATE RESIDENTIAL"
         numeric amount_usd
         varchar currency "USD only"
     }
     shipment_leg {
-        varchar shipment_id PK "5415 rows"
+        varchar shipment_id PK "5397 rows"
         bigint leg_seq PK
         varchar carrier_scac FK
         date depart_ts
@@ -594,7 +594,7 @@ erDiagram
 Two structural facts drive the model built on top of this:
 
 - **`total_cost_usd` and `sum(charge.amount_usd)` never agree.** Not on one of
-  3,509 shipments; only 30 agree within a dollar; the header is 9.9% higher in
+  3,498 shipments; only 30 agree within a dollar; the header is 9.9% higher in
   aggregate. `int_shipment_charge` computes both and publishes the variance.
 - **`event_ts` is not monotonic in `event_seq`.** 316 events (1.29%) across 298
   shipments arrive out of order, so milestones are extracted by `event_code`,
@@ -630,7 +630,7 @@ flowchart TB
 
     subgraph PG["pangea (freight)"]
         direction TB
-        pg_ship["shipment<br/>3,509"]
+        pg_ship["shipment<br/>3,498"]
     end
 
     subgraph NS["netstock (planning)"]
@@ -654,7 +654,7 @@ flowchart TB
     pg_ship ==>|"customer_name<br/>220 of 220 distinct<br/>NOT in the join map"| x3_cust
     hs_owner ==>|"email = work_email<br/>22 of 22<br/>NOT in the join map"| pc_emp
 
-    pg_ship -.->|"reference_number<br/>2,998 of 3,509 (85.4%)<br/>247 null · 264 customer PO"| x3_order
+    pg_ship -.->|"reference_number<br/>2,989 of 3,498 (85.4%)<br/>247 null · 262 customer PO"| x3_order
     hs_deal -.->|"erp_order_number<br/>96 raw, 145 repaired<br/>of 238 closed-won"| x3_order
     hs_co -.->|"name only, no key<br/>171 exact, 229 with probes<br/>31 unmatched (11.9%)"| x3_cust
     x3_rep -.->|"name only<br/>28 reps, 30 rows before dedup"| pc_emp
@@ -672,7 +672,7 @@ resolution strategy.
 |---|---|---|---|
 | HubSpot company → X3 customer | 171 of 260 (65.8%) | **229 (88.1%)**, 15 ambiguous, 31 unmatched | `int_customer_xref` |
 | HubSpot deal → X3 order | 96 of 145 | **145 of 145** (every deal carrying a reference) | `int_deal_erp_order_number` |
-| Pangea shipment → X3 order | 2,998 of 3,509 (85.4%) | 85.4% for the order; **100% for the customer** via `customer_name` | `int_shipment_order` |
+| Pangea shipment → X3 order | 2,989 of 3,498 (85.4%) | 85.4% for the order; **100% for the customer** via `customer_name` | `int_shipment_order` |
 | X3 rep → Paycom employee | 30 rows for 28 reps | **28 unambiguous**, after deduplicating Paycom first | `int_employee_xref` |
 | Paycom GL → X3 GL | 0 of 11 | Still 0. Not fixable here — it is a finding | warn test, threshold 11 |
 
@@ -767,7 +767,7 @@ erDiagram
         bigint shipment_count
     }
     fct_shipment {
-        varchar shipment_id PK "3509 rows"
+        varchar shipment_id PK "3498 rows"
         integer ship_date_key FK
         varchar customer_key FK "resolved on 100 percent"
         varchar site_code FK
@@ -782,7 +782,7 @@ erDiagram
         boolean has_out_of_sequence_events "298 shipments"
     }
     fct_shipment_event {
-        varchar shipment_id PK "24504 rows"
+        varchar shipment_id PK "24418 rows"
         bigint event_sequence PK
         varchar event_code
         date event_at "not event_date - a real feed sends a timestamp"
@@ -800,22 +800,22 @@ erDiagram
         boolean fx_rate_is_fallback "0 rows today"
     }
     fct_invoice_line {
-        varchar invoice_number PK "9923 rows incl credit memos"
+        varchar invoice_number PK "9887 rows incl credit memos"
         bigint invoice_line_number PK
         varchar customer_key FK
         numeric line_net_amount_usd "reconciles to GL 41000"
         integer days_to_pay_settled_only "the only one - null, never zero, when unpaid"
-        boolean is_unsettled "1372 lines, 13.8 percent"
+        boolean is_unsettled "1850 lines, 18.7 percent"
     }
     fct_supplier_invoice_line {
-        varchar supplier_invoice_number PK "2498 rows"
+        varchar supplier_invoice_number PK "2314 rows"
         bigint supplier_invoice_line_number PK
         integer invoice_date_key FK
         varchar site_code FK
         varchar item_code FK
         varchar receipt_number "the receipt it names, not every receipt"
-        varchar match_result "matched 1766, price 295, qty 274, not received 107, no PO 56"
-        boolean is_three_way_matched "70.7 percent"
+        varchar match_result "matched 1639, price 273, qty 250, not received 96, no PO 56"
+        boolean is_three_way_matched "70.8 percent"
         boolean is_maverick_spend
     }
     fct_inventory_count_line {
@@ -839,11 +839,11 @@ erDiagram
 | `dim_site` | one site | 4 |
 | `dim_item` | one item | 421 |
 | `dim_carrier` | one carrier SCAC | 8 |
-| `fct_shipment` | one shipment | 3,509 |
-| `fct_shipment_event` | one tracking event on one shipment | 24,504 |
+| `fct_shipment` | one shipment | 3,498 |
+| `fct_shipment_event` | one tracking event on one shipment | 24,418 |
 | `fct_sales_order_line` | one sales order line | 11,575 |
-| `fct_invoice_line` | one sales invoice or credit-memo line | 9,923 |
-| `fct_supplier_invoice_line` | one supplier invoice line | 2,498 |
+| `fct_invoice_line` | one sales invoice or credit-memo line | 9,887 |
+| `fct_supplier_invoice_line` | one supplier invoice line | 2,314 |
 | `fct_inventory_count_line` | one counted stock position | 2,843 |
 
 Every one of the 22 fact-to-dimension relationships above is asserted by a dbt
@@ -1008,12 +1008,12 @@ flowchart LR
     stg_ordq --> int_ord
     stg_cust --> int_ord
 
-    stg_ship --> fct["fct_shipment<br/><i>3,509 rows</i>"]
+    stg_ship --> fct["fct_shipment<br/><i>3,498 rows</i>"]
     int_chg --> fct
     int_ms --> fct
     int_ord --> fct
 
-    stg_evt --> fevt["fct_shipment_event<br/><i>24,504 rows</i>"]
+    stg_evt --> fevt["fct_shipment_event<br/><i>24,418 rows</i>"]
     fct --> fevt
     stg_car --> dcar["dim_carrier"]
     stg_ship --> dcar
@@ -1060,7 +1060,7 @@ flowchart LR
     stg_id --> fsol
     stg_iv --> fsol
 
-    stg_id --> fil["fct_invoice_line<br/><i>9,923 rows · ties to GL 41000</i>"]
+    stg_id --> fil["fct_invoice_line<br/><i>9,887 rows · ties to GL 41000</i>"]
     stg_iv --> fil
     stg_bc --> fil
     int_fx --> fil
@@ -1088,7 +1088,7 @@ flowchart LR
     stg_rd --> match
     stg_pi --> match
 
-    match --> fsil["fct_supplier_invoice_line<br/><i>2,498 rows · match_result</i>"]
+    match --> fsil["fct_supplier_invoice_line<br/><i>2,314 rows · match_result</i>"]
     stg_sc --> fcnt["fct_inventory_count_line<br/><i>2,843 positions</i>"]
 
     fsil --> mtr_mr["mtr_match_rate"]
@@ -1099,9 +1099,9 @@ flowchart LR
 
 Comparing each invoice line to the receipt *it names*, rather than to the
 cumulative received quantity on the PO line, is the decision that matters
-here: 514 lines are multi-delivery, and the cumulative comparison would report
+here: 472 lines are multi-delivery, and the cumulative comparison would report
 a variance on both halves of a perfectly good transaction — 59.2% matched
-instead of 70.7%.
+instead of 70.8%.
 
 ### 4.5 Entity resolution path
 

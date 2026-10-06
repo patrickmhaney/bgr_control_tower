@@ -1,5 +1,5 @@
 -- Grain: one row per shipment and event sequence (shipment_id + event_seq).
--- 24,504 rows.
+-- 24,418 rows.
 --
 -- The milestone-level fact. fct_shipment answers "was it on time"; this
 -- answers "where did the time go". Kept atomic because collapsing it to

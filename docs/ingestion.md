@@ -8,7 +8,7 @@ is proven to change no number:
 ```
 source systems  →  dlt extract  →  landing/  →  raw.duckdb  →  dbt  →  metrics
    5 systems       54 resources    Parquet      5 schemas              10
-                                   append-only  247,851 rows
+                                   append-only  246,374 rows
 ```
 
 ```bash
@@ -88,7 +88,7 @@ flowchart LR
     dlt["dlt extract<br/><small>54 resources</small>"]
     land[("landing/<br/><small>&lt;source&gt;/&lt;table&gt;/load_date=YYYY-MM-DD/</small><br/><small><b>append-only &middot; nothing is ever deleted</b></small>")]
     proj{{"project_landing_to_raw()<br/><small>pure SQL &middot; no source access</small>"}}
-    raw[("raw.duckdb<br/><small>5 schemas &middot; 54 tables &middot; 247,851 rows</small>")]
+    raw[("raw.duckdb<br/><small>5 schemas &middot; 54 tables &middot; 246,374 rows</small>")]
     dbt["dbt sources"]
 
     sys -->|"read once,<br/>per strategy"| dlt
@@ -225,12 +225,12 @@ Measured effect of the incremental design on a second run:
 
 | Source | Run 1 | Run 2 | Saved | Why |
 |---|---|---|---|---|
-| `sage_x3` | 94,075 | 13,296 | 86% | windowed on business/modification dates |
-| `pangea` | 41,712 | 4,799 | 88% | `created_at` cursor with lookback |
+| `sage_x3` | 92,738 | 15,649 | 83% | windowed on business/modification dates |
+| `pangea` | 41,572 | 5,507 | 87% | `created_at` cursor with lookback |
 | `hubspot` | 11,291 | 7,531 | 33% | `hs_lastmodifieddate` cursor |
 | `paycom` | 66,680 | 66,680 | **0%** | no change signal, ever |
 | `netstock` | 34,093 | 34,093 | **0%** | snapshot source — full replace is correct |
-| **total** | **247,851** | **126,399** | **49%** | |
+| **total** | **246,374** | **129,460** | **47%** | |
 
 ```mermaid
 flowchart TB
@@ -244,9 +244,9 @@ flowchart TB
         s5["<b>netstock</b> &middot; 5 tables<br/><small>snapshot &middot; regenerated wholesale<br/><b>incremental would be WRONG</b></small>"]
     end
 
-    s1 -->|"94,075 &rarr; 13,296<br/>86% saved"| out[("second run<br/>126,399 of 247,851 rows<br/><small>49% saved overall</small>")]
+    s1 -->|"92,738 &rarr; 15,649<br/>83% saved"| out[("second run<br/>129,460 of 246,374 rows<br/><small>47% saved overall</small>")]
     s2 -->|"11,291 &rarr; 7,531<br/>33% saved"| out
-    s3 -->|"41,712 &rarr; 4,799<br/>88% saved"| out
+    s3 -->|"41,572 &rarr; 5,507<br/>87% saved"| out
     s4 -->|"66,680 &rarr; 66,680<br/>0%"| out
     s5 -->|"34,093 &rarr; 34,093<br/>0%"| out
 ```
@@ -323,7 +323,7 @@ with them, never the extractor.
 ### 5.4 N+1 child fetches die on the backfill
 
 Charges, tracking events and legs hang off the shipment. Fetching them per
-shipment is **10,527 API calls**; batching parent ids is **24**. Invisible at POC scale,
+shipment is **10,494 API calls**; batching parent ids is **21**. Invisible at POC scale,
 fatal on a historical backfill.
 
 If the real API has no bulk or date-ranged child endpoint, that has to be found

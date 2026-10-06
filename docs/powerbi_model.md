@@ -77,7 +77,7 @@ A star schema in import mode outperforms wide flat tables in VertiPaq. Wide
 tables repeat every dimension attribute on every fact row, which destroys the
 dictionary compression VertiPaq depends on.
 
-Model size here is trivial: the largest fact is 24,504 rows and the Parquet
+Model size here is trivial: the largest fact is 24,418 rows and the Parquet
 export is under two megabytes. Nothing about this decision is performance-driven
 at POC scale; it is about correctness and maintenance cost, and it will still
 be right at 400,000 orders.
@@ -120,11 +120,11 @@ the warehouse is drawn in
 | `dim_site` | Conformed across X3, Paycom, Netstock | 4 |
 | `dim_item` | X3 master with Netstock planning attributes | 421 |
 | `dim_carrier` | Pangea carriers | 8 |
-| `fct_shipment` | Shipment header | 3,509 |
-| `fct_shipment_event` | Tracking events | 24,504 |
+| `fct_shipment` | Shipment header | 3,498 |
+| `fct_shipment_event` | Tracking events | 24,418 |
 | `fct_sales_order_line` | Order lines, with invoiced and returned value | 11,575 |
-| `fct_invoice_line` | Invoice and credit-memo lines | 9,923 |
-| `fct_supplier_invoice_line` | Supplier invoice lines with their three-way match result | 2,498 |
+| `fct_invoice_line` | Invoice and credit-memo lines | 9,887 |
+| `fct_supplier_invoice_line` | Supplier invoice lines with their three-way match result | 2,314 |
 | `fct_inventory_count_line` | Counted stock positions | 2,843 |
 | `metric_registry` | Metric metadata: status, owner, caveats | 10 |
 | `process_metric_map` | Which metric appears on which dashboard | 7 |
@@ -245,7 +245,7 @@ Three of I2D's four slots are filled; the fourth is undefined and out of scope.
 |---|---|---|---|
 | M1 | Inventory Accuracy | provisional | **93.4%** — tolerance not yet set (Q15) |
 | M2 | On-Time Delivery | active | **75.6%** |
-| M3 | Cost Per Shipment | active | **$1,564.18** |
+| M3 | Cost Per Shipment | active | **$1,563.34** |
 | M4 | — | undefined | out of scope for the POC |
 
 ### Layout
@@ -257,28 +257,28 @@ Three of I2D's four slots are filled; the fourth is undefined and out of scope.
 │ On-Time        │ Cost Per       │ Inventory Accuracy             │
 │ Delivery       │ Shipment       │                  PROVISIONAL   │
 │                │                │                                │
-│    75.6%       │   $1,564.18    │    93.4%                       │
-│    ▲ 4.9 pts   │   ▲ $110.86    │    2,656 of 2,843 positions    │
+│    75.6%       │   $1,563.34    │    93.4%                       │
+│    ▲ 4.9 pts   │   ▲ $103.40    │    2,656 of 2,843 positions    │
 │    better      │   worse        │    Exact-match tolerance       │
 │    vs prior Q  │   vs prior Q   │    assumed - Operations to     │
-│  3,381 of      │  3,509         │    confirm (Q15)               │
-│  3,509 deliv.  │  shipments     │    Owner: TBD                  │
+│  3,381 of      │  3,498         │    confirm (Q15)               │
+│  3,498 deliv.  │  shipments     │    Owner: TBD                  │
 ├────────────────┴────────────────┴────────────────────────────────┤
 │  On-Time Delivery by quarter        Cost per shipment by quarter │
 │  ▁▃▁▁▂▁▅▁▄  73.1% → 81.3%          ▅▃▂▂▄▃▅▂▅  $1,509 → $1,631   │
 ├──────────────────────────────────────┬───────────────────────────┤
 │  Carrier performance                 │  Cost composition         │
-│  ┌────────────────┬──────┬────────┐  │  Freight        4,669,273 │
-│  │ Old Dominion   │78.3% │ $1,603 │  │  Fuel             547,955 │
-│  │ C.H. Robinson  │77.8% │ $1,406 │  │  Detention         91,214 │
-│  │ UPS            │75.5% │ $1,530 │  │  Liftgate          90,436 │
-│  │ Saia LTL       │75.4% │ $1,596 │  │  Residential       89,831 │
+│  ┌────────────────┬──────┬────────┐  │  Freight        4,651,958 │
+│  │ Old Dominion   │78.3% │ $1,604 │  │  Fuel             546,334 │
+│  │ C.H. Robinson  │77.8% │ $1,405 │  │  Detention         90,858 │
+│  │ UPS            │75.5% │ $1,523 │  │  Residential       89,831 │
+│  │ Saia LTL       │75.4% │ $1,598 │  │  Liftgate          89,579 │
 │  │ Purolator      │74.9% │ $1,533 │  │                           │
-│  │ XPO Logistics  │73.9% │ $1,620 │  │  Header cost is 9.9%      │
+│  │ XPO Logistics  │73.9% │ $1,619 │  │  Header cost is 9.9%      │
 │  │ FedEx Ground   │73.6% │ $1,656 │  │  higher than these lines  │
 │  └────────────────┴──────┴────────┘  │  — see cost_variance_usd  │
 ├──────────────────────────────────────┴───────────────────────────┤
-│  ⚠ 511 of 3,509 shipments (14.6%) do not resolve to an X3 order  │
+│  ⚠ 509 of 3,498 shipments (14.6%) do not resolve to an X3 order  │
 │  ⚠ 298 shipments have out-of-sequence carrier scans              │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -298,7 +298,7 @@ this data can say. A user who filters by customer should be able to see that
 number without asking.
 
 **Carrier performance shows cost and on-time together.** The cheapest carrier
-in the set (C.H. Robinson, $1,406) is also the second most reliable (77.8%),
+in the set (C.H. Robinson, $1,405) is also the second most reliable (77.8%),
 and the most expensive (FedEx Ground, $1,656) is the least (73.6%). Splitting
 those into two visuals hides the only interesting thing in the data.
 
@@ -308,12 +308,12 @@ On-time and cost by carrier:
 
 | Carrier | Mode | Shipments | On-time | Cost/shipment |
 |---|---|---|---|---|
-| Old Dominion | LTL | 472 | 78.3% | $1,603.17 |
-| C.H. Robinson | TL | 484 | 77.8% | $1,405.65 |
-| UPS | PARCEL | 496 | 75.5% | $1,530.30 |
-| Saia LTL Freight | LTL | 518 | 75.4% | $1,595.91 |
+| Old Dominion | LTL | 467 | 78.3% | $1,603.58 |
+| C.H. Robinson | TL | 482 | 77.8% | $1,405.33 |
+| UPS | PARCEL | 494 | 75.5% | $1,523.38 |
+| Saia LTL Freight | LTL | 517 | 75.4% | $1,597.77 |
 | Purolator | PARCEL | 526 | 74.9% | $1,533.01 |
-| XPO Logistics | LTL | 497 | 73.9% | $1,620.39 |
+| XPO Logistics | LTL | 496 | 73.9% | $1,619.15 |
 | FedEx Ground | PARCEL | 516 | 73.6% | $1,655.55 |
 
 By fiscal quarter (fiscal = calendar, assumed — open question 4):
@@ -328,7 +328,7 @@ By fiscal quarter (fiscal = calendar, assumed — open question 4):
 | FY2025-Q4 | 326 | 73.6% | $1,557.04 |
 | FY2026-Q1 | 360 | 81.3% | $1,631.17 |
 | FY2026-Q2 | 559 | 73.6% | $1,509.45 |
-| FY2026-Q3 | 323 | 78.5% | $1,620.31 |
+| FY2026-Q3 | 312 | 78.5% | $1,612.85 |
 
 Both series are noise around a flat trend, which is what mock data should look
 like. Do not read a story into the FY2026-Q1 spike.

@@ -52,7 +52,7 @@ lineage_notes: >
 
 caveats:
   - >
-    The 128 undelivered shipments (109 EXCEPTION, 19 IN_TRANSIT) are excluded
+    The 117 undelivered shipments (108 EXCEPTION, 9 IN_TRANSIT) are excluded
     from the denominator, which means a shipment that fails outright cannot
     make this metric worse. That is a definitional weakness, not an
     implementation one - open question 1 asks the business to resolve it.

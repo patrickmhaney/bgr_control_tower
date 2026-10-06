@@ -47,7 +47,7 @@ The average fulfillment cost of delivering one sales order, measured as carrier 
 
 **Lineage**
 
-Numerator is pangea.charge.amount_usd via fct_shipment.shipment_cost_usd, restricted to shipments that resolve to an X3 order. Denominator is the distinct count of sage_x3.SORDER.SOHNUM_0 reached through pangea.shipment.reference_number. Coverage: 2,998 of 4,200 orders (71.4%) have a matched shipment. Orders with no shipment are outside the denominator, so this is cost per *shipped* order. The coverage rate must be published beside the metric. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: no order ships more than once. Zero of the 2,998 order-linked shipments share an order, which is why a distinct-count denominator survives pre-aggregation here at all. Partial and split shipments are ordinary in freight, so expect this to break - see open question 12. When it does, the divergence surfaces in scripts/test_metric_parity.py rather than on a dashboard, and ask_metric.py already computes this metric from fct_shipment directly rather than by summing the pre-aggregated view.
+Numerator is pangea.charge.amount_usd via fct_shipment.shipment_cost_usd, restricted to shipments that resolve to an X3 order. Denominator is the distinct count of sage_x3.SORDER.SOHNUM_0 reached through pangea.shipment.reference_number. Coverage: 2,989 of 4,200 orders (71.2%) have a matched shipment. Orders with no shipment are outside the denominator, so this is cost per *shipped* order. The coverage rate must be published beside the metric. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: no order ships more than once. Zero of the 2,989 order-linked shipments share an order, which is why a distinct-count denominator survives pre-aggregation here at all. Partial and split shipments are ordinary in freight, so expect this to break - see open question 12. When it does, the divergence surfaces in scripts/test_metric_parity.py rather than on a dashboard, and ask_metric.py already computes this metric from fct_shipment directly rather than by summing the pre-aggregated view.
 
 _Defined in `semantic/metrics/cost_per_order.yml`._
 
@@ -73,7 +73,7 @@ The average freight cost of moving one shipment, measured as total carrier charg
 
 **Lineage**
 
-pangea.charge.amount_usd summed to the shipment in int_shipment_charge, then carried on fct_shipment as shipment_cost_usd. Denominator is pangea.shipment.shipment_id. The charge lines are used rather than pangea.shipment.total_cost_usd. Those two disagree on every one of the 3,509 shipments, and the header is 9.9% higher in aggregate (6,030,476 vs 5,488,709). The basis is var('shipment_cost_basis') and the difference is published on the fact as cost_variance_usd. See docs/open_questions.md. All charges are already USD in the source, so no FX conversion applies.
+pangea.charge.amount_usd summed to the shipment in int_shipment_charge, then carried on fct_shipment as shipment_cost_usd. Denominator is pangea.shipment.shipment_id. The charge lines are used rather than pangea.shipment.total_cost_usd. Those two disagree on every one of the 3,498 shipments, and the header is 9.9% higher in aggregate (6,009,270 vs 5,468,559). The basis is var('shipment_cost_basis') and the difference is published on the fact as cost_variance_usd. See docs/open_questions.md. All charges are already USD in the source, so no FX conversion applies.
 
 _Defined in `semantic/metrics/cost_per_shipment.yml`._
 
@@ -133,7 +133,7 @@ The average number of days between invoicing a customer and that invoice being s
 
 **Lineage**
 
-date_diff('day', SINVOICEV.INVDAT_0, SINVOICEV.PAYDAT_0), carried on fct_invoice_line as days_to_pay_settled_only. 492 of 3,564 invoices (13.8%) carry the 1753-01-01 sentinel in PAYDAT_0, meaning unsettled, and are null here rather than zero. An unguarded date_diff over the raw column returns a mean of -13,708 days. Measured on the settled population: mean 48.2 days, median 45, range 28-90. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that every posting entity's company currency is the reporting currency. fct_invoice_line converts through int_fx_rate, which derives a document-to-COMPANY-currency rate from the GL and publishes it as a reporting-currency rate. Those agree only where company currency equals reporting currency, which is true here because GLBCA posts AMTLOC_0 in USD - unusual for a Canadian entity. If a real folder posts CAD locally the derived rate becomes 1.00 and CAD amounts report unconverted. See open question 10; tests/assert_fx_rate_is_not_identity_for_foreign_currency.sql catches the symptom until COMPANY.CUR_0 arrives.
+date_diff('day', SINVOICEV.INVDAT_0, SINVOICEV.PAYDAT_0), carried on fct_invoice_line as days_to_pay_settled_only. 703 of 3,677 invoice and credit-memo documents (19.1%) carry the 1753-01-01 sentinel in PAYDAT_0, meaning unsettled, and are null here rather than zero. An unguarded date_diff over the raw column returns a mean of about -19,000 days. Measured on the settled documents: mean 47.0 days, median 45, range 21-90. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that every posting entity's company currency is the reporting currency. fct_invoice_line converts through int_fx_rate, which derives a document-to-COMPANY-currency rate from the GL and publishes it as a reporting-currency rate. Those agree only where company currency equals reporting currency, which is true here because GLBCA posts AMTLOC_0 in USD - unusual for a Canadian entity. If a real folder posts CAD locally the derived rate becomes 1.00 and CAD amounts report unconverted. See open question 10; tests/assert_fx_rate_is_not_identity_for_foreign_currency.sql catches the symptom until COMPANY.CUR_0 arrives.
 
 _Defined in `semantic/metrics/dso_days_to_pay_proxy.yml`._
 
@@ -215,7 +215,7 @@ The share of delivered shipments that arrived on or before the promised delivery
 
 **Caveats**
 
-- The 128 undelivered shipments (109 EXCEPTION, 19 IN_TRANSIT) are excluded from the denominator, which means a shipment that fails outright cannot make this metric worse. That is a definitional weakness, not an implementation one - open question 1 asks the business to resolve it.
+- The 117 undelivered shipments (108 EXCEPTION, 9 IN_TRANSIT) are excluded from the denominator, which means a shipment that fails outright cannot make this metric worse. That is a definitional weakness, not an implementation one - open question 1 asks the business to resolve it.
 
 **Lineage**
 
@@ -245,7 +245,7 @@ The share of shipments that resolve to a Sage X3 sales order. This bounds every 
 
 **Lineage**
 
-pangea.shipment.reference_number joined to sage_x3.SORDER.SOHNUM_0 in int_shipment_order. 2,998 of 3,509 shipments (85.4%): 247 carry no reference at all and 264 carry a CUST-PO-##### customer PO that matches nothing in X3. Customer resolution is separately 100%, because pangea.shipment.customer_name matches BPCUSTOMER on all 220 distinct values. Order resolution and customer resolution are different coverage numbers and conflating them would overstate what can be attributed to an order. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that the Pangea customer name is a reliable key. It matches on all 220 distinct values and no two ERP customer names collide - but nobody has confirmed whether the field is populated by an integration from X3 or typed at booking, and a two-company mock cannot establish that ERP names are unique in a production folder. See open question 13. If it proves unreliable, customer attribution on shipments falls from 100% toward this metric's own 85.4%.
+pangea.shipment.reference_number joined to sage_x3.SORDER.SOHNUM_0 in int_shipment_order. 2,989 of 3,498 shipments (85.4%): 247 carry no reference at all and 262 carry a CUST-PO-##### customer PO that matches nothing in X3. Customer resolution is separately 100%, because pangea.shipment.customer_name matches BPCUSTOMER on all 220 distinct values. Order resolution and customer resolution are different coverage numbers and conflating them would overstate what can be attributed to an order. ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that the Pangea customer name is a reliable key. It matches on all 220 distinct values and no two ERP customer names collide - but nobody has confirmed whether the field is populated by an integration from X3 or typed at booking, and a two-company mock cannot establish that ERP names are unique in a production folder. See open question 13. If it proves unreliable, customer attribution on shipments falls from 100% toward this metric's own 85.4%.
 
 _Defined in `semantic/metrics/order_reference_coverage_rate.yml`._
 
@@ -299,7 +299,7 @@ The share of invoice lines with no settlement date. This is the mandatory compan
 
 **Lineage**
 
-sage_x3.SINVOICEV.PAYDAT_0 carrying the 1753-01-01 sentinel, nulled in staging and surfaced as fct_invoice_line.is_unsettled. 1,335 of 9,767 lines (13.7%), from 492 of 3,564 invoices (13.8%).
+sage_x3.SINVOICEV.PAYDAT_0 carrying the 1753-01-01 sentinel, nulled in staging and surfaced as fct_invoice_line.is_unsettled. 1,850 of 9,887 lines (18.7%), from 703 of 3,677 invoice and credit-memo documents (19.1%).
 
 _Defined in `semantic/metrics/unsettled_invoice_rate.yml`._
 

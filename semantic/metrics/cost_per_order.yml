@@ -48,12 +48,12 @@ lineage_notes: >
   distinct count of sage_x3.SORDER.SOHNUM_0 reached through
   pangea.shipment.reference_number.
 
-  Coverage: 2,998 of 4,200 orders (71.4%) have a matched shipment. Orders with
+  Coverage: 2,989 of 4,200 orders (71.2%) have a matched shipment. Orders with
   no shipment are outside the denominator, so this is cost per *shipped* order.
   The coverage rate must be published beside the metric.
 
   ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: no order ships more
-  than once. Zero of the 2,998 order-linked shipments share an order, which is
+  than once. Zero of the 2,989 order-linked shipments share an order, which is
   why a distinct-count denominator survives pre-aggregation here at all.
   Partial and split shipments are ordinary in freight, so expect this to break
   - see open question 12. When it does, the divergence surfaces in

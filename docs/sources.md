@@ -1,6 +1,6 @@
 # The source systems
 
-`mock_sources.duckdb` holds five mock source schemas, about 248,000 rows,
+`mock_sources.duckdb` holds five mock source schemas, about 246,000 rows,
 covering Jul 2024 – Aug 2026. They stand in for the client's real systems and
 are built for design work: profiling, grain discovery, conformed-dimension
 planning, and finding out where the joins break.
@@ -139,7 +139,7 @@ Each of these is real behavior from the corresponding system. Verified present:
      ON trim(q."ITMREF_0") = m."ITMREF_0";        -- 11,575
    ```
 2. **Sentinel dates.** `1753-01-01` means "no date", not 1753. Present in
-   `SORDER.SHIDAT_0` (402), `SINVOICEV.PAYDAT_0` (492), `PORDERQ.RCPDAT_0` (576).
+   `SORDER.SHIDAT_0` (413), `SINVOICEV.PAYDAT_0` (703), `PORDERQ.RCPDAT_0` (754).
    Any `datediff` that doesn't filter these will produce a ~99,000-day average.
 3. **Split line tables.** Quantity and price live in different tables and both
    carry `ITMREF_0`. They agree here — but check that assumption in production.
@@ -181,7 +181,7 @@ Each of these is real behavior from the corresponding system. Verified present:
 17. **`PORDERQ.RCPDAT_0` is a denormalised copy of the LAST receipt.** Where a
     PO line was received in two deliveries, `PRECEIPTD` has two rows and the PO
     line has one date. A three-way match built on the PO line silently treats
-    every partial delivery as a variance — worth 11 points of match rate here.
+    every partial delivery as a variance — worth about 12 points of match rate here.
 18. **Count sessions are not recoverable.** `STOCOUNTD.QTYTHEO_0` is the system
     quantity *at the moment of the count*. It cannot be reconstructed later
     from `STOCK`. If the count tables are missed in the extract, inventory

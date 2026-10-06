@@ -2,7 +2,7 @@
 --
 -- Milestone dates extracted from the tracking event stream by event_code.
 --
--- 316 of 24,504 events (1.29%) carry a timestamp earlier than the previous
+-- 316 of 24,418 events (1.29%) carry a timestamp earlier than the previous
 -- event by sequence, because carriers supply them that way. That makes
 -- min(event_at) an unreliable pickup date and max(event_at) an unreliable
 -- delivery date. Selecting on event_code is immune to the ordering problem;

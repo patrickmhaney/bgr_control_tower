@@ -126,11 +126,11 @@ models:
 
   - name: fct_shipment
     description: >
-      "Grain: one row per shipment (3,509 rows). The atomic fact behind both
+      "Grain: one row per shipment (3,498 rows). The atomic fact behind both
       computable I2D metrics.
 
       Carries both on-time bases (75.6% carrier, 84.1% customer) and both cost
-      bases (charge lines 5,488,709; header 6,030,476) so that the two open
+      bases (charge lines 5,468,559; header 6,009,270) so that the two open
       business decisions are metric-definition changes rather than model
       changes. The on-time basis is chosen by the column the metric definition
       names; shipment_cost_usd resolves to var('shipment_cost_basis')."
@@ -138,7 +138,7 @@ models:
       - name: shipment_id
         tests: [unique, not_null]
       - name: customer_key
-        description: Resolved on all 3,509 shipments - 2,998 via the order reference and 511 via the customer name.
+        description: Resolved on all 3,498 shipments - 2,989 via the order reference and 509 via the customer name.
         tests:
           - not_null
           - relationships:
@@ -165,7 +165,7 @@ models:
                 field: date_key
       - name: is_on_time_vs_carrier_promise
         description: >
-          Delivered on or before the carrier's promised date. Null on the 128
+          Delivered on or before the carrier's promised date. Null on the 117
           undelivered shipments - deliberately not false, see open question 1.
           is_on_time_vs_customer_request is the other basis; the metric
           definition picks one.
@@ -177,7 +177,7 @@ models:
 
   - name: fct_shipment_event
     description: >
-      "Grain: one row per shipment and event sequence (24,504 rows). Kept
+      "Grain: one row per shipment and event sequence (24,418 rows). Kept
       atomic - collapsing to milestones is what int_shipment_milestone does,
       and discarding the intermediate scans would foreclose transit-leg
       analysis."
@@ -193,6 +193,34 @@ models:
               arguments:
                 to: ref('fct_shipment')
                 field: shipment_id
+      - name: event_date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: site_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_site')
+                field: site_code
+      - name: carrier_scac
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_carrier')
+                field: carrier_scac
       - name: is_out_of_sequence
         description: >
           316 events across 298 shipments. Computed, not corrected - the
@@ -246,9 +274,11 @@ models:
 
   - name: fct_invoice_line
     description: >
-      "Grain: one row per sales invoice line (9,767 rows). The fact behind the
-      DSO proxy. Reconciliation check: line_net_amount_usd sums to 218,855,426,
-      which equals GL account 41000 exactly."
+      "Grain: one row per sales invoice or credit-memo line (9,887 rows, 155
+      of them credit-memo lines with negative amounts). The fact behind the
+      DSO proxy. Reconciliation: line_net_amount_usd sums to 215,626,593.19
+      against 215,626,593.29 on GL account 41000 - FX rounding, asserted
+      within $1.00 by assert_invoice_lines_reconcile_to_gl_revenue."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -273,13 +303,106 @@ models:
               arguments:
                 to: ref('dim_date')
                 field: date_key
+      - name: site_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_site')
+                field: site_code
       - name: days_to_pay_settled_only
         description: >
-          Null, never zero, on the 1,335 lines (13.7%) whose invoice carried
+          Null, never zero, on the 1,850 lines (18.7%) whose invoice carried
           the 1753-01-01 sentinel. The unguarded equivalent over the raw column
-          returns a mean of -13,708 days.
+          returns a mean of about -14,000 days.
       - name: is_unsettled
         description: >
           The companion figure the DSO proxy must always be published with.
           Without it the proxy silently excludes exactly the invoices that
           would make DSO look bad.
+
+  - name: fct_supplier_invoice_line
+    description: >
+      "Grain: one row per supplier invoice line (2,314 rows). The atomic S2P
+      fact behind Match Rate. Each line is compared with the receipt it names
+      and the purchase order line, and match_result records why a line failed,
+      not only that it did."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [supplier_invoice_number, supplier_invoice_line_number]
+    columns:
+      - name: invoice_date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: site_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_site')
+                field: site_code
+      - name: item_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_item')
+                field: item_code
+      - name: match_result
+        description: >
+          matched, price_variance, quantity_variance, not_received or
+          no_purchase_order. The column an AP team works from.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [matched, price_variance, quantity_variance, not_received, no_purchase_order]
+      - name: is_three_way_matched
+        description: >
+          Quantity agrees with the named receipt within
+          var('match_qty_tolerance_pct') and price agrees with the PO within
+          var('match_price_tolerance_pct'). Open question 14.
+        tests: [not_null]
+
+  - name: fct_inventory_count_line
+    description: >
+      "Grain: one row per counted stock position (2,843 rows). The atomic fact
+      behind Inventory Accuracy. system_qty is the quantity the system held AT
+      COUNT TIME and cannot be rebuilt later from stock on hand, which is why
+      the count tables must stay in the extract."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [count_session_number, count_line_number]
+    columns:
+      - name: count_date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: site_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_site')
+                field: site_code
+      - name: item_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_item')
+                field: item_code
+      - name: is_accurate_position
+        description: >
+          Counted quantity within var('inventory_accuracy_tolerance_pct') of
+          system_qty. Measured by position, not by unit. Open question 15.
+        tests: [not_null]

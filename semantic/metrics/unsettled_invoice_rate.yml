@@ -37,7 +37,7 @@ owner_proposed: Controller
 
 lineage_notes: >
   sage_x3.SINVOICEV.PAYDAT_0 carrying the 1753-01-01 sentinel, nulled in
-  staging and surfaced as fct_invoice_line.is_unsettled. 1,335 of 9,767 lines
-  (13.7%), from 492 of 3,564 invoices (13.8%).
+  staging and surfaced as fct_invoice_line.is_unsettled. 1,850 of 9,887 lines
+  (18.7%), from 703 of 3,677 invoice and credit-memo documents (19.1%).
 
 blocked_reason: null

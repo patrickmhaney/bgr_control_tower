@@ -1,9 +1,10 @@
--- Grain: one row per sales invoice line (NUM_0 + SIDLIN_0). 9,767 rows.
+-- Grain: one row per sales invoice or credit-memo line (NUM_0 + SIDLIN_0).
+-- 9,887 rows.
 --
 -- The fact behind the DSO proxy. days_to_pay is null - not zero, not a large
--- number - wherever PAYDAT_0 carried the 1753-01-01 sentinel, which is 13.8%
--- of invoices. That null is the whole reason the metric is a proxy: an
--- unguarded date_diff over the raw column returns a mean of -13,708 days, and
+-- number - wherever PAYDAT_0 carried the 1753-01-01 sentinel, which is 19.1%
+-- of invoice documents. That null is the whole reason the metric is a proxy: an
+-- unguarded date_diff over the raw column returns a mean of about -19,000 days, and
 -- silently dropping the unpaid invoices is what makes days-to-pay flatter than
 -- real DSO.
 
@@ -137,7 +138,7 @@ final as (
         --
         -- Only one days-to-pay column, deliberately. date_diff already returns
         -- null when payment_date is null, so a plain `days_to_pay` would be
-        -- identical on all 9,767 rows while its shorter name implied it
+        -- identical on every row while its shorter name implied it
         -- included unsettled invoices - which is the exact distinction the DSO
         -- proxy turns on.
         joined.payment_date is not null                            as is_settled,

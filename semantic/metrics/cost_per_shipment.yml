@@ -40,8 +40,8 @@ lineage_notes: >
   pangea.shipment.shipment_id.
 
   The charge lines are used rather than pangea.shipment.total_cost_usd. Those
-  two disagree on every one of the 3,509 shipments, and the header is 9.9%
-  higher in aggregate (6,030,476 vs 5,488,709). The basis is
+  two disagree on every one of the 3,498 shipments, and the header is 9.9%
+  higher in aggregate (6,009,270 vs 5,468,559). The basis is
   var('shipment_cost_basis') and the difference is published on the fact as
   cost_variance_usd. See docs/open_questions.md.
 

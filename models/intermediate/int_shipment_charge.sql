@@ -5,7 +5,7 @@
 -- answered with "because detention doubled" without going back to the source.
 --
 -- README landmine 13 says shipment.total_cost_usd disagrees with the sum of
--- charges. Measured: not one of the 3,509 shipments agrees to the cent, only 30
+-- charges. Measured: not one of the 3,498 shipments agrees to the cent, only 30
 -- agree within a dollar, and the header is 9.9% higher in aggregate. This model
 -- computes both and the variance; which one a metric uses is
 -- var('shipment_cost_basis').

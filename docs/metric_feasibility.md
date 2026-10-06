@@ -39,20 +39,20 @@ a single change to the compiler or the metric grammar.
 
 ### Cost Per Shipment — computable, one decision required
 
-`pangea.charge` has 8,277 rows across 3,509 shipments; every shipment has at
+`pangea.charge` has 8,252 rows across 3,498 shipments; every shipment has at
 least a FREIGHT charge, and all charges are USD.
 
 | | |
 |---|---|
-| Shipments | 3,509 |
+| Shipments | 3,498 |
 | Shipments with no charge lines | 0 |
-| Sum of `shipment.total_cost_usd` | 6,030,476 |
-| Sum of `charge.amount_usd` | 5,488,709 |
-| Shipments where the two agree to the cent | **0 of 3,509** (30 within a dollar) |
-| Mean (charges − header) | −154.39 |
+| Sum of `shipment.total_cost_usd` | 6,009,270 |
+| Sum of `charge.amount_usd` | 5,468,559 |
+| Shipments where the two agree to the cent | **0 of 3,498** (30 within a dollar) |
+| Mean (charges − header) | −154.58 |
 
-Charge mix: FREIGHT (3,509 rows), FUEL (3,174), DETENTION (551), LIFTGATE
-(524), RESIDENTIAL (519).
+Charge mix: FREIGHT (3,498 rows), FUEL (3,165), DETENTION (549), LIFTGATE
+(521), RESIDENTIAL (519).
 
 The header is 9.9% higher than the charge lines in total, and the disagreement
 is not a rounding artefact — it is systematic. README landmine 13 attributes it
@@ -82,7 +82,7 @@ naming it would be a governance failure.
 
 Two further wrinkles:
 
-- Only 3,381 of 3,509 shipments are delivered. 109 are `EXCEPTION` and 19 are
+- Only 3,381 of 3,498 shipments are delivered. 108 are `EXCEPTION` and 9 are
   `IN_TRANSIT`, and both carry a null `delivered_date`. Undelivered shipments
   are excluded from the denominator, which means the metric cannot get worse
   when a shipment fails outright — flagged as a definition risk.
@@ -103,7 +103,7 @@ shipments and needs no cross-system join. Open question 1.
 
 The available cost data is thinner than it looks:
 
-- `pangea.charge` — freight and accessorials, 5.49M USD. Real, line-level.
+- `pangea.charge` — freight and accessorials, 5.47M USD. Real, line-level.
 - `paycom.earning_detail` — 9,526 rows of payroll, allocable to site and
   department via `labor_allocation_code` (`DAL-01-200` = Dallas Warehouse).
 - `sage_x3.GACCENTRYD` — **five accounts exist**: 11100 (AR), 21000 (AP),
@@ -120,7 +120,7 @@ shipped weight?).
 
 **Decision taken for the POC:** `var: cost_per_order_pool = fulfillment` —
 freight and accessorials only, allocated to the order via the shipment
-reference. 2,998 of 4,200 orders (71.4%) have a matched shipment, so the metric
+reference. 2,989 of 4,200 orders (71.2%) have a matched shipment, so the metric
 is reported over shipped orders only and the coverage rate is published beside
 it. Status `provisional`. Open question 3.
 
@@ -131,22 +131,22 @@ over time and cash application. Neither exists:
 
 - No cash receipt, payment, or open-item table in any schema.
 - `SINVOICEV.PAYDAT_0` is a single settlement date stamped on the invoice.
-- 523 of 3,691 invoice documents (14.2%) carry the `1753-01-01` sentinel in
-  `PAYDAT_0`, meaning unpaid — 492 of the 3,564 invoices and 31 of the 127
+- 703 of 3,677 invoice documents (19.1%) carry the `1753-01-01` sentinel in
+  `PAYDAT_0`, meaning unpaid — 666 of the 3,551 invoices and 37 of the 126
   credit memos. **An unguarded `date_diff` over the full set returns a mean of
-  about −14,000 days** — this is landmine 2 and it lands squarely on this
+  about −19,000 days** — this is landmine 2 and it lands squarely on this
   metric.
 
-Measured on the 3,168 settled documents: mean 47.7 days, median 45, range
-21–90. The metric itself, at invoice-line grain, is 48.0 days. The
+Measured on the 2,974 settled documents: mean 47.0 days, median 45, range
+21–90. The metric itself, at invoice-line grain, is 47.3 days. The
 distribution is plausible and the metric is stable, but it is
 *days-to-pay on settled invoices*, which is a different and more flattering
 number than DSO — it structurally excludes the invoices that are late enough to
 be unpaid.
 
 **Decision taken for the POC:** publish as `dso_days_to_pay_proxy`, labelled
-"DSO (days-to-pay proxy)", status `provisional`, with the 13.8% unsettled rate
-(13.8% of invoice lines) published alongside it as a required companion figure.
+"DSO (days-to-pay proxy)", status `provisional`, with the 18.7% unsettled rate
+(18.7% of invoice lines) published alongside it as a required companion figure.
 Do not label it "DSO" on
 a dashboard. Open question 2.
 
@@ -171,8 +171,8 @@ credit-memo type on the sales invoice tables with the sign reversed, and
 credit memos, credit memos post to the GL, and invoiced revenue still
 reconciles to account 41000 — the existing test proves it.
 
-**Measured.** 146 returns / 179 lines against 3,564 invoices. Returned value
-$2.78M against $218.9M invoiced: **1.27%**.
+**Measured.** 145 returns / 178 lines against 3,551 invoices. Returned value
+$2.78M against $218.1M invoiced: **1.27%**.
 
 **What is still open.** Two things, and they move the number more than the
 data does.
@@ -205,25 +205,25 @@ purchase movements now carry receipt numbers that resolve — previously all
 4,217 of them resolved to nothing, which is the single fact that made a
 three-way match impossible.
 
-**Measured.** 2,498 invoice lines across 1,186 invoices. **70.7% matched.**
+**Measured.** 2,314 invoice lines across 1,092 invoices. **70.8% matched.**
 
 | Result | Lines | Share |
 |---|---:|---:|
-| `matched` | 1,766 | 70.7% |
-| `price_variance` | 295 | 11.8% |
-| `quantity_variance` | 274 | 11.0% |
-| `not_received` | 107 | 4.3% |
-| `no_purchase_order` | 56 | 2.2% |
+| `matched` | 1,639 | 70.8% |
+| `price_variance` | 273 | 11.8% |
+| `quantity_variance` | 250 | 10.8% |
+| `not_received` | 96 | 4.1% |
+| `no_purchase_order` | 56 | 2.4% |
 
 The reason is kept on the fact, not just the flag. A match rate says there is
 a problem; `match_result` says which desk to send it to. `no_purchase_order`
 is maverick spend — a governance finding rather than a data quality one.
 
 **One modelling decision worth knowing about.** An invoice line is compared to
-the receipt *it names*, not to every receipt against the PO line. 514 lines
+the receipt *it names*, not to every receipt against the PO line. 472 lines
 here are multi-delivery, and comparing each invoice to the cumulative received
 quantity reports a variance on both halves of a perfectly good transaction —
-it moved the measured rate from 59.2% to 70.7%. This is exactly the class of
+it moved the measured rate from 59.2% to 70.8%. This is exactly the class of
 error a three-way match implementation gets wrong quietly.
 
 **What is still open.** The tolerance policy. Exact quantity and 2% price is
@@ -271,21 +271,21 @@ retrospectively at any price.
 These came out of the same audit and are not metric-specific.
 
 1. **CHAR padding is total, not partial.** Every row of `SORDERQ.ITMREF_0`
-   (11,575), `SORDERP.ITMREF_0` (11,575), `STOJOU.ITMREF_0` (14,226) and
+   (11,575), `SORDERP.ITMREF_0` (11,575), `STOJOU.ITMREF_0` (13,994) and
    `SORDER.BPCORD_0` (4,200) is padded. The master tables carry no padding at
    all. A naive equi-join returns exactly zero rows, which at least fails
    loudly. After `trim()` every one of these joins is 100% clean.
 
-2. **`STOJOU` reconciles on both sides.** All 10,421 shipment movements
-   (`VCRTYP_0 = 'SDH'`) resolve to a `SORDER`, and all 2,664 receipt movements
+2. **`STOJOU` reconciles on both sides.** All 10,390 shipment movements
+   (`VCRTYP_0 = 'SDH'`) resolve to a `SORDER`, and all 2,464 receipt movements
    (`PTH`) resolve to a `PRECEIPT`. Before the receipt documents were sourced,
    none of the purchase movements resolved to anything — worth checking first
    against the real X3 folder, because it decides whether a three-way match is
    possible at all.
 
 3. **The X3 internal joins are otherwise perfect.** `SORDERQ`→`ITMMASTER` 11,575/11,575,
-   `SORDER`→`BPCUSTOMER` 4,200/4,200, `SINVOICED`→`SINVOICEV` 9,923/9,923,
-   invoice line→order line 9,767/9,767 (the 156 credit-memo lines carry no
+   `SORDER`→`BPCUSTOMER` 4,200/4,200, `SINVOICED`→`SINVOICEV` 9,887/9,887,
+   invoice line→order line 9,732/9,732 (the 155 credit-memo lines carry no
    order line), and `SORDERQ.ITMREF_0` agrees with `SORDERP.ITMREF_0` on all
    11,575 lines. All declared grains are unique. The one exception is the
    hand-keyed return reference above. Otherwise the risk in this estate is
@@ -296,10 +296,10 @@ These came out of the same audit and are not metric-specific.
    customer key for shipments than routing through the order — worth using as a
    fallback for the 15% of shipments that do not carry an order reference.
 
-5. **Shipment reference quality**: 3,509 shipments, 247 with a null reference,
-   2,998 joining cleanly to `SORDER` (85.4% of all, 91.9% of non-null), and 264
+5. **Shipment reference quality**: 3,498 shipments, 247 with a null reference,
+   2,989 joining cleanly to `SORDER` (85.4% of all, 91.9% of non-null), and 262
    carrying a `CUST-PO-#####` customer PO that matches nothing in X3. Padding is
-   not a factor here — trimmed and untrimmed give the same 2,998.
+   not a factor here — trimmed and untrimmed give the same 2,989.
 
 6. **HubSpot→X3 customer matching**: exact upper-cased name gives 171/260
    (65.8%). Stripping punctuation and the legal suffix (`Inc`, `LLC`, `Ltd`,
@@ -334,10 +334,10 @@ These came out of the same audit and are not metric-specific.
    Paycom `DAL-01/RNO-01/TOR-01`, Netstock uses the X3 codes directly (clean).
    The crosswalk is a seed, not derived logic.
 
-10. **Currency is genuinely multi.** 3,512 USD and 688 CAD orders; 3,102 USD and
-   589 CAD invoice documents. The only FX signal in the estate is the implied
+10. **Currency is genuinely multi.** 3,512 USD and 688 CAD orders; 3,092 USD and
+   585 CAD invoice documents. The only FX signal in the estate is the implied
    rate in `GACCENTRYD` (`AMTLOC_0 / AMTCUR_0`), which is **0.7400 for CAD on
-   1,737 of 1,767 lines**, with the remainder within rounding. That is a
+   1,725 of 1,755 lines**, with the remainder within rounding. That is a
    single fixed rate, not a rate table — real reporting will need a proper rate
    source. Open question 10.
 
@@ -352,6 +352,6 @@ These came out of the same audit and are not metric-specific.
     ([ingestion.md §4](ingestion.md#4-the-finding-that-shapes-the-erp-extract)).
     That asymmetry belongs in the ingestion design, not the model.
 
-13. **Tracking event ordering**: 316 of 24,504 events (1.29%) have a timestamp
+13. **Tracking event ordering**: 316 of 24,418 events (1.29%) have a timestamp
     earlier than the previous event by sequence. Milestone extraction uses
     `event_code`, never `min(event_ts)`.

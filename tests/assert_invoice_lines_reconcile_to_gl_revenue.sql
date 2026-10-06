@@ -2,8 +2,8 @@
 --
 -- Not to the cent: the two sides take different rounding paths. fct_invoice_line
 -- converts each line with decimal(18,6) rate x decimal(18,4) amount, while the
--- GL carries an amount already converted at posting. The residual is $0.09
--- across 218.9M - about four parts per billion - and it is FX rounding, not a
+-- GL carries an amount already converted at posting. The residual is $0.10
+-- across 215.6M - under one part per billion - and it is FX rounding, not a
 -- modelling gap.
 --
 -- Tolerance is $1.00: comfortably above the measured residual, comfortably

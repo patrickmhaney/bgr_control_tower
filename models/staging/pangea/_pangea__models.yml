@@ -8,8 +8,8 @@ models:
         tests: [unique, not_null]
       - name: reference_number
         description: >
-          Carries the X3 sales order number on 2,998 of 3,509 shipments
-          (85.4%). 247 are null and 264 carry a CUST-PO-##### customer PO that
+          Carries the X3 sales order number on 2,989 of 3,498 shipments
+          (85.4%). 247 are null and 262 carry a CUST-PO-##### customer PO that
           matches nothing in X3. Padding is not a factor - trimmed and
           untrimmed give the same result.
         tests:
@@ -19,8 +19,8 @@ models:
                 field: sales_order_number
               config:
                 severity: warn
-                # Dashed line in the README join map. 511 of 3,509 shipments
-                # do not resolve to an order (247 null + 264 customer PO).
+                # Dashed line in the README join map. 509 of 3,498 shipments
+                # do not resolve to an order (247 null + 262 customer PO).
                 # Errors above 600 - that would mean the handoff has degraded
                 # beyond the level this design was validated against.
                 error_if: ">600"
@@ -52,14 +52,14 @@ models:
           var away.
       - name: delivered_date
         description: >
-          Null on 128 shipments - 109 EXCEPTION and 19 IN_TRANSIT. These are
+          Null on 117 shipments - 108 EXCEPTION and 9 IN_TRANSIT. These are
           excluded from On-Time Delivery, which means a failed shipment
           currently cannot hurt the metric. Flagged in open question 1.
       - name: header_cost_usd
         description: >
           Source `total_cost_usd`. Renamed to make it impossible to reach for
           by accident - it disagrees with the charge lines on every one of the
-          3,509 shipments and is 9.9% higher in aggregate. Cost metrics use the
+          3,498 shipments and is 9.9% higher in aggregate. Cost metrics use the
           charge lines.
 
   - name: stg_pangea__shipment_leg
@@ -78,7 +78,7 @@ models:
 
   - name: stg_pangea__tracking_event
     description: >
-      "Grain: one row per shipment and event sequence. 316 of 24,504 rows
+      "Grain: one row per shipment and event sequence. 316 of 24,418 rows
       (1.29%) have a timestamp earlier than the previous event by sequence, so
       milestones must be derived by event_code and never by min/max of
       event_at."
@@ -123,7 +123,7 @@ models:
       - name: charge_amount_usd
         description: >
           Already USD in the source. FREIGHT is present on every shipment;
-          FUEL on 3,174; DETENTION, LIFTGATE and RESIDENTIAL are sparse
+          FUEL on 3,165; DETENTION, LIFTGATE and RESIDENTIAL are sparse
           accessorials.
         tests: [not_null]
       - name: currency_code

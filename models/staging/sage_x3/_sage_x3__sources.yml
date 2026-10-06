@@ -33,7 +33,7 @@ sources:
       - name: SORDER
         description: >
           Sales order header. BPCORD_0 is CHAR-padded. SHIDAT_0 carries the
-          1753-01-01 sentinel on 402 rows.
+          1753-01-01 sentinel on 413 rows.
       - name: SORDERQ
         description: >
           Sales order line, quantity side. ITMREF_0 is CHAR-padded on every
@@ -44,7 +44,7 @@ sources:
           time and drifts from ITMMASTER - real X3 behaviour, not a defect.
       - name: SINVOICEV
         description: >
-          Sales invoice header. PAYDAT_0 carries the sentinel on 492 rows.
+          Sales invoice header. PAYDAT_0 carries the sentinel on 703 rows.
           There is no cash application table anywhere in the source estate.
       - name: SINVOICED
         description: Sales invoice line. Carries SOHNUM_0/SOPLIN_0 back to the order.
@@ -62,7 +62,7 @@ sources:
       - name: PORDERQ
         description: >
           Purchase order line with expected and actual receipt. RCPDAT_0
-          carries the sentinel on 576 rows. It is a denormalised copy of the
+          carries the sentinel on 754 rows. It is a denormalised copy of the
           LAST receipt - PRECEIPTD is the document, and the two disagree on
           any line received more than once.
       - name: GACCENTRY

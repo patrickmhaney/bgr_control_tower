@@ -187,7 +187,7 @@ models:
         tests: [not_null]
       - name: cost_variance_usd
         description: >
-          charge_total_usd - header_cost_usd. Sums to -541,767 across the
+          charge_total_usd - header_cost_usd. Sums to -540,711 across the
           estate (the header is 9.9% higher). Published rather than hidden.
 
   - name: int_shipment_milestone
@@ -200,7 +200,7 @@ models:
         tests: [unique, not_null]
       - name: has_out_of_sequence_events
         description: >
-          298 of 3,509 shipments. Published rather than corrected: a shipment
+          298 of 3,498 shipments. Published rather than corrected: a shipment
           whose scans arrived out of order is one whose transit time should not
           be trusted, and the consumer is entitled to know which.
       - name: transit_days
@@ -209,10 +209,10 @@ models:
   - name: int_shipment_order
     description: >
       "Grain: one row per shipment. Resolves the shipment to an X3 order and to
-      a conformed customer. The order reference covers 2,998 of 3,509
+      a conformed customer. The order reference covers 2,989 of 3,498
       shipments; the customer name - which matches BPCUSTOMER on all 220
       distinct values and is not in the README's join map - recovers the
-      customer for the remaining 511. Customer resolution is therefore 100%
+      customer for the remaining 509. Customer resolution is therefore 100%
       while order resolution is 85.4%, and that difference is a constraint on
       the On-Time Delivery definition, not just a quality note."
     columns:
@@ -224,7 +224,7 @@ models:
               arguments:
                 values: ['order_reference', 'customer_name', 'unresolved']
       - name: customer_code
-        description: Resolved on all 3,509 shipments.
+        description: Resolved on all 3,498 shipments.
         tests: [not_null]
       - name: customer_requested_delivery_date
         description: >

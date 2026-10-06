@@ -45,10 +45,11 @@ lineage_notes: >
   date_diff('day', SINVOICEV.INVDAT_0, SINVOICEV.PAYDAT_0), carried on
   fct_invoice_line as days_to_pay_settled_only.
 
-  492 of 3,564 invoices (13.8%) carry the 1753-01-01 sentinel in PAYDAT_0,
-  meaning unsettled, and are null here rather than zero. An unguarded date_diff
-  over the raw column returns a mean of -13,708 days. Measured on the settled
-  population: mean 48.2 days, median 45, range 28-90.
+  703 of 3,677 invoice and credit-memo documents (19.1%) carry the 1753-01-01
+  sentinel in PAYDAT_0, meaning unsettled, and are null here rather than zero.
+  An unguarded date_diff over the raw column returns a mean of about -19,000
+  days. Measured on the settled documents: mean 47.0 days, median 45, range
+  21-90.
 
   ASSUMPTION THIS EXTRACT VALIDATES AND PRODUCTION MAY NOT: that every posting
   entity's company currency is the reporting currency. fct_invoice_line

@@ -343,7 +343,6 @@ python scripts/regenerate.py
 
 ```
   ok  staging models
-  ok  schema contract
   ok  metric artefacts
   ok  process views
 ```
@@ -370,7 +369,7 @@ dbt build
 ```
 
 ```
-Done. PASS=315 WARN=4 ERROR=0        (both examples in this guide added)
+Done. PASS=... WARN=4 ERROR=0
 ```
 
 Four warnings is normal — they are the documented data-quality findings. A
@@ -397,9 +396,9 @@ python scripts/q.py "select slot, metric_label, metric_status,
 ```
   slot  metric_label                  metric_status  value
   ----  ----------------------------  -------------  ----------
-  M1    DSO (days-to-pay proxy)       provisional    47.9627
+  M1    DSO (days-to-pay proxy)       provisional    47.3423
   M2    Return Rate                   provisional    0.0127
-  M3    Cost Per Order                provisional    1,560.7837
+  M3    Cost Per Order                provisional    1,559.2171
   M4    Order Line Cancellation Rate  active         0.0395
 ```
 
@@ -448,7 +447,7 @@ from fct_sales_order_line;
 ```
   on_time  shipped  pct
   -------  -------  ----
-  8033     10421    77.1
+  8016     10390    77.2
 ```
 
 But `shipment_date <= requested_delivery_date` compares two columns, which a
@@ -476,7 +475,7 @@ your query's denominator.
 Describe the column in `models/marts/core/_core__models.yml` under the fact,
 and add a test if the column has a rule worth asserting. Run
 `dbt build --select fct_sales_order_line` and re-run your query against the new
-column to confirm it gives the same 8,033 / 10,421.
+column to confirm it gives the same 8,016 / 10,390.
 
 ### Step 2. Define the metric against the new column
 
@@ -514,13 +513,13 @@ Map it to a dashboard or not (this example stays on none), then regenerate,
 build and check. It matches the SQL:
 
 ```
-  [PASS] shipped_by_request_date_rate     0.770847 == 0.770847
+  [PASS] shipped_by_request_date_rate     0.771511 == 0.771511
 ```
 
 ```
 Shipped by Requested Date (active)
 
-         77.1%    (n = 10,421)
+         77.2%    (n = 10,390)
 ```
 
 ---

@@ -4,8 +4,8 @@
 -- Two probes, because the README's join map only documents the first and the
 -- second is measurably better where the first fails:
 --
---   order_reference  85.4% of shipments (2,998 of 3,509). The rest are 247
---                    nulls and 264 CUST-PO-##### customer POs that match
+--   order_reference  85.4% of shipments (2,989 of 3,498). The rest are 247
+--                    nulls and 262 CUST-PO-##### customer POs that match
 --                    nothing in X3.
 --   customer_name    pangea.shipment.customer_name matches BPCUSTOMER.BPCNAM_0
 --                    on all 220 distinct values. It cannot recover the order,

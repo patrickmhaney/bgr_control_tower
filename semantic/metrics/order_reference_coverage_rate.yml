@@ -38,8 +38,8 @@ owner_proposed: Director of Sales Operations
 
 lineage_notes: >
   pangea.shipment.reference_number joined to sage_x3.SORDER.SOHNUM_0 in
-  int_shipment_order. 2,998 of 3,509 shipments (85.4%): 247 carry no reference
-  at all and 264 carry a CUST-PO-##### customer PO that matches nothing in X3.
+  int_shipment_order. 2,989 of 3,498 shipments (85.4%): 247 carry no reference
+  at all and 262 carry a CUST-PO-##### customer PO that matches nothing in X3.
 
   Customer resolution is separately 100%, because
   pangea.shipment.customer_name matches BPCUSTOMER on all 220 distinct values.

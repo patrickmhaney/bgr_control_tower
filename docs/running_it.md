@@ -107,17 +107,17 @@ A second run of `sage_x3` alone:
 ```
 source        tables   rows read   seconds
 -------------------------------------------
-sage_x3           30      13,296       0.9
+sage_x3           30      15,649       0.8
 
 projecting landing -> raw
-  raw.sage_x3      30 tables     94,075 rows
+  raw.sage_x3      30 tables     92,738 rows
 
 schema contract
   no drift - every table matches ingestion/schema_contract.json
 ```
 
-**Read those two numbers together.** 13,296 rows were *read* from the ERP;
-94,075 are *in* raw. The difference is the incremental window doing its job —
+**Read those two numbers together.** 15,649 rows were *read* from the ERP;
+92,738 are *in* raw. The difference is the incremental window doing its job —
 merge disposition keeps the rows a windowed run did not revisit.
 
 ### See why a run read what it read
@@ -132,7 +132,7 @@ expected, this is the first place to look.
 
 ```
 watermarks  (25 stored)
-  sage_x3      SORDER           2026-09-29   minus 90d lookback
+  sage_x3      SORDER           2026-09-05   minus 90d lookback
   ...
 sources with no watermark - these read everything, every run
   paycom        6 of  6 tables   employee, check, earning_detail, ...
@@ -143,8 +143,8 @@ sources with no watermark - these read everything, every run
 
 ```bash
 python run_ingestion.py --reset
-python run_ingestion.py     # 247,851 rows - full backfill
-python run_ingestion.py     # 126,399 rows - watermarks now set
+python run_ingestion.py     # 246,374 rows - full backfill
+python run_ingestion.py     # 129,460 rows - watermarks now set
 ```
 
 `--reset` clears the ingestion layer only: `landing/`, `raw.duckdb` and
@@ -163,7 +163,7 @@ python run_ingestion.py --reset          # landing/, raw.duckdb, ingestion/_stat
 rm -rf warehouse.duckdb target exports   # dbt output, dbt artefacts, exports
 
 # 2. Rebuild
-python generate_mock_sources.py          # optional - mock_sources.duckdb, 247,851 rows
+python generate_mock_sources.py          # optional - mock_sources.duckdb, 246,374 rows
 python run_ingestion.py                  # -> landing/ -> raw.duckdb
 dbt build                                # raw -> every model, test and snapshot
 
@@ -179,7 +179,7 @@ re-running the other generators (a no-op when nothing changed).
 Expected:
 
 ```
-raw          247,851 rows across 5 schemas
+raw          246,374 rows across 5 schemas
 dbt build    PASS=... WARN=4 ERROR=0
 parity       every re-aggregatable metric reconciles
 export       14 tables, 22 relationships, 10 generated measures, 0 hand-written
@@ -271,11 +271,13 @@ python scripts/q.py "
 ```
   at_source  in_archive  landed  staged  modelled
   ---------  ----------  ------  ------  --------
-  3509       3509        3509    3509    3509
+  3498       3498        3498    3498    3498
 ```
 
 When a number drops between two of those columns, you know exactly which layer
-to open.
+to open. The one column allowed to be higher is `in_archive`: those counts are
+after a single run, and every later run appends to the archive, so it grows
+while `landed` stays put.
 
 ---
 
@@ -334,7 +336,7 @@ python scripts/verify_ingestion.py                   # build both ways and diff
 ```
 
 ```
-[PASS] core model row counts identical (56,998 rows across 11 models)
+[PASS] core model row counts identical (56,681 rows across 11 models)
 [PASS] on_time_delivery_rate            0.755989 == 0.755989
 ```
 
@@ -361,6 +363,7 @@ python scripts/q.py --ls               # everything queryable
 python scripts/q.py --ls shipment      # filtered
 python scripts/q.py -d fct_shipment    # columns, types, row count
 python scripts/q.py --csv "..." > out.csv
+python scripts/q.py --ui               # SQL editor in the browser
 ```
 
 Three databases are attached read-only under stable names, so one query can
@@ -377,6 +380,19 @@ Unqualified names resolve across every dbt layer, so `fct_shipment`,
 
 In the prompt: `\l` lists objects, `\d <table>` describes one, `\q` quits, and
 statements end with `;`.
+
+### In the browser
+
+`python scripts/q.py --ui` starts DuckDB's own notebook UI at
+<http://localhost:4213> and opens it: write SQL in a cell, run it with
+Cmd/Ctrl+Enter, and browse the three databases in the side panel. The first run
+downloads the `ui` extension, so it needs network once. Ctrl-C in the terminal
+stops it.
+
+Two differences from the prompt. The UI opens its own connections, so the
+short names above do not resolve there - write `main_core.fct_shipment`, or
+`warehouse.main_core.fct_shipment`. And it holds the files open while it runs,
+so stop it before `dbt build` or `run_ingestion.py`.
 
 ### Where things live
 
@@ -440,7 +456,7 @@ On-Time Delivery (active)
 
          74.3%    (n = 218)
 
-  CAVEAT: The 128 undelivered shipments (109 EXCEPTION, 19 IN_TRANSIT) are
+  CAVEAT: The 117 undelivered shipments (108 EXCEPTION, 9 IN_TRANSIT) are
     excluded from the denominator, ...
 ```
 
@@ -483,7 +499,7 @@ dbt build` moves it from 75.6% to 84.1%.
 ### Regenerate everything
 
 ```bash
-python scripts/regenerate.py                  # staging, contract, metrics, process views
+python scripts/regenerate.py                  # staging, metrics, process views
 python scripts/regenerate.py --with-exports   # + parity test and Power BI export
 ```
 

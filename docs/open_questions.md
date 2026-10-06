@@ -52,8 +52,8 @@ metrics with two names, not one metric with an argument — and the model alread
 supports it: `fct_shipment` carries `is_on_time_vs_carrier_promise` and
 `is_on_time_vs_customer_request` side by side.
 
-**Second-order question nobody has asked yet.** 109 shipments are in
-`EXCEPTION` status with no delivery date, and 19 are still in transit. They are
+**Second-order question nobody has asked yet.** 108 shipments are in
+`EXCEPTION` status with no delivery date, and 9 are still in transit. They are
 currently excluded from the denominator, which means **a shipment that fails
 completely cannot hurt the metric**. That is usually not what the business
 wants.
@@ -63,13 +63,13 @@ abstract:
 
 ```
 current  (undelivered excluded)   2,556 / 3,381  =  75.6%
-counted  (undelivered = late)     2,556 / 3,509  =  72.8%
-                                                    -2.8 pts
+counted  (undelivered = late)     2,556 / 3,498  =  73.1%
+                                                    -2.5 pts
 
-3,381 DELIVERED  ·  109 EXCEPTION  ·  19 IN_TRANSIT
+3,381 DELIVERED  ·  108 EXCEPTION  ·  9 IN_TRANSIT
 ```
 
-An operations VP will have an immediate opinion about 2.8 points. Put both on
+An operations VP will have an immediate opinion about 2.5 points. Put both on
 the slide and the decision takes two minutes rather than a follow-up meeting.
 Options: count undelivered-past-promise as late, or publish a separate
 completion rate beside the metric.
@@ -79,12 +79,12 @@ completion rate beside the metric.
 **The finding.** There is no cash application data anywhere in the five source
 systems, and no open-AR position over time. Textbook DSO is not computable.
 What exists is `SINVOICEV.PAYDAT_0`, a single settlement date per invoice,
-giving a mean 47.7 / median 45 days to pay on the 85.8% of invoice documents
+giving a mean 47.0 / median 45 days to pay on the 80.9% of invoice documents
 that are settled.
 
 **Assumed.** Publish the proxy under the name `dso_days_to_pay_proxy`, label
 "DSO (days-to-pay proxy)", status `provisional`, with `unsettled_invoice_rate`
-(13.8% of invoice lines) as a mandatory companion figure.
+(18.7% of invoice lines) as a mandatory companion figure.
 
 **Why.** The proxy is directionally useful and cheap. Labelling it "DSO" is
 not, because it structurally excludes exactly the invoices that make DSO bad —
@@ -102,13 +102,13 @@ balance-and-flow calculation and needs a periodic AR snapshot fact.
 revenue and purchases — across a sales and a purchasing journal. There is no
 COGS, no operating expense and no payroll posting. "Fully loaded" is not
 computable from the sources we have. What is computable:
-freight and accessorials from Pangea (5.49M USD, line level), and warehouse
+freight and accessorials from Pangea (5.47M USD, line level), and warehouse
 labour from Paycom, allocable to site and department via `labor_allocation_code`.
 
 **Assumed.** Fulfillment only (recorded as `var: cost_per_order_pool = fulfillment`,
 which labels the choice; nothing reads it) — freight and
 accessorials only, attached to the order through the shipment reference,
-reported over shipped orders only (2,998 of 4,200 = 71.4%) with the coverage
+reported over shipped orders only (2,989 of 4,200 = 71.2%) with the coverage
 rate published beside the metric. Status `provisional`.
 
 **What we need.** Three things, in order:
@@ -261,10 +261,10 @@ does not mention. Whatever Pangea is, it is being fed customer names from X3.
 
 ## 10. Currency policy
 
-**The finding.** Genuinely multi-currency: 3,512 USD / 688 CAD orders, 3,102
-USD / 589 CAD invoice documents. There is no FX rate table. The only rate
+**The finding.** Genuinely multi-currency: 3,512 USD / 688 CAD orders, 3,092
+USD / 585 CAD invoice documents. There is no FX rate table. The only rate
 signal in the estate is implied by `GACCENTRYD.AMTLOC_0 / AMTCUR_0`, which is
-**0.7400 for CAD on 1,737 of 1,767 lines**, the remainder within rounding.
+**0.7400 for CAD on 1,725 of 1,755 lines**, the remainder within rounding.
 That is a single fixed rate applied at posting, not a rate series.
 
 **Assumed.** Report in USD. `int_fx_rate` derives the rate per document
@@ -292,14 +292,14 @@ check it against:
 
 ```
 CPY_0    CUR_0     sum(AMTCUR_0)     sum(AMTLOC_0)   implied
-GLBCA    CAD          79,695,975        58,975,021      0.74
-GLBCA    USD         350,232,832       350,232,832      1.00
-GLBUS    USD       1,183,580,006     1,183,580,006      1.00
+GLBCA    CAD          78,928,584        58,407,152      0.74
+GLBCA    USD         330,724,975       330,724,975      1.00
+GLBUS    USD       1,120,904,280     1,120,904,280      1.00
 ```
 
 In a real X3 folder a Canadian entity posts `AMTLOC_0` in CAD, the ratio
-becomes 1.00, and **35.3M CAD of revenue reports as 35.3M USD instead of
-26.1M — with a green build**.
+becomes 1.00, and **34.9M CAD of revenue reports as 34.9M USD instead of
+25.8M — with a green build**.
 
 Two things are already in place against that. `COMPANY.CUR_0` is on the
 extraction list in `ingestion/config.py` with a note explaining why, so the
@@ -349,7 +349,7 @@ someone asks.
 
 ## 12. Does a sales order ever ship in more than one shipment?
 
-**The finding.** Never, in this extract: every one of the 2,998 shipments that
+**The finding.** Never, in this extract: every one of the 2,989 shipments that
 resolves to an X3 order is the only shipment on that order. Two things rest on
 that and neither was stated anywhere — the shipment-to-order link is treated as
 1:1, and `cost_per_order`'s denominator (`count distinct sales_order_number`)
@@ -378,7 +378,7 @@ the divergence appears in the parity output rather than in a dashboard.
 
 **The finding.** It matches `BPCUSTOMER.BPCNAM_0` on all 220 distinct values,
 and zero ERP customer names collide. This link is not in the source README's
-join map, and it is what recovers the customer for the 511 shipments (14.6%)
+join map, and it is what recovers the customer for the 509 shipments (14.6%)
 carrying no resolvable order reference — the reason customer resolution reaches
 100% while order resolution stops at 85.4%.
 
@@ -408,10 +408,10 @@ share a name.
 
 ## 14. Three-way match — what counts as "within tolerance"?
 
-**The finding.** Match Rate is 70.7% of 2,498 invoice lines under the assumed
+**The finding.** Match Rate is 70.8% of 2,314 invoice lines under the assumed
 policy: quantity must agree exactly with the receipt, price within 2% of the
-purchase order. The failures split 11.8% price variance, 11.0% quantity
-variance, 4.3% invoiced-but-not-received, 2.2% no purchase order at all.
+purchase order. The failures split 11.8% price variance, 10.8% quantity
+variance, 4.1% invoiced-but-not-received, 2.4% no purchase order at all.
 
 **Why it is a question.** The rate measures the policy at least as much as it
 measures the process. Most AP departments allow a quantity band as well as a
@@ -465,7 +465,7 @@ treat as a hit, and does Finance care about units or dollars?
 ## 16. Return Rate — divided by what?
 
 **The finding.** Returned value is $2.78M. Divided by invoiced value it is
-1.27%; divided by ordered value it is 1.08%, because 1,808 of 11,575 order
+1.27%; divided by ordered value it is 1.08%, because 1,843 of 11,575 order
 lines are never invoiced.
 
 **Why it is a question.** Invoiced value is the defensible default — an order
@@ -488,7 +488,7 @@ booked, what we shipped, or what we billed?
 
 ## 17. Return Rate — dated on the order or on the return?
 
-**The finding.** Returns land a median of 40 days after the invoice, and up to
+**The finding.** Returns land a median of 37 days after the invoice, and up to
 75. On a monthly dashboard that difference is the whole metric.
 
 **Why it is a question.** The two readings are not variations on one number,
@@ -523,7 +523,7 @@ folklore.
 
 - **Shipment cost basis.** `sum(charge.amount_usd)`, not
   `shipment.total_cost_usd`. The header exceeds the charge lines by 9.9% in
-  aggregate and not one of the 3,509 shipments agrees to the cent. Line-level cost
+  aggregate and not one of the 3,498 shipments agrees to the cent. Line-level cost
   is auditable and decomposable; a header number nobody can explain is not
   governable. `var: shipment_cost_basis`. The variance is published on
   `fct_shipment` as `cost_variance_usd` rather than hidden.

@@ -17,7 +17,7 @@ TWO THINGS THIS SHAPE IS TEACHING
 2. **Children must be fetched in bulk, not per parent.** `children_for()` takes
    a list of shipment ids and issues one call. Fetching charges one shipment at
    a time is an N+1 that is invisible at POC scale and fatal on a backfill -
-   3,509 shipments becomes 10,527 API calls across three child types. If the
+   3,498 shipments becomes 10,494 API calls across three child types. If the
    real API has no bulk or date-ranged child endpoint, that constraint needs to
    be found during discovery, because it changes the backfill plan.
 

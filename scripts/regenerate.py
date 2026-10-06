@@ -32,9 +32,13 @@ from _toolchain import PYTHON, ROOT  # noqa: E402
 
 # Order matters. compile_metrics writes the registry seed and the metric
 # models that generate_process_views reads.
+#
+# freeze_schema_contract.py is deliberately not a step. The contract records
+# what the sources are expected to look like, and re-freezing it from whatever
+# the sources look like today is exactly the move that silences a lost column.
+# It is re-run by hand, and the diff reviewed, when a source change is accepted.
 STEPS = [
     ("staging models", ["scripts/generate_staging.py"]),
-    ("schema contract", ["scripts/freeze_schema_contract.py"]),
     ("metric artefacts", ["scripts/compile_metrics.py"]),
     ("process views", ["scripts/generate_process_views.py"]),
 ]

@@ -1,4 +1,4 @@
--- Grain: one row per shipment (pangea.shipment_id). 3,509 rows.
+-- Grain: one row per shipment (pangea.shipment_id). 3,498 rows.
 --
 -- The atomic fact behind both computable I2D metrics. Two design decisions are
 -- visible in the columns rather than buried in a filter:
@@ -13,7 +13,7 @@
 --    lines are the default; the header is 9.9% higher in aggregate and agrees
 --    with the lines on zero shipments.
 --
--- Undelivered shipments (109 EXCEPTION, 19 IN_TRANSIT) keep a null on-time
+-- Undelivered shipments (108 EXCEPTION, 9 IN_TRANSIT) keep a null on-time
 -- flag rather than false. That is deliberate and it is a known weakness of the
 -- metric as specified - see open question 1 - but encoding "we do not know" as
 -- "on time = no" here would hide the decision instead of surfacing it.

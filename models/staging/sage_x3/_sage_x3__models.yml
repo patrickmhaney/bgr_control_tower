@@ -117,7 +117,7 @@ models:
                 field: site_code
       - name: shipment_date
         description: >
-          X3 SHIDAT_0. 402 rows carried the 1753-01-01 sentinel and are null
+          X3 SHIDAT_0. 413 rows carried the 1753-01-01 sentinel and are null
           here. Any lead-time calculation that does not expect nulls is wrong.
       - name: order_status
         description: Decoded from ORDSTA_0 via APLSTD chapter 415 - Firm / Closed / Cancelled.
@@ -176,7 +176,7 @@ models:
                 field: customer_code
       - name: payment_date
         description: >
-          X3 PAYDAT_0. 492 of 3,564 rows carried the 1753-01-01 sentinel
+          X3 PAYDAT_0. 666 of 3,551 rows carried the 1753-01-01 sentinel
           meaning unpaid, and are null here. This is the single most
           consequential sentinel in the estate - it is the denominator
           exclusion that makes the DSO proxy a proxy.
@@ -196,7 +196,7 @@ models:
                 to: ref('stg_sage_x3__sinvoicev')
                 field: invoice_number
       - name: sales_order_number
-        description: Back-reference to the order. Populated and clean on all 9,767 lines.
+        description: Back-reference to the order. Populated and clean on all 9,732 invoice lines.
 
   - name: stg_sage_x3__stock
     description: "Grain: one row per item, site, lot and location. Current on-hand only - no history."
@@ -266,9 +266,9 @@ models:
                 where: "document_type = 'ADJ'"
       - name: document_type
         description: >
-          SDH (sales shipment) 10,421, PTH (purchase receipt) 2,664, ADJ
+          SDH (sales shipment) 10,390, PTH (purchase receipt) 2,464, ADJ
           (count adjustment) 187, TRF (inter-site transfer) 775, SRH (customer
-          return) 179.
+          return) 178.
         tests:
           - accepted_values:
               arguments:
@@ -298,7 +298,7 @@ models:
             combination_of_columns: [purchase_order_number, purchase_order_line_number]
     columns:
       - name: actual_receipt_date
-        description: X3 RCPDAT_0. 576 rows carried the sentinel and are null here.
+        description: X3 RCPDAT_0. 754 rows carried the sentinel and are null here.
 
   - name: stg_sage_x3__gaccentry
     description: "Grain: one row per GL journal header."

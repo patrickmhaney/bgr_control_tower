@@ -1,5 +1,5 @@
 -- int_shipment_order falls back to matching pangea.shipment.customer_name
--- against BPCUSTOMER.BPCNAM_0 for the 511 shipments carrying no resolvable
+-- against BPCUSTOMER.BPCNAM_0 for the 509 shipments carrying no resolvable
 -- order reference. That fallback is only sound while ERP customer names are
 -- unique: two customers sharing a name would silently attribute shipments to
 -- whichever one sorts first.
