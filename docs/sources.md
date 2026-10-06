@@ -166,8 +166,9 @@ Each of these is real behavior from the corresponding system. Verified present:
     assume `min(event_ts)` is the pickup.
 13. **Pangea charges ≠ cost.** `shipment.total_cost_usd` does not always equal
     `sum(charge.amount_usd)` — accessorials post late.
-14. **CDC hooks.** X3 tables carry `UPDTICK_0`. HubSpot has
-    `hs_lastmodifieddate`. Paycom exports have neither — full refresh only.
+14. **CDC hooks.** X3 tables carry `UPDTICK_0`, but it is a per-row lock
+    counter, not a watermark (see [ingestion.md §4](ingestion.md#4-the-finding-that-shapes-the-erp-extract)).
+    HubSpot has `hs_lastmodifieddate`. Paycom exports have neither — full refresh only.
     That asymmetry should drive your ingestion pattern.
 15. **Unresolvable return references.** ~8% of `SRETURND.SOHNUM_0` values are
     blank or lowercased — keyed from a packing slip rather than copied from the

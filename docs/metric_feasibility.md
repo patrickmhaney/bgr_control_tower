@@ -15,7 +15,7 @@ a single change to the compiler or the metric grammar.
 > source systems, not a sample of them. When the original version of this
 > document said "no returns object exists in any of the five source systems",
 > the true statement was "the generator did not write one" — and the mock
-> carries 22 X3 tables where a live folder carries two to four thousand.
+> carries 30 X3 tables where a live folder carries two to four thousand.
 > Sage X3 has sales returns, purchase receipts, supplier invoices and a
 > physical-inventory module as standard. The blockage was in the mock.
 >
@@ -345,9 +345,12 @@ These came out of the same audit and are not metric-specific.
     on every row, and 35 of 896 item-locations (3.9%) reference items with no
     `ITMMASTER` row.
 
-12. **Paycom has no change tracking**, so its ingestion pattern is full refresh
-    while X3 (`UPDTICK_0`) and HubSpot (`hs_lastmodifieddate`) both support
-    incremental. That asymmetry belongs in the ingestion design, not the model.
+12. **Paycom has no change tracking**, so its ingestion pattern is full refresh.
+    HubSpot (`hs_lastmodifieddate`) supports a true incremental cursor. X3 only
+    partly does: `UPDTICK_0` is a per-row lock counter, not a watermark, so its
+    transaction tables are windowed on business dates instead
+    ([ingestion.md §4](ingestion.md#4-the-finding-that-shapes-the-erp-extract)).
+    That asymmetry belongs in the ingestion design, not the model.
 
 13. **Tracking event ordering**: 316 of 24,504 events (1.29%) have a timestamp
     earlier than the previous event by sequence. Milestone extraction uses

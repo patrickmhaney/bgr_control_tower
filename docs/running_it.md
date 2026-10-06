@@ -387,7 +387,7 @@ statements end with `;`.
 | `main_core` | 5 dims + 6 facts — **the data model** | tables |
 | `main_metrics` | 10 generated metric models | views |
 | `main_process` | 9 dashboard views | views |
-| `main_seed` | process map, site crosswalk, metric registry, legal suffixes | tables |
+| `main_seed` | process list, process map, site crosswalk, metric registry, legal suffixes | tables |
 | `snapshot` | Type 2 history, accumulating. Nothing reads it yet | tables |
 
 ### Queries worth starting from

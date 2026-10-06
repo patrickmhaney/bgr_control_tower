@@ -588,7 +588,8 @@ Every generated file carries a banner naming the script and the input.
 ## 9. What was not built, and why
 
 - **The other four conformed dimensions** — `dim_supplier`, `dim_employee`,
-  `dim_gl_account`, `dim_deal_stage` — and the seven facts named in §3. No
+  `dim_gl_account`, `dim_deal_stage` — and the seven facts named in
+  [adding_a_metric.md, Case C](adding_a_metric.md#case-c-no-fact-at-the-right-grain). No
   active metric needs them. Building them now would be building unread code.
 - **The other six process views are empty by design**, not by omission. Six
   processes have no metrics.
@@ -640,7 +641,7 @@ definition changes whenever the business answers. One is not.
 |---|---|---|---|
 | 1 | On-Time Delivery promise basis | Carrier promise | the metric's filter column; both flags on `fct_shipment` |
 | 2 | DSO basis | Days-to-pay proxy | metric `status: provisional` |
-| 3 | Cost Per Order cost pool | Fulfillment only | `var: cost_per_order_pool` |
+| 3 | Cost Per Order cost pool | Fulfillment only | metric `status: provisional`; `var: cost_per_order_pool` records it |
 | 4 | Fiscal calendar | Fiscal = calendar | `var: fiscal_year_start_month` |
 | 5 | Semantic layer tool | Tool-neutral registry | the registry itself |
 | 6 | Power BI topology | One shared model | recommendation |
@@ -653,7 +654,7 @@ definition changes whenever the business answers. One is not.
 | 13 | Is the Pangea customer name typed? | A reliable key | attribution falls to 85.4% |
 | 14 | Three-way match tolerance | Exact quantity, 2% price | `var: match_*_tolerance_pct` |
 | 15 | Inventory accuracy tolerance and basis | Exact match, by position | `var: inventory_accuracy_tolerance_pct` |
-| 16 | Return Rate denominator | Invoiced value | `var: return_rate_basis` |
+| 16 | Return Rate denominator | Invoiced value | the metric's denominator column; `var: return_rate_basis` records it |
 | 17 | Return Rate date basis | Order date | one metric definition |
 
 **Question 11 is the exception.** A Type 2 dimension can only be built forward

@@ -1,6 +1,6 @@
 # Entity relationships and pipeline
 
-Three views of the same system:
+Four views of the same system:
 
 1. **[Source ERDs](#1-source-erds)** — what the five source systems look like, and
    which of their relationships actually hold.
@@ -117,7 +117,7 @@ erDiagram
         bigint BPCFLG_0 "2 means customer"
         bigint BPSFLG_0 "2 means supplier"
         varchar CUR_0 "USD 229, CAD 36"
-        bigint UPDTICK_0 "CDC hook"
+        bigint UPDTICK_0 "lock counter, not a watermark"
     }
     BPCUSTOMER {
         varchar BPCNUM_0 PK "220 rows"
@@ -149,7 +149,7 @@ erDiagram
         varchar TCLCOD_0 "category"
         bigint ITMSTA_0 "local menu ch 20"
         numeric BASPRI_0
-        bigint UPDTICK_0 "CDC hook"
+        bigint UPDTICK_0 "lock counter, not a watermark"
     }
     ITMFACILIT {
         varchar ITMREF_0 PK "886 rows"
@@ -938,7 +938,7 @@ flowchart TB
         o["Parquet · TMDL model with DAX measures<br/>agent JSON"]
     end
 
-    seed[("seeds<br/>process_metric_map<br/>site_code_crosswalk<br/>process · metric_registry")]
+    seed[("seeds<br/>process_metric_map<br/>site_code_crosswalk · legal_suffix<br/>process · metric_registry")]
 
     SYS --> ext --> land -->|"projection: SQL only,<br/>no source access"| SRC
     SRC --> STG --> INT --> CORE
@@ -1096,7 +1096,7 @@ flowchart LR
     stg_deal --> repair["int_deal_erp_order_number<br/><i>case · prefix · multi-value</i><br/><i>96 to 145 deals</i>"]
     stg_so --> repair
 
-    xref_c --> dcust["dim_customer<br/><i>251 rows</i><br/><i>197 both · 23 erp · 31 crm</i>"]
+    xref_c --> dcust["dim_customer<br/><i>252 rows incl UNKNOWN</i><br/><i>197 both · 23 erp · 31 crm</i>"]
     stg_hco --> dcust
     stg_bc --> dcust
     stg_bp --> dcust
@@ -1173,13 +1173,16 @@ look like.
 
 - **Tests.** They attach to models rather than sitting between them. Four warn
   with documented thresholds; none error.
-- **Materialisation.** Staging, intermediate ratios and process views are
-  views; `marts/core` and the heavier intermediate models are tables.
+- **Materialisation.** Staging, most intermediate models, the metric models
+  and the process views are views; `marts/core` and three intermediate models
+  (`int_customer_xref`, `int_employee_xref`, `int_fx_rate`) are tables.
   Everything is a full refresh — correct at this volume.
-- **The ingestion asymmetry that will drive the real design.** X3 carries
-  `UPDTICK_0` and HubSpot carries `hs_lastmodifieddate`, so both support
-  incremental extraction. Paycom carries neither and is full-refresh-only. That
-  belongs in the ingestion architecture, not in this pipeline.
+- **The ingestion asymmetry that will drive the real design.** HubSpot
+  carries `hs_lastmodifieddate` and supports a true incremental cursor. X3's
+  `UPDTICK_0` is a per-row lock counter, not a watermark, so only three X3
+  tables have a modification date and the rest are windowed on business dates.
+  Paycom carries nothing and is full-refresh-only. That belongs in the
+  ingestion architecture ([ingestion.md](ingestion.md)), not in this pipeline.
 
 ---
 

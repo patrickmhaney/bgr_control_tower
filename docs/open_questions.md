@@ -12,7 +12,7 @@ business answers differently than we assumed.
 |---|---|---|---|
 | 1 | On-Time Delivery promise basis | Carrier promise date | One metric definition |
 | 2 | DSO basis | Days-to-pay proxy | One metric definition |
-| 3 | Cost Per Order cost pool | Fulfillment only | One var + possibly a fact |
+| 3 | Cost Per Order cost pool | Fulfillment only | One metric definition + possibly a fact |
 | 4 | Fiscal calendar | Fiscal = calendar year | `dim_date` rebuild |
 | 5 | Semantic layer tool | Tool-neutral YAML + generator | None — that is the point |
 | 6 | Power BI model topology | One shared semantic model | Rollout, not code |
@@ -25,7 +25,7 @@ business answers differently than we assumed.
 | 13 | Is the Pangea customer name typed or system-populated? | A reliable key | Customer attribution falls to 85.4% |
 | 14 | Three-way match tolerance | Exact quantity, 2% price | Two vars |
 | 15 | Inventory accuracy tolerance and basis | Exact match, by position | One var + one fact column |
-| 16 | Return Rate denominator | Invoiced value | One var |
+| 16 | Return Rate denominator | Invoiced value | One metric definition |
 | 17 | Return Rate date basis | Order date | One metric definition |
 
 ---
@@ -105,7 +105,8 @@ computable from the sources we have. What is computable:
 freight and accessorials from Pangea (5.49M USD, line level), and warehouse
 labour from Paycom, allocable to site and department via `labor_allocation_code`.
 
-**Assumed.** `var: cost_per_order_pool = fulfillment` — freight and
+**Assumed.** Fulfillment only (recorded as `var: cost_per_order_pool = fulfillment`,
+which labels the choice; nothing reads it) — freight and
 accessorials only, attached to the order through the shipment reference,
 reported over shipped orders only (2,998 of 4,200 = 71.4%) with the coverage
 rate published beside the metric. Status `provisional`.
@@ -475,7 +476,9 @@ bookings will read the invoiced-basis number as wrong.
 
 **Assumed for the POC.** `return_rate_basis: invoiced`.
 
-**Cost to reverse.** One var. `fct_sales_order_line` already carries the
+**Cost to reverse.** One metric definition: point the denominator of
+`semantic/metrics/return_rate.yml` at another column, and update
+`var: return_rate_basis`, which only records the choice. `fct_sales_order_line` already carries the
 ordered, invoiced and returned amounts side by side.
 
 **Ask.** Director of Customer Service: returns as a share of what — what we

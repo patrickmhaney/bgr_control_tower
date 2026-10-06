@@ -78,7 +78,7 @@ tables repeat every dimension attribute on every fact row, which destroys the
 dictionary compression VertiPaq depends on.
 
 Model size here is trivial: the largest fact is 24,504 rows and the Parquet
-export is around a megabyte. Nothing about this decision is performance-driven
+export is under two megabytes. Nothing about this decision is performance-driven
 at POC scale; it is about correctness and maintenance cost, and it will still
 be right at 400,000 orders.
 
