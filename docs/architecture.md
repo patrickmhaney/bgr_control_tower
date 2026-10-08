@@ -127,72 +127,94 @@ themselves. Neither is required: everything here runs without them.
 
 ### How the data model fits together
 
-Gold, the business-ready layer, is built from two kinds of thing. **Business
-events**: every shipment, order line, invoice, supplier invoice and stock count,
-one record each. And **the ways you look at them**: when, who, where, what and
-how it shipped. Every metric is a count or a total over events, broken down by
-those views.
+Gold, the business-ready layer, is a **star schema** built from two kinds of
+table. **Facts** record business events: every shipment, order line, invoice,
+supplier invoice and stock count, one row each, with the numbers that event
+carries. **Dimensions** describe the ways you look at those events: when, who,
+where, what and how it shipped. Every metric is a count or a total over a fact,
+broken down by its dimensions.
 
-**One event, the ways to look at it.** A shipment is recorded once, with its
+**One fact, its dimensions around it.** A shipment is recorded once, with its
 cost and its dates. Everything you might want to know about it - which month,
-which customer, which site, which carrier - is a view it connects to, not a
-copy stored on it.
+which customer, which site, which carrier - lives in a dimension it points to,
+not in a copy stored on the shipment. Each line reads one-to-many: one customer,
+many shipments.
 
 ```mermaid
-flowchart LR
-    date["<b>When</b><br/>ship date, month,<br/>quarter, fiscal year"]
-    cust["<b>Who</b><br/>the customer"]
-    ship(["<b>A SHIPMENT</b><br/>one record per shipment<br/><br/>cost · promised date · delivered date<br/>on time or not"])
-    site["<b>Where</b><br/>the site it left from"]
-    carr["<b>How</b><br/>carrier and<br/>transport mode"]
+erDiagram
+    DATE_DIMENSION ||--o{ SHIPMENT_FACT : "when"
+    CUSTOMER_DIMENSION ||--o{ SHIPMENT_FACT : "who"
+    SHIPMENT_FACT }o--|| SITE_DIMENSION : "where"
+    SHIPMENT_FACT }o--|| CARRIER_DIMENSION : "how"
 
-    date --- ship
-    cust --- ship
-    ship --- site
-    ship --- carr
+    SHIPMENT_FACT {
+        id shipment "one row per shipment"
+        money cost "freight and accessorials"
+        date promised_date "carrier's promise"
+        date delivered_date
+        flag on_time
+    }
+    DATE_DIMENSION {
+        date day
+        text month
+        text quarter
+        text fiscal_year
+    }
+    CUSTOMER_DIMENSION {
+        text customer "one record per customer"
+        text payment_terms
+        text industry
+        text sales_rep
+    }
+    SITE_DIMENSION {
+        text site "Dallas, Reno, Toronto"
+        text company
+    }
+    CARRIER_DIMENSION {
+        text carrier
+        text transport_mode "parcel, LTL, truckload"
+    }
 
     classDef dim fill:#fff3c4,stroke:#b8860b,stroke-width:2px,color:#3d2e00
     classDef fact fill:#e8f0fe,stroke:#4a6fa5,stroke-width:2px,color:#1a2b45
-    class date,cust,site,carr dim
-    class ship fact
+    class DATE_DIMENSION,CUSTOMER_DIMENSION,SITE_DIMENSION,CARRIER_DIMENSION dim
+    class SHIPMENT_FACT fact
 ```
 
-**One customer, every event.** The views are shared. The customer an order
-belongs to is the same customer its invoice and its shipment belong to - matched
-across the ERP and the CRM once, then used everywhere. That is what lets the
-Order to Cash and Inventory to Delivery dashboards agree about a customer, and
-what lets you put return rate, days to pay and on-time delivery side by side
-for one account.
+**Facts share their dimensions.** This is what "conformed" means. The customer an
+order belongs to is the same customer row its invoice and its shipment point to
+- matched across the ERP and the CRM once, then used by every fact. That is what
+lets the Order to Cash and Inventory to Delivery dashboards agree about a
+customer, and what lets you put return rate, days to pay and on-time delivery
+side by side for one account.
 
 ```mermaid
-flowchart LR
-    sol["<b>Sales orders</b><br/>Return Rate"]
-    inv["<b>Invoices</b><br/>DSO"]
-    ship["<b>Shipments</b><br/>On-Time Delivery<br/>Cost Per Shipment"]
-    cust(["<b>ONE CUSTOMER</b><br/>Halcyon Hydraulics<br/><br/>matched across the ERP<br/>and the CRM, once"])
-    o2c["<b>Order to Cash</b><br/>dashboard"]
-    i2d["<b>Inventory to Delivery</b><br/>dashboard"]
-
-    sol --- cust
-    inv --- cust
-    ship --- cust
-    cust --> o2c
-    cust --> i2d
+erDiagram
+    DATE_DIMENSION ||--o{ SHIPMENT_FACT : ""
+    DATE_DIMENSION ||--o{ ORDER_LINE_FACT : ""
+    DATE_DIMENSION ||--o{ INVOICE_LINE_FACT : ""
+    CUSTOMER_DIMENSION ||--o{ SHIPMENT_FACT : ""
+    CUSTOMER_DIMENSION ||--o{ ORDER_LINE_FACT : ""
+    CUSTOMER_DIMENSION ||--o{ INVOICE_LINE_FACT : ""
+    SHIPMENT_FACT }o--|| CARRIER_DIMENSION : ""
+    SHIPMENT_FACT }o--|| SITE_DIMENSION : ""
+    ORDER_LINE_FACT }o--|| SITE_DIMENSION : ""
+    INVOICE_LINE_FACT }o--|| SITE_DIMENSION : ""
+    ORDER_LINE_FACT }o--|| ITEM_DIMENSION : ""
+    INVOICE_LINE_FACT }o--|| ITEM_DIMENSION : ""
 
     classDef dim fill:#fff3c4,stroke:#b8860b,stroke-width:2px,color:#3d2e00
     classDef fact fill:#e8f0fe,stroke:#4a6fa5,stroke-width:2px,color:#1a2b45
-    classDef use fill:#e6f4ea,stroke:#3c8d50,color:#173d22
-    class cust dim
-    class sol,inv,ship fact
-    class o2c,i2d use
+    class DATE_DIMENSION,CUSTOMER_DIMENSION,SITE_DIMENSION,ITEM_DIMENSION,CARRIER_DIMENSION dim
+    class SHIPMENT_FACT,ORDER_LINE_FACT,INVOICE_LINE_FACT fact
 ```
 
-The same holds for every view. One calendar, so "Q2" means the same weeks on
-every dashboard. One list of sites, one list of items, one list of carriers.
+The same holds for every dimension. One calendar, so "Q2" means the same weeks
+on every dashboard. One list of sites, one list of items, one list of carriers.
 
-**Which events can be looked at which way:**
+**Which facts connect to which dimensions:**
 
-| Business event | When | Who (customer) | Where (site) | What (item) | How (carrier) | Feeds |
+| Fact (business event) | When (date) | Who (customer) | Where (site) | What (item) | How (carrier) | Feeds |
 |---|:-:|:-:|:-:|:-:|:-:|---|
 | Shipments | ✓ | ✓ | ✓ | | ✓ | On-Time Delivery, Cost Per Shipment, Cost Per Order |
 | Tracking scans | ✓ | ✓ | ✓ | | ✓ | The journey of each shipment |
@@ -206,8 +228,8 @@ customer, so Match Rate cannot be shown by customer. The system refuses that
 request rather than guessing at a connection that does not exist, which is how
 a plausible-looking wrong number gets onto a dashboard.
 
-Adding a new kind of event - purchase orders, payroll, forecasts - means
-connecting it to the views it shares. Every existing view, and every dashboard
+Adding a new fact - purchase orders, payroll, forecasts - means connecting it
+to the dimensions it shares. Every existing dimension, and every dashboard
 built on them, works with it from day one.
 
 ---
