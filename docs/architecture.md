@@ -18,9 +18,10 @@ flowchart LR
     dash["<b>Nine process dashboards</b><br/>Power BI"]
     views["<b>Metric views</b><br/>for analysts and other tools"]
     ai["<b>AI assistant</b><br/>answers KPI questions"]
+    more["<b>Other uses</b><br/>applications, integrations, data science and more"]
 
     x3 & hs & pc & ns & pg --> bronze --> silver --> gold --> sem
-    sem --> dash & views & ai
+    sem --> dash & views & ai & more
 
     classDef src fill:#e8f0fe,stroke:#4a6fa5,color:#1a2b45
     classDef bronze fill:#f6e3cf,stroke:#a0522d,stroke-width:2px,color:#3b2412
@@ -34,7 +35,7 @@ flowchart LR
     class silver silver
     class gold gold
     class sem sem
-    class dash,views,ai use
+    class dash,views,ai,more use
 ```
 
 Five business systems feed one shared foundation, refined in three stages.
@@ -44,7 +45,10 @@ customer in the ERP become one customer. **Gold** is the single version of the
 business that every process reads from. On top of Gold, the **semantic layer**
 defines each KPI once, and the dashboards, the metric views and the AI
 assistant are all generated from those definitions, so the same metric shows
-the same number wherever it appears.
+the same number wherever it appears. And because the foundation is shared rather
+than built for one dashboard, it serves whatever comes next: an application, an
+integration with another system, a data science project, all reading the same
+trusted data.
 
 ### The same picture, with the technology
 
@@ -75,9 +79,10 @@ flowchart LR
     dash["<b>Nine process dashboards</b><br/>Power BI, model generated from the definitions"]
     views["<b>Metric views</b><br/>SQL views, readable by any SQL tool"]
     ai["<b>AI assistant</b><br/>An LLM agent over the same definitions<br/><br/>e.g. Snowflake Cortex Analyst"]
+    more["<b>Other uses</b><br/>Applications, integrations, data science<br/><br/>Read through SQL, an API or file exports"]
 
     x3 & hs & pc & ns & pg --> ing --> bronze --> silver --> gold --> sem
-    sem --> dash & views & ai
+    sem --> dash & views & ai & more
 
     classDef src fill:#e8f0fe,stroke:#4a6fa5,color:#1a2b45
     classDef ing fill:#e3f2f1,stroke:#2e7d74,stroke-width:2px,color:#123b36
@@ -93,7 +98,7 @@ flowchart LR
     class silver silver
     class gold gold
     class sem sem
-    class dash,views,ai use
+    class dash,views,ai,more use
     style WH fill:#fafafa,stroke:#9e9e9e,stroke-dasharray:4 3,color:#333
 ```
 
@@ -107,6 +112,7 @@ flowchart LR
 | **Semantic layer** | YAML definitions and a Python compiler written for this project | A metrics layer | dbt Semantic Layer (MetricFlow; its query API needs dbt Cloud); Cube (open source, or a paid cloud service); Snowflake semantic views |
 | **Dashboards** | A Power BI model generated as files, loading Parquet | Power BI on the warehouse | Power BI importing from the warehouse, or Direct Lake on Fabric |
 | **AI assistant** | Not built. The registry it would read is, and `scripts/ask_metric.py` shows that registry is enough to answer from | An LLM agent | An LLM agent given the registry as a tool; Snowflake Cortex Analyst, through Snowflake Intelligence, over Snowflake semantic views |
+| **Other uses** | Not built. Any tool that reads SQL or Parquet can use the same data today | Applications, integrations, data science | Custom applications and internal tools; feeds to other systems or partners; data science notebooks; a semantic layer API serving the metrics to anything that asks |
 | **Orchestration** | Run by hand | A scheduler | GitHub Actions for a daily batch at this volume; Dagster, Prefect or Airflow as it grows |
 
 The warehouse is the choice that moves the most cost and changes the least
