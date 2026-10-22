@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from core.settings import ROOT, settings
 
-from . import pipeline
+from . import contracts, pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPONENTS = os.path.join(ROOT, "evaluation", "components.yml")
@@ -83,7 +83,7 @@ def _env() -> dict:
             "PYTHONUNBUFFERED": "1"}
 
 
-async def _stream(job: Job, step: str, args: list[str]) -> tuple[int, list[str]]:
+async def _stream(job: Job, step: str, args: list[str], on_line=None) -> tuple[int, list[str]]:
     proc = await asyncio.create_subprocess_exec(
         sys.executable, "-m", *args, cwd=ROOT, env=_env(),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
@@ -96,6 +96,8 @@ async def _stream(job: Job, step: str, args: list[str]) -> tuple[int, list[str]]
         lines.append(line)
         done = pipeline.progress(line)
         job.emit(type="log", step=step, line=line, progress=done)
+        if on_line:
+            on_line(line)
     return await proc.wait(), lines
 
 
@@ -136,16 +138,17 @@ async def _run(job: Job) -> None:
                              reason=f"The step stopped with an error (exit code {code}).")
                     job.ok = False
                     return
+            if sid == "reset":
+                STATE["results"] = {}
+                _save_state()
+                job.emit(type="step", step=sid, status="ok")
+                continue
             job.emit(type="step", step=sid, status="checking")
             result = await _probe(sid, started)
             facts = _with_previous(sid, pipeline.facts_from_log(sid, lines) + result["facts"])
             result = {**result, "facts": facts, "finished_at": dt.datetime.now().isoformat(timespec="seconds")}
             held = all(c["passed"] for c in result["checks"]) and "error" not in result
-            if sid == "reset":
-                # Day 0's activity stands in for the first "day of business".
-                STATE["results"] = {"day": {**result, "status": "ok"}}
-            else:
-                STATE["results"][sid] = {**result, "status": "ok" if held else "failed"}
+            STATE["results"][sid] = {**result, "status": "ok" if held else "failed"}
             _save_state()
             job.emit(type="result", step=sid, result=result)
             if not held:
@@ -157,6 +160,48 @@ async def _run(job: Job) -> None:
     except Exception as exc:  # noqa: BLE001 - surface anything to the screen rather than hang
         job.ok = False
         job.emit(type="step", step=job.steps[0]["id"], status="failed", reason=str(exc))
+    finally:
+        job.done = True
+        job.emit(type="done", ok=job.ok)
+        CURRENT = None
+
+
+def _content() -> dict:
+    with open(os.path.join(HERE, "content.yml")) as fh:
+        return yaml.safe_load(fh)
+
+
+def _live() -> bool:
+    """After day 0 the frozen golden answers no longer apply; compare live instead."""
+    # Don't open the source database while a job may be writing it.
+    clock = STATE.get("clock") if CURRENT and STATE.get("clock") else _clock()
+    return clock.get("today") != _counts()["as_of"]
+
+
+async def _run_tests(job: Job, cid: str, suites: list[tuple[int, dict]]) -> None:
+    global CURRENT
+    step = f"test:{cid}"
+    try:
+        live = _live()
+        for i, suite in suites:
+            job.emit(type="suite", index=i, status="running")
+            seen = {"pass": 0, "fail": 0, "skip": 0, "warn": 0}
+
+            def on_line(line, i=i, suite=suite, seen=seen):
+                case = contracts.parse(suite["kind"], line)
+                if case:
+                    seen[case["status"]] += 1
+                    job.emit(type="case", index=i, case=case)
+
+            args = contracts.command(suite, live)
+            job.emit(type="log", step=step, line="$ python -m " + " ".join(args), progress=None)
+            code, _ = await _stream(job, step, args, on_line)
+            ok = code == 0 and not seen["fail"]
+            job.ok &= ok
+            job.emit(type="suite", index=i, status="pass" if ok else "fail", counts=seen, code=code)
+    except Exception as exc:  # noqa: BLE001
+        job.ok = False
+        job.emit(type="log", step=step, line=f"error: {exc}", progress=None)
     finally:
         job.done = True
         job.emit(type="done", ok=job.ok)
@@ -191,8 +236,7 @@ def _counts() -> dict:
 
 @app.get("/api/map")
 def architecture():
-    with open(os.path.join(HERE, "content.yml")) as fh:
-        content = yaml.safe_load(fh)
+    content = _content()
     with open(COMPONENTS) as fh:
         components = yaml.safe_load(fh)["components"]
     stacks = [s["id"] for s in content["stacks"]]
@@ -312,3 +356,43 @@ def provider(req: ProviderRequest):
     STATE["provider"] = req.provider
     _save_state()
     return {"provider": req.provider}
+
+
+@app.get("/api/contracts/{cid}")
+def contract(cid: str):
+    c = _content()["contracts"].get(cid)
+    if not c:
+        raise HTTPException(404, "No such contract.")
+    last = None
+    for step, r in STATE["results"].items():
+        for check in r.get("checks", []):
+            if check["id"] == cid:
+                last = {"step": step, "passed": check["passed"], "at": r.get("finished_at")}
+    return {"id": cid, "name": c["name"], "promise": c["promise"], "proof": c["proof"],
+            "enforced": c.get("enforced"), "last": last, "live": _live(),
+            "files": [contracts.excerpt(f) for f in c.get("files", [])],
+            "suites": [{"title": su["title"], "kind": su["kind"], "note": su.get("note"),
+                        "optional": bool(su.get("optional")), "cases": contracts.cases(su)}
+                       for su in c.get("suites", [])]}
+
+
+class TestRequest(BaseModel):
+    suites: list[int] | None = None
+
+
+@app.post("/api/contracts/{cid}/run")
+async def run_contract(cid: str, req: TestRequest):
+    global CURRENT
+    if CURRENT:
+        raise HTTPException(409, "Something is already running.")
+    c = _content()["contracts"].get(cid)
+    if not c or not c.get("suites"):
+        raise HTTPException(404, "This contract has no tests to run.")
+    all_suites = list(enumerate(c["suites"]))
+    chosen = [(i, su) for i, su in all_suites
+              if (req.suites is None and not su.get("optional")) or (req.suites and i in req.suites)]
+    job = Job([{"id": f"test:{cid}", "commands": []}])
+    JOBS[job.id] = job
+    CURRENT = job
+    asyncio.get_running_loop().create_task(_run_tests(job, cid, chosen))
+    return {"id": job.id, "suites": [i for i, _ in chosen]}

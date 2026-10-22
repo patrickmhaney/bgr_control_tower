@@ -3,7 +3,7 @@
 
 const S = {
   map: null, stack: "baseline", prevTools: {}, state: null,
-  job: null, selected: "day", statuses: {}, results: {}, logs: {}, progress: {}, activity: {}, alerts: {},
+  job: null, setup: null, selected: "day", statuses: {}, results: {}, logs: {}, progress: {}, activity: {}, alerts: {},
   logOpen: false,
 };
 
@@ -47,7 +47,7 @@ function fmtDelta(f) {
   else if (f.fmt === "days") text = `${sign}${Math.abs(d).toFixed(1)} days`;
   else text = sign + Math.abs(d).toLocaleString("en-US", { maximumFractionDigits: 2 });
   const tone = !f.better ? "" : ((d > 0) === (f.better === "up") ? "good" : "bad");
-  return `<span class="delta ${tone}">${text} since last run</span>`;
+  return `<span class="delta ${tone}">${text} vs last run</span>`;
 }
 
 /* ================================================================= MAP */
@@ -57,15 +57,15 @@ const swapBadge = (swap) => {
   const effort = swap === "rebuild" ? "" : c.effort;
   return `<span class="badge ${swap}">${esc(c.label)}${effort ? " · " + esc(effort) : ""}</span>`;
 };
+const contractLabel = (cid) => `Contract ${cid.slice(1)}`;
 const nodeById = (id) => [...S.map.nodes, ...S.map.foundation].find((n) => n.id === id);
 
 function cardHTML(n) {
   const t = n.stacks[S.stack];
   const cls = ["card", n.kind || "", t.swap === "none" ? "none" : "", S.stack !== "baseline" && ["adapter", "port", "rebuild"].includes(t.swap) ? "changed" : ""].join(" ");
   const flip = S.prevTools[n.id] && S.prevTools[n.id] !== t.tool ? " flip" : "";
-  const tagline = n.kind === "heart" ? `<div class="tagline">Every metric defined once</div>` : "";
   return `<button class="${cls}" data-node="${n.id}" id="node-${n.id}">
-    <div class="role">${esc(n.role)}</div><div class="tool${flip}${t.tool.length > 26 ? " long" : ""}">${esc(t.tool)}</div>${tagline}${swapBadge(t.swap)}</button>`;
+    <div class="role">${esc(n.role)}</div><div class="tool${flip}${t.tool.length > 26 ? " long" : ""}">${esc(t.tool)}</div>${swapBadge(t.swap)}</button>`;
 }
 
 function renderStacks() {
@@ -110,7 +110,7 @@ function drawWires() {
     if (!e.contract) continue;
     const g = groups[e.contract];
     const shared = g.length > 1 && g.every((x) => x.to === e.to);
-    if (shared) { if (g[0] === e) pills.push([e.contract, b.l - 24, b.cy]); }
+    if (shared) { if (g[0] === e) pills.push([e.contract, b.l - 31, b.cy]); }
     else pills.push([e.contract, ...mid]);
   }
   $("#wires").innerHTML = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
@@ -118,7 +118,7 @@ function drawWires() {
   map.querySelectorAll(".pill").forEach((p) => p.remove());
   for (const [c, x, y] of pills) {
     const p = document.createElement("button");
-    p.className = "pill"; p.textContent = c; p.dataset.contract = c;
+    p.className = "pill"; p.innerHTML = `<span>Contract</span><b>${c.slice(1)}</b>`; p.dataset.contract = c;
     p.style.left = x + "px"; p.style.top = y + "px"; p.title = S.map.contracts[c].name;
     map.appendChild(p);
   }
@@ -126,8 +126,7 @@ function drawWires() {
 
 function renderKeeps() {
   const n = S.map.counts;
-  const labels = { contracts: "Contracts between components", metrics: "Metric definitions, with owners and caveats",
-    golden: "Golden answers every tool must reproduce", star: "Tables in the star schema" };
+  const labels = { contracts: "Contracts", metrics: "Metric definitions", golden: "Golden answers", star: "Star schema tables" };
   $("#keeps").innerHTML = S.map.keeps.map((k) =>
     `<div class="tile"><div class="n">${n[k.id] ?? "–"}</div><div class="l">${esc(labels[k.id] || k.label)}</div></div>`).join("");
 }
@@ -137,22 +136,22 @@ function renderSwaps() {
   const nodes = [...S.map.nodes, ...S.map.foundation].filter((n) => n.kind !== "source");
   const contracts = Object.keys(S.map.contracts).length;
   if (S.stack === "baseline") {
-    $("#swaptitle").textContent = "The open-source baseline";
-    $("#swapsub").textContent = "Every box on this map is built and running in this project, on this laptop.";
-    $("#swaplist").innerHTML = `<div class="headline">${nodes.length} components, <b>$0 in licences</b>. Pick another stack above to see what would change - and what would not.</div>
-      <div class="swaprow"><span class="badge baseline">Built here</span><span class="names">${nodes.filter((n) => !n.fixed).map((n) => esc(n.stacks.baseline.tool)).join(", ")}</span></div>
-      <div class="swaprow"><span class="badge stays">Part of the platform</span><span class="names">${nodes.filter((n) => n.fixed).map((n) => esc(n.role)).join(", ")}</span></div>`;
+    $("#swaptitle").textContent = "Open-source baseline";
+    $("#swapsub").textContent = "All components shown are implemented in this repository.";
+    $("#swaplist").innerHTML = `<div class="headline">${nodes.length} components. No licence cost.</div>
+      <div class="swaprow"><span class="badge baseline">Implemented</span><span class="names">${nodes.filter((n) => !n.fixed).map((n) => esc(n.stacks.baseline.tool)).join(", ")}</span></div>
+      <div class="swaprow"><span class="badge stays">Platform</span><span class="names">${nodes.filter((n) => n.fixed).map((n) => esc(n.role)).join(", ")}</span></div>`;
     return;
   }
   const by = {};
   for (const n of nodes) (by[n.stacks[S.stack].swap] ||= []).push(n);
   const changing = ["adapter", "port", "rebuild"].reduce((a, k) => a + (by[k]?.length || 0), 0);
   $("#swaptitle").textContent = stack.label;
-  $("#swapsub").textContent = "What moving from the baseline to this stack would take, box by box.";
+  $("#swapsub").textContent = "Estimated effort to move each component from the baseline.";
   const order = ["adapter", "port", "rebuild", "same", "none", "stays"];
-  $("#swaplist").innerHTML = `<div class="headline"><b>${changing} of ${nodes.length}</b> components change tool. <b>0 of ${contracts}</b> contracts change.</div>` +
-    order.filter((k) => by[k]).map((k) => `<div class="swaprow">${swapBadge(k)}<span class="names">${by[k].map((n) =>
-      esc(k === "stays" || k === "none" ? n.role : n.stacks[S.stack].tool)).join(", ")}</span></div>`).join("");
+  $("#swaplist").innerHTML = `<div class="headline"><b>${changing} of ${nodes.length}</b> components change. <b>0 of ${contracts}</b> contracts change.</div>` +
+    order.filter((k) => by[k]).map((k) => `<div class="swaprow">${swapBadge(k)}<span class="names">${[...new Set(by[k].map((n) =>
+      k === "stays" || k === "none" ? n.role : n.stacks[S.stack].tool))].map(esc).join(", ")}</span></div>`).join("");
 }
 
 function setStack(id) {
@@ -165,6 +164,7 @@ function setStack(id) {
 /* -------------------------------------------------------------- drawer */
 function openDrawer(html) {
   $("#drawer-body").innerHTML = html;
+  $("#drawer").classList.remove("wide");
   $("#drawer").classList.add("open"); $("#scrim").classList.add("open");
   $("#drawer").setAttribute("aria-hidden", "false");
 }
@@ -183,32 +183,109 @@ function contractsOf(n) {
 function openNode(id) {
   const n = nodeById(id);
   const t = n.stacks[S.stack];
-  const contracts = contractsOf(n).map((c) => `<div class="contract-row"><span class="tag">${c}</span>
-      <div><b>${esc(S.map.contracts[c].name)}</b><span>${esc(S.map.contracts[c].promise)}</span></div></div>`).join("");
-  const proofs = contractsOf(n).map((c) => `<div class="contract-row"><span class="tag">${c}</span>
+  const contracts = contractsOf(n).map((c) => `<button class="contract-row" data-contract="${c}"><span class="tag">${contractLabel(c)}</span>
+      <div><b>${esc(S.map.contracts[c].name)}</b><span>${esc(S.map.contracts[c].promise)}</span></div></button>`).join("");
+  const proofs = contractsOf(n).map((c) => `<div class="contract-row"><span class="tag">${contractLabel(c)}</span>
       <div><span>${esc(S.map.contracts[c].proof)}</span></div></div>`).join("");
-  const stacks = n.kind === "source" ? "" : `<h4>Across the stack options</h4><table class="stack-table">${S.map.stacks.map((s) =>
+  const stacks = n.kind === "source" ? "" : `<h4>By stack</h4><table class="stack-table">${S.map.stacks.map((s) =>
     `<tr><td>${esc(s.label)}</td><td><div class="t">${esc(n.stacks[s.id].tool)}</div>${s.id === "baseline" ? "" : swapBadge(n.stacks[s.id].swap)}</td></tr>`).join("")}</table>`;
-  const other = n.detail.other?.length ? `<h4>Also worth a look</h4><p>${n.detail.other.map(esc).join(", ")}</p>` : "";
-  const note = n.swap_note || n.detail.note ? `<h4>Worth knowing</h4><div class="note">${esc(n.swap_note || n.detail.note)}</div>` : "";
+  const other = n.detail.other?.length ? `<h4>Other options</h4><p>${n.detail.other.map(esc).join(", ")}</p>` : "";
+  const note = n.swap_note || n.detail.note ? `<h4>Notes</h4><div class="note">${esc(n.swap_note || n.detail.note)}</div>` : "";
   const test = n.detail.test ? `<div class="proof"><span class="mono">${esc(n.detail.test)}</span></div>` : "";
-  const step = n.step && S.state?.clock?.initialised ? `<h4>See it run</h4><button class="btn" data-goto-step="${n.step}">Open the “${esc(stepById(n.step).title)}” step</button>` : "";
-  openDrawer(`<div class="eyebrow">${esc(n.role)}${n.kind === "source" ? " · the client's system" : ""}</div>
+  const step = n.step && S.state?.clock?.initialised ? `<h4>Pipeline step</h4><button class="btn" data-goto-step="${n.step}">Go to ${esc(stepById(n.step).title)}</button>` : "";
+  openDrawer(`<div class="eyebrow">${esc(n.role)}${n.kind === "source" ? " · source system" : ""}</div>
     <h2>${esc(t.tool)}</h2><p>${esc(n.what)}</p>
-    ${contracts ? `<h4>Its contracts</h4>${contracts}` : ""}
-    ${proofs ? `<h4>How we prove it</h4>${proofs}${test}` : ""}
+    ${contracts ? `<h4>Contracts</h4>${contracts}` : ""}
+    ${proofs ? `<h4>Verification</h4>${proofs}${test}` : ""}
     ${stacks}${note}${other}${step}`);
 }
 
-function openContract(id) {
+function openDrawer2(html, wide) {
+  openDrawer(html);
+  $("#drawer").classList.toggle("wide", !!wide);
+}
+
+async function openContract(id) {
   const c = S.map.contracts[id];
   const ends = S.map.edges.filter((e) => e.contract === id);
   const names = (key) => [...new Set(ends.map((e) => nodeById(e[key]).role))].join(", ");
-  openDrawer(`<div class="eyebrow">Contract ${id}</div><h2>${esc(c.name)}</h2>
-    <p>${esc(c.promise)}</p>
-    <h4>Between</h4><p>${esc(names("from"))} → ${esc(names("to"))}</p>
-    <h4>How we prove it</h4><p>${esc(c.proof)}</p>
-    <h4>In every stack</h4><div class="note">The contract does not change when a tool does. A replacement tool has to meet it, and the same test proves it.</div>`);
+  S.contract = { id, data: null, file: 0, suites: {}, optional: new Set(), between: ends.length ? `${names("from")} → ${names("to")}` : "" };
+  openDrawer2(`<div class="eyebrow">${contractLabel(id)}</div><h2>${esc(c.name)}</h2><p>${esc(c.promise)}</p><div class="faint">Loading…</div>`, true);
+  try {
+    S.contract.data = await api(`/api/contracts/${id}`);
+    renderContract();
+  } catch (e) { toast(e.message); }
+}
+
+function caseIcon(st) {
+  return { pass: "✓", fail: "✗", skip: "–", warn: "!" }[st] || "";
+}
+
+function suiteHTML(su, i) {
+  const r = S.contract.suites[i] || {};
+  const results = r.cases || {};
+  const listed = su.cases.map((c) => ({ ...c, ...(results[c.name] || {}) }));
+  const extra = Object.values(results).filter((c) => !su.cases.some((x) => x.name === c.name));
+  const all = [...listed, ...extra];
+  const counts = r.counts || {};
+  const chip = r.status === "running" ? `<span class="verdict run">Running…</span>`
+    : r.status === "pass" ? `<span class="verdict pass">${counts.pass || 0} passed${counts.warn ? `, ${counts.warn} warnings` : ""}</span>`
+    : r.status === "fail" ? `<span class="verdict fail">${counts.fail ? `${counts.fail} failed` : "Failed"}</span>`
+    : `<span class="verdict">${all.length ? `${all.length} tests` : "Not run"}</span>`;
+  const opt = su.optional ? `<label class="opt"><input type="checkbox" data-optional="${i}" ${S.contract.optional.has(i) ? "checked" : ""}> Include</label>` : "";
+  const rows = all.length ? all.map((c) => `<div class="case ${c.status || ""}"><span class="ic">${caseIcon(c.status)}</span>
+      <span class="cl">${esc(c.label)}</span><span class="cd">${esc(c.detail || "")}</span></div>`).join("")
+    : `<div class="case"><span class="ic"></span><span class="cl faint">Results appear here as the test runs.</span></div>`;
+  return `<div class="suite"><div class="suite-top"><div><b>${esc(su.title)}</b>${su.note ? `<div class="faint">${esc(su.note)}</div>` : ""}</div>
+    <div class="suite-right">${opt}${chip}</div></div><div class="cases">${rows}</div></div>`;
+}
+
+function renderContract() {
+  const { id, data: d, file } = S.contract;
+  const f = d.files[file];
+  const tabs = d.files.length > 1 ? `<div class="filetabs">${d.files.map((x, i) =>
+    `<button class="${i === file ? "active" : ""}" data-file="${i}">${esc(x.path.split("/").pop())}</button>`).join("")}</div>` : "";
+  const lines = f ? f.text.split("\n").map((t, i) => `<span class="ln">${f.start + i}</span>${esc(t)}`).join("\n") : "";
+  const end = f ? f.start + f.text.split("\n").length - 1 : 0;
+  const code = f ? `${tabs}<pre class="code">${lines}</pre><div class="codefoot mono">${esc(f.path)} · lines ${f.start}–${end} of ${f.total}</div>` : "";
+  const last = d.last ? `<span class="badge ${d.last.passed ? "adapter" : "rebuild"}">${d.last.passed ? "Passed" : "Failed"}</span> in the pipeline at ${esc(d.last.at.slice(11))}` : "";
+  const running = S.contract.running;
+  const tests = d.suites.length
+    ? `<div class="tests-head"><h4>Tests</h4><button class="btn primary small" id="run-tests" ${running || S.job ? "disabled" : ""}>${running ? "Running…" : "Run tests"}</button></div>
+       ${d.live ? `<div class="faint small-note">After day 0, results are compared with the reference SQL rather than the frozen answers.</div>` : ""}
+       ${d.suites.map(suiteHTML).join("")}`
+    : `<h4>Tests</h4><div class="note">${esc(d.enforced || "No tests.")}</div>`;
+  $("#drawer-body").innerHTML = `<div class="eyebrow">${contractLabel(id)}</div><h2>${esc(d.name)}</h2><p>${esc(d.promise)}</p>
+    <div class="meta">${S.contract.between ? `<div><span class="faint">Between</span> ${esc(S.contract.between)}</div>` : ""}${last ? `<div><span class="faint">Last check</span> ${last}</div>` : ""}</div>
+    <h4>Definition</h4>${code}
+    ${tests}
+    <h4>Verification</h4><p>${esc(d.proof)}</p>
+    <h4>All stacks</h4><div class="note">The same in every stack. A replacement component has to pass the same tests.</div>`;
+}
+
+async function runContractTests() {
+  const sc = S.contract, d = sc.data;
+  const chosen = d.suites.map((su, i) => i).filter((i) => !d.suites[i].optional || sc.optional.has(i));
+  try {
+    const job = await api(`/api/contracts/${sc.id}/run`, { suites: chosen });
+    sc.running = true; sc.suites = {};
+    S.job = { id: job.id, steps: [`test:${sc.id}`] };
+    renderContract(); renderRun();
+    const es = new EventSource(`/api/jobs/${job.id}/events`);
+    let pending = false;
+    const redraw = () => { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; if (S.contract === sc) renderContract(); }); } };
+    es.onmessage = (msg) => {
+      const ev = JSON.parse(msg.data);
+      if (ev.type === "suite") { sc.suites[ev.index] = { ...(sc.suites[ev.index] || { cases: {} }), status: ev.status, counts: ev.counts }; redraw(); }
+      else if (ev.type === "case") { const su = (sc.suites[ev.index] ||= { cases: {} }); su.cases[ev.case.name] = ev.case; redraw(); }
+      else if (ev.type === "done") {
+        es.close(); sc.running = false; S.job = null;
+        const failed = Object.values(sc.suites).reduce((a, x) => a + (x.counts?.fail || 0), 0);
+        toast(ev.ok ? "All tests passed." : failed ? `${failed} tests failed.` : "Tests failed. See the log.");
+        redraw(); renderRun();
+      }
+    };
+  } catch (e) { toast(e.message); }
 }
 
 /* ============================================================ RUN VIEW */
@@ -231,17 +308,17 @@ function renderDay() {
   const c = S.state.clock;
   const busy = !!S.job;
   $("#daydot").className = "dot" + (busy ? " busy" : "");
-  $("#daytext").innerHTML = c.initialised ? `Business day <b>${shortDate(c.today)}</b>${busy ? " · running" : ""}` : "Not set up yet";
+  $("#daytext").innerHTML = c.initialised ? `Business day <b>${shortDate(c.today)}</b>${busy ? " · running" : ""}` : "Not initialized";
   if (!c.initialised) return;
   $("#bizdate").textContent = longDate(c.today);
   $("#daytrack").style.width = `${(100 * c.day) / c.days}%`;
-  $("#daycount").textContent = `Day ${c.day} of ${c.days} in the simulated timeline`;
+  $("#daycount").textContent = `Day ${c.day} of ${c.days}`;
 }
 
 function renderControls() {
   const c = S.state.clock, busy = !!S.job, atEnd = c.initialised && c.day >= c.days;
   $("#day-btn").disabled = busy || atEnd;
-  $("#day-btn").textContent = atEnd ? "End of the timeline" : "Run a full day";
+  $("#day-btn").textContent = atEnd ? "End of timeline" : "Run full day";
   const nx = c.initialised ? nextStep() : null;
   $("#next-btn").disabled = busy || (nx === "day" && atEnd);
   $("#next-btn").textContent = nx ? `Next: ${stepById(nx).title}` : "Next step";
@@ -261,11 +338,13 @@ function shieldStatus(step, cid) {
 function renderStrip() {
   $("#strip").innerHTML = S.state.steps.map((s, i) => {
     const st = chipStatus(s.id);
-    const shields = s.checks.map((c) => `<span class="shield ${shieldStatus(s.id, c)}" title="Boundary check">${c === "quality" ? "tests" : c}</span>`).join("");
+    const shields = s.checks.map((c) => `<span class="shield ${shieldStatus(s.id, c)}">${c === "quality" ? "<span>Data</span><b>tests</b>" : `<span>Contract</span><b>${c.slice(1)}</b>`}</span>`).join("");
+    const node = nodeById(s.node);
     const link = shields ? `<div class="link">${shields}</div>` : i < S.state.steps.length - 1 ? `<div class="link bare"></div>` : "";
     const mark = st === "ok" ? "✓" : st === "failed" ? "!" : i + 1;
     return `<button class="stepchip ${st} ${s.id === S.selected ? "selected" : ""}" data-step="${s.id}">
-      <span class="num">${mark}</span><span class="name">${esc(s.title)}</span></button>${link}`;
+      <span class="num">${mark}</span><span class="name">${esc(s.title)}</span>
+      <span class="role">${esc(node ? node.role : "Source systems")}</span></button>${link}`;
   }).join("");
 }
 
@@ -274,7 +353,7 @@ function renderStatus() {
   const line = $("#step-status"), bar = $("#step-bar");
   let text;
   if (st === "running") text = `<b>Running…</b><span class="activity">${esc(S.activity[id] || "")}</span>`;
-  else if (st === "checking") text = "<b>Running the boundary checks…</b>";
+  else if (st === "checking") text = "<b>Running checks…</b>";
   else if (st === "failed") text = `<b style="color:var(--bad)">Stopped</b>${r?.finished_at ? `<span class="faint">at ${r.finished_at.slice(11)}</span>` : ""}`;
   else if (r) text = `<span style="color:var(--ok);font-weight:600">Done</span><span class="faint">at ${r.finished_at.slice(11)}</span>`;
   else text = `<span class="faint">Not run yet</span>`;
@@ -287,27 +366,28 @@ function renderStatus() {
 function renderLog() {
   const lines = S.logs[S.selected] || [];
   $("#log").innerHTML = lines.length ? lines.map((l) => l.startsWith("$ ") ? `<span class="cmd">${esc(l)}</span>` : esc(l)).join("\n")
-    : `<span class="faint">The commands this step runs, and everything they print, appear here while it runs.</span>`;
+    : `<span class="faint">No output yet.</span>`;
   $("#log").classList.toggle("open", S.logOpen);
-  $("#techtoggle").textContent = S.logOpen ? "Hide technical log" : "Show technical log";
+  $("#techtoggle").textContent = S.logOpen ? "Hide log" : "Show log";
   if (S.logOpen) $("#log").scrollTop = $("#log").scrollHeight;
 }
 
 function checkHTML(cid, result) {
   const meta = S.map.contracts[cid];
   const isContract = !!meta;
-  const kind = isContract ? `<span class="tag">${cid}</span>Boundary check · ${esc(meta.name)}` : "Quality tests";
+  const kind = isContract ? `<span class="tag">${contractLabel(cid)}</span>${esc(meta.name)}` : "Data tests";
+  const open = isContract ? `<button class="linkbtn" data-contract="${cid}">View contract and tests →</button>` : "";
   if (!result) {
     return `<div class="check"><div class="check-top"><div class="kind">${kind}</div><span class="verdict">Not run yet</span></div>
-      <p class="promise" style="margin-top:10px">${esc(isContract ? meta.promise : "Every cleaned table is tested for missing keys, duplicates and broken references.")}</p></div>`;
+      <p class="promise" style="margin-top:10px">${esc(isContract ? meta.promise : "dbt tests on the staging tables: keys, uniqueness and relationships.")}</p>${open}</div>`;
   }
   const v = result.passed ? "pass" : "fail";
   const rows = result.facts.map((f) => `<div class="row"><span>${esc(f.label)}</span><span>${esc(fmtFact(f))}</span></div>`).join("");
   const problems = result.problems.length ? `<ul class="problems">${result.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : "";
-  return `<div class="check ${v}"><div class="check-top"><div class="kind">${kind}</div><span class="verdict ${v}">${result.passed ? "Held" : "Broken"}</span></div>
+  return `<div class="check ${v}"><div class="check-top"><div class="kind">${kind}</div><span class="verdict ${v}">${result.passed ? "Passed" : "Failed"}</span></div>
     <h3>${esc(result.title)}</h3>${isContract ? `<p class="promise">${esc(meta.promise)}</p>` : ""}
     <div class="rows">${rows}</div>${problems}
-    ${result.test ? `<div class="ci">The same check runs in CI: <span class="mono">${esc(result.test)}</span></div>` : ""}</div>`;
+    ${result.test ? `<div class="ci">CI: <span class="mono">${esc(result.test)}</span></div>` : ""}${open}</div>`;
 }
 
 function renderDetail() {
@@ -322,13 +402,26 @@ function renderDetail() {
   const facts = r?.facts || [];
   $("#step-facts").innerHTML = facts.length ? facts.map((f) => `<div class="fact"><div class="v ${f.fmt === "text" ? "text" : ""}">${esc(fmtFact(f))}</div>
       <div class="l">${esc(f.label)}</div>${fmtDelta(f)}</div>`).join("")
-    : `<div class="empty">Run this step to see what it does.</div>`;
-  const alert = S.alerts[S.selected] || (r?.status === "failed" ? (r.error || "A boundary check failed, so the pipeline stopped here.") : "");
+    : `<div class="empty">No results yet.</div>`;
+  const alert = S.alerts[S.selected] || (r?.status === "failed" ? (r.error || "A check failed. The pipeline stopped at this step.") : "");
   $("#step-alert").innerHTML = alert ? `<div class="alert">${esc(alert)}</div>` : "";
   $("#step-checks").innerHTML = s.checks.length
     ? s.checks.map((c) => checkHTML(c, r?.checks?.find((x) => x.id === c))).join("")
-    : `<div class="panel"><h3>No boundary here</h3><p class="nocheck">This is the source systems doing their normal business. The first check comes when the changes are collected: contract C2 proves nothing was lost on the way in.</p></div>`;
+    : `<div class="panel"><h3>No checks</h3><p class="nocheck">This step advances the simulated source systems by one day. The first contract check (C2) runs after Collect.</p></div>`;
   renderStatus(); renderLog();
+}
+
+function renderBanner() {
+  const b = $("#banner");
+  const fresh = S.state.clock.initialised && !S.job && !Object.keys(S.results).length;
+  b.className = "banner" + (S.setup?.error ? " error" : "");
+  if (S.setup?.error) b.innerHTML = `<b>Reset failed</b><span>${esc(S.setup.error)}</span>`;
+  else if (S.setup) {
+    const p = S.setup.progress;
+    b.innerHTML = `<b>Resetting to day 0</b><span class="activity">${esc(S.setup.activity)}</span>
+      <div class="bar ${p ? "" : "indeterminate"}"><i style="width:${p ? (100 * p[0]) / p[1] : 0}%"></i></div>`;
+  } else if (fresh) b.innerHTML = `<b>Day 0 ready.</b><span class="muted">No steps have run yet. Use Next step or Run full day.</span>`;
+  b.hidden = !(S.setup || fresh);
 }
 
 function renderRun() {
@@ -338,7 +431,7 @@ function renderRun() {
   $("#run-setup").hidden = !!ready;
   $("#run-main").hidden = !ready;
   if (!ready) return;
-  renderControls(); renderStrip(); renderDetail();
+  renderControls(); renderBanner(); renderStrip(); renderDetail();
 }
 
 /* ---------------------------------------------------------------- jobs */
@@ -357,13 +450,21 @@ async function startJob(body) {
 
 function attach(id, steps) {
   S.job = { id, steps };
-  for (const s of steps) { const k = s === "reset" ? "day" : s; delete S.statuses[k]; delete S.alerts[k]; }
+  for (const s of steps) { delete S.statuses[s]; delete S.alerts[s]; }
+  if (steps.includes("reset")) { S.setup = { activity: "", progress: null }; S.results = {}; S.logs = {}; S.selected = "day"; }
   renderRun();
   const es = new EventSource(`/api/jobs/${id}/events`);
   let pending = false;
   es.onmessage = (msg) => {
     const ev = JSON.parse(msg.data);
-    const step = ev.step === "reset" ? "day" : ev.step;
+    const step = ev.step;
+    if (step === "reset") {
+      if (ev.type === "log" && !ev.line.startsWith("$ ")) S.setup.activity = ev.line;
+      if (ev.progress) S.setup.progress = ev.progress;
+      if (ev.type === "step" && ev.status === "failed") S.setup.error = ev.reason;
+      if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; renderBanner(); }); }
+      return;
+    }
     if (ev.type === "step") {
       S.statuses[step] = ev.status;
       if (ev.status === "running") {
@@ -380,16 +481,16 @@ function attach(id, steps) {
         requestAnimationFrame(() => { pending = false; renderStatus(); if (S.logOpen) renderLog(); });
       }
     } else if (ev.type === "result") {
-      if (ev.step === "reset") S.results = {};
       const held = ev.result.checks.every((c) => c.passed) && !ev.result.error;
       S.results[step] = { ...ev.result, status: held ? "ok" : "failed" };
-      if (step === "day" || ev.step === "reset") refreshClock();
+      if (step === "day") refreshClock();
       renderRun();
     } else if (ev.type === "done") {
       es.close();
       S.job = null;
       S.statuses = {};
-      if (!ev.ok) toast("The run stopped. The step marked in red says why.");
+      if (S.setup && !S.setup.error) S.setup = null;
+      if (!ev.ok) toast(S.setup ? "Reset failed." : "Run stopped at a failed step.");
       refreshState();
     }
   };
@@ -413,6 +514,7 @@ document.addEventListener("click", (e) => {
   if (t.dataset.stack) return setStack(t.dataset.stack);
   if (t.dataset.node) return openNode(t.dataset.node);
   if (t.dataset.contract) return openContract(t.dataset.contract);
+  if (t.dataset.file) { S.contract.file = +t.dataset.file; return renderContract(); }
   if (t.dataset.gotoStep) { closeDrawer(); S.selected = t.dataset.gotoStep; showView("run"); return; }
   if (t.dataset.step) { S.selected = t.dataset.step; renderStrip(); renderDetail(); return; }
   if (t.dataset.provider) return swapMatcher(t.dataset.provider);
@@ -420,14 +522,20 @@ document.addEventListener("click", (e) => {
     case "drawer-close": return closeDrawer();
     case "day-btn": return startJob({ steps: ALL() });
     case "next-btn": return startJob({ steps: [nextStep()] });
-    case "setup-btn": return startJob({ reset: true, steps: FROM("collect") });
+    case "setup-btn": return startJob({ reset: true });
     case "reset-btn":
-      if (confirm("Reset to day 0? This rebuilds everything from the start - about a minute.")) startJob({ reset: true, steps: FROM("collect") });
+      if (confirm("Reset to day 0? This rebuilds all data (about 35 seconds).")) { S.setup = null; startJob({ reset: true }); }
       return;
     case "techtoggle": S.logOpen = !S.logOpen; return renderLog();
+    case "run-tests": return runContractTests();
   }
 });
 $("#scrim").addEventListener("click", closeDrawer);
+document.addEventListener("change", (e) => {
+  const i = e.target.dataset?.optional;
+  if (i === undefined) return;
+  if (e.target.checked) S.contract.optional.add(+i); else S.contract.optional.delete(+i);
+});
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDrawer();
   if (e.key === "ArrowRight" && $("#view-run").classList.contains("active") && !S.job && S.state?.clock?.initialised && !$("#next-btn").disabled) {
@@ -440,7 +548,7 @@ async function swapMatcher(provider) {
   try {
     await api("/api/provider", { provider });
     S.state.provider = provider;
-    toast(`Swapped to the ${provider === "rules" ? "rules matcher" : "Splink matcher"} - re-running from “Match”`);
+    toast(`Matcher set to ${provider === "rules" ? "Rules" : "Splink"}. Re-running from Match.`);
     if (S.state.clock.initialised) startJob({ steps: FROM("match") });
     else renderControls();
   } catch (err) { toast(err.message); }
@@ -463,7 +571,7 @@ window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer
   await refreshState();
   const last = lastStep();
   if (last) S.selected = last;
-  if (S.state.job) attach(S.state.job.id, S.state.job.steps);
+  if (S.state.job && !S.state.job.steps[0].startsWith("test:")) attach(S.state.job.id, S.state.job.steps);
   const params = new URLSearchParams(location.search);
   let view = params.get("view") || "map";
   if (!params.get("view")) try { view = localStorage.getItem("studio.view") || "map"; } catch { /* private window */ }

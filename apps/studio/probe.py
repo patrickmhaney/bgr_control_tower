@@ -90,10 +90,10 @@ def day() -> dict:
             return f"try_cast(substr(cast({col} as varchar), 1, 10) as date) = ?"
 
         facts = [
-            _fact("Sales orders taken", n(f"select count(*) from sage_x3.SORDER where {on('ORDDAT_0')}")),
-            _fact("Deliveries shipped", n(f"select count(*) from sage_x3.SDELIVERY where {on('SHIDAT_0')}")),
-            _fact("Invoices sent", n(f"select count(*) from sage_x3.SINVOICEV where {on('INVDAT_0')}")),
-            _fact("Deals opened in HubSpot", n(f"select count(*) from hubspot.deal where {on('createdate')}")),
+            _fact("Sales orders", n(f"select count(*) from sage_x3.SORDER where {on('ORDDAT_0')}")),
+            _fact("Deliveries", n(f"select count(*) from sage_x3.SDELIVERY where {on('SHIDAT_0')}")),
+            _fact("Invoices", n(f"select count(*) from sage_x3.SINVOICEV where {on('INVDAT_0')}")),
+            _fact("New HubSpot deals", n(f"select count(*) from hubspot.deal where {on('createdate')}")),
         ]
     finally:
         con.close()
@@ -116,16 +116,16 @@ def collect() -> dict:
     con.close()
     facts = []
     if ops.get("S"):
-        facts.append(_fact("X3 rows in a full snapshot - the first load, or after a gap", ops["S"]))
-    facts += [_fact("X3 records inserted, through CDC", ops.get("I", 0)),
-              _fact("X3 records updated, through CDC", ops.get("U", 0)),
-              _fact("X3 records deleted, through CDC", ops.get("D", 0))]
+        facts.append(_fact("X3 snapshot rows", ops["S"]))
+    facts += [_fact("X3 inserts (CDC)", ops.get("I", 0)),
+              _fact("X3 updates (CDC)", ops.get("U", 0)),
+              _fact("X3 deletes (CDC)", ops.get("D", 0))]
 
     tables = compare()
     bad = [t for t in tables if t["missing"] or t["extra"]]
     check = _check(
-        "C2", "Raw history matches every source table exactly", not bad,
-        [_fact("Source tables that match", len(tables) - len(bad), value=f"{len(tables) - len(bad)} of {len(tables)}"),
+        "C2", "Raw history matches the source tables", not bad,
+        [_fact("Tables matching", len(tables) - len(bad), value=f"{len(tables) - len(bad)} of {len(tables)}"),
          _fact("Rows compared", sum(t["rows"] for t in tables))],
         [f"{t['source']}.{t['table']}: {t['missing']} rows missing, {t['extra']} extra" for t in bad],
         "tests/conformance/test_ingestion_convergence.py")
@@ -135,11 +135,11 @@ def collect() -> dict:
 def clean() -> dict:
     r = _run_results()
     check = _check(
-        "quality", "Every quality test on the cleaned tables passed", r["failed"] == 0,
-        [_fact("Quality tests passed", r["passed"]), _fact("Warnings", r["warned"])],
-        [f"{r['failed']} tests or models failed - see the technical log"] if r["failed"] else [],
+        "quality", "Staging data tests", r["failed"] == 0,
+        [_fact("Tests passed", r["passed"]), _fact("Warnings", r["warned"])],
+        [f"{r['failed']} tests or models failed (see log)"] if r["failed"] else [],
         "dbt tests in transform/models/silver/staging")
-    return {"facts": [_fact("Tables cleaned", r["models"]), _fact("Reference lists loaded", r["seeds"])],
+    return {"facts": [_fact("Staging tables built", r["models"]), _fact("Seeds loaded", r["seeds"])],
             "checks": [check]}
 
 
@@ -171,10 +171,10 @@ def match() -> dict:
     provider = {"splink": "Splink (probabilistic)", "rules": "Rules matcher"}[quality["provider"]]
     facts = [_fact("Matcher", None, "text", value=provider),
              _fact("Golden customers", len(tables["mdm_golden_customer"])),
-             _fact("HubSpot companies linked to X3", quality["customer_links"]),
+             _fact("HubSpot companies matched to X3", quality["customer_links"]),
              _fact("Matches flagged for review", quality["needs_review"], better="down")]
     check = _check(
-        "C3", "Every record has exactly one golden ID, and matching clears the quality floor", not problems,
+        "C3", "Golden ID coverage and match quality", not problems,
         [_fact("Match precision", score.get("precision"), "percent", "up"),
          _fact("Match recall", score.get("recall"), "percent", "up")],
         problems, "tests/conformance/test_mdm_contract.py")
@@ -199,12 +199,12 @@ def model() -> dict:
     finally:
         con.close()
     check = _check(
-        "C4", "Every gold table matched its contract, and every relationship test passed",
+        "C4", "Gold table contracts and tests",
         r["failed"] == 0 and len(enforced) == len(gold),
         [_fact("Tables under contract", len(enforced), value=f"{len(enforced)} of {len(gold)}"),
          _fact("Columns with enforced types", sum(len(n["columns"]) for n in enforced)),
          _fact("Tests passed", r["passed"])],
-        [f"{r['failed']} tests or models failed - see the technical log"] if r["failed"] else [],
+        [f"{r['failed']} tests or models failed (see log)"] if r["failed"] else [],
         "enforced contracts in transform/models/gold/_gold__models.yml")
     return {"facts": facts, "checks": [check]}
 
@@ -237,27 +237,27 @@ def metrics() -> dict:
                    fmt.get(meta[m].get("format"), "int"),
                    {"higher_is_better": "up", "lower_is_better": "down"}.get(meta[m].get("direction")))
              for m, v in zip(HEADLINE, row)]
-    facts.append(_fact("Power BI table", cube_rows, value=f"{cube_rows:,} rows × {cube_cols} columns"))
+    facts.append(_fact("Power BI table size", cube_rows, value=f"{cube_rows:,} × {cube_cols}"))
 
     frozen = _frozen_applies()
     failures, lines = _quiet(golden_run, "check", frozen=frozen)
     results = [ln for ln in lines if ln.startswith(("ok  ", "FAIL"))]
     passed = sum(ln.startswith("ok") for ln in results)
     issues = lint()
-    how = ("semantic layer = hand-written SQL = frozen answer" if frozen else
-           "semantic layer = hand-written SQL (the frozen answers hold for day 0)")
-    c5 = _check("C5", "Every golden answer agrees, computed two independent ways", failures == 0 and not issues,
-                [_fact("Golden answers that agree", passed, value=f"{passed} of {len(results)}"),
+    how = ("semantic layer, reference SQL and frozen answer" if frozen else
+           "semantic layer and reference SQL (frozen answers apply to day 0)")
+    c5 = _check("C5", "Golden answers", failures == 0 and not issues,
+                [_fact("Passing", passed, value=f"{passed} of {len(results)}"),
                  _fact("Compared", None, "text", value=how),
-                 _fact("Governance rules broken", len(issues), better="down")],
+                 _fact("Lint violations", len(issues), better="down")],
                 [ln[5:] for ln in results if ln.startswith("FAIL")] + issues,
                 "tests/conformance/test_golden_answers.py")
 
     problems, _ = _quiet(local, live=not frozen)
     with open(OUT) as fh:
         total = len(json.load(fh))
-    c7 = _check("C7", "Every dashboard number matches through Power BI's measure math", not problems,
-                [_fact("Dashboard numbers that match", total - len(problems),
+    c7 = _check("C7", "Power BI measure parity", not problems,
+                [_fact("Parity queries passing", total - len(problems),
                        value=f"{total - len(problems)} of {total}"),
                  _fact("Measure templates", 3)],
                 problems, "tests/conformance/test_dashboard_cube.py")
@@ -289,21 +289,17 @@ def serve() -> dict:
     with open(mcp_server.__file__) as fh:
         tools = fh.read().count("@mcp.tool()")
     routes = {getattr(r, "path", "") for r in app.routes}
-    check = _check("C6", "The API and the AI tools answer as their contract says", out.returncode == 0,
+    check = _check("C6", "API and MCP contract tests", out.returncode == 0,
                    [_fact("Contract tests passed", passed),
                     _fact("API endpoints", len({p for p in routes if not p.startswith(("/docs", "/openapi",
                                                                                            "/redoc", "/mcp"))})),
-                    _fact("AI tools", tools)],
+                    _fact("MCP tools", tools)],
                    [] if out.returncode == 0 else out.stdout.strip().splitlines()[-8:],
                    "tests/conformance/test_data_service.py")
     return {"facts": facts, "checks": [check]}
 
 
-def reset() -> dict:
-    return day()
-
-
-PROBES = {f.__name__: f for f in (day, collect, clean, match, model, metrics, serve, reset)}
+PROBES = {f.__name__: f for f in (day, collect, clean, match, model, metrics, serve)}
 
 
 if __name__ == "__main__":

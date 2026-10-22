@@ -10,34 +10,36 @@ from __future__ import annotations
 import re
 
 STEPS = [
-    {"id": "day", "title": "A day of business", "node": "sources",
-     "lead": "The source systems take orders, ship, invoice and work deals - one simulated day.",
+    {"id": "day", "title": "Advance one day", "node": "sources",
+     "lead": "Advance the simulated source systems by one business day.",
      "commands": [["ctl", "sources", "advance", "--days", "1"]]},
-    {"id": "collect", "title": "Collect the changes", "node": "ingestion", "checks": ["C2"],
-     "lead": "Pick up only what changed in each system - deletes included - and add it to the raw history.",
+    {"id": "collect", "title": "Collect", "node": "ingestion", "checks": ["C2"],
+     "lead": "Extract changes from each source and append them to raw storage.",
      "commands": [["ctl", "ingest", "--reconcile"], ["ctl", "build", "--stage", "raw"]]},
     {"id": "clean", "title": "Clean", "node": "transformation", "checks": ["quality"],
-     "lead": "Standardise names, dates and codes into one tidy table per source table, with quality tests.",
+     "lead": "Build the staging tables and run their data tests.",
      "commands": [["ctl", "build", "--stage", "clean"]]},
-    {"id": "match", "title": "Match customers and people", "node": "mdm", "checks": ["C3"],
-     "lead": "Recognise the same customer in X3 and HubSpot, and the same person, and give each one ID.",
+    {"id": "match", "title": "Match", "node": "mdm", "checks": ["C3"],
+     "lead": "Match customers and employees across systems and assign golden IDs.",
      "commands": [["ctl", "build", "--stage", "mdm", "--provider", "{provider}"]]},
-    {"id": "model", "title": "Build the star schema", "node": "warehouse", "checks": ["C4"],
-     "lead": "Assemble the fact and dimension tables every metric reads from.",
+    {"id": "model", "title": "Model", "node": "warehouse", "checks": ["C4"],
+     "lead": "Build the fact and dimension tables.",
      "commands": [["ctl", "build", "--stage", "model"]]},
-    {"id": "metrics", "title": "Compute the metrics", "node": "semantic", "checks": ["C5", "C7"],
-     "lead": "The semantic layer computes every metric from its one definition, into the tables Power BI reads.",
+    {"id": "metrics", "title": "Compute metrics", "node": "semantic", "checks": ["C5", "C7"],
+     "lead": "Compute the saved queries through the semantic layer into the marts and the Power BI table.",
      "commands": [["ctl", "materialize"]]},
-    {"id": "serve", "title": "Serve every channel", "node": "api", "checks": ["C6"],
-     "lead": "Publish the metrics to the serving database, the API and the AI tools.",
+    {"id": "serve", "title": "Serve", "node": "api", "checks": ["C6"],
+     "lead": "Load the marts into the serving database and test the API.",
      "commands": [["ctl", "serve-load"]]},
 ]
 
 BY_ID = {s["id"]: s for s in STEPS}
 
-#: Back to day 0: delete the data directory and set the sources up again.
+#: Back to day 0: delete the data directory, set the sources up again and run
+#: the pipeline once, so every step has data to work on. It records no step
+#: results: the strip starts grey and turns green only as steps are run.
 RESET = {"id": "reset", "title": "Reset to day 0",
-         "commands": [["ctl", "reset"], ["ctl", "sources", "init"]]}
+         "commands": [["ctl", "reset"], ["ctl", "sources", "init"], ["ctl", "run", "--reconcile"]]}
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 DBT_TIME = re.compile(r"^\d\d:\d\d:\d\d\s+")
@@ -63,12 +65,12 @@ def facts_from_log(step: str, lines: list[str]) -> list[dict]:
         for line in lines:
             m = re.match(r"(\d{4}-\d\d-\d\d): ([\d,]+) change rows captured", line)
             if m:
-                out.append({"label": "X3 changes captured by CDC", "raw": int(m.group(2).replace(",", "")),
+                out.append({"label": "X3 CDC change rows", "raw": int(m.group(2).replace(",", "")),
                             "fmt": "int"})
     if step == "collect":
         # X3's rows are broken down by kind of change in the probe.
-        names = {"hubspot": "HubSpot rows - changes, plus a check for deletes",
-                 "netstock": "Netstock rows - a full copy, as it has no change feed",
+        names = {"hubspot": "HubSpot rows (changes and delete check)",
+                 "netstock": "Netstock rows (full snapshot)",
                  "azure_cost": "Cloud cost rows"}
         for line in lines:
             m = re.match(r"(hubspot|netstock|azure_cost)\s+([\d,]+) rows", line)

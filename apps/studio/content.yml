@@ -1,4 +1,4 @@
-# What the Studio's map shows, in plain words. The tools in each stack, the
+# What the Studio's map shows. The tools in each stack, the
 # technical contract and the conformance test come from
 # evaluation/components.yml; this file only adds the layout and the copy.
 #
@@ -7,7 +7,7 @@
 # none = the stack has nothing for this job.
 
 stacks:
-  - {id: baseline, label: Open source, note: Built and running in this project}
+  - {id: baseline, label: Open source, note: Implemented in this repository}
   - {id: existing, label: Existing stack, note: "Azure Data Factory, Azure SQL Managed Instance, Power BI"}
   - {id: mix_1, label: "Mix 1 · Boomi + Fabric", note: "Boomi Data Integration and Data Hub, Microsoft Fabric"}
   - {id: mix_2, label: "Mix 2 · Snowflake + Fivetran", note: "Fivetran, Snowflake, Profisee"}
@@ -16,9 +16,9 @@ swap_costs:
   same: {label: Same tool, effort: ""}
   adapter: {label: Adapter, effort: days}
   port: {label: Port, effort: weeks}
-  rebuild: {label: Rebuild, effort: re-expressed and re-verified}
+  rebuild: {label: Rebuild, effort: weeks to months}
   none: {label: Not covered, effort: ""}
-  stays: {label: Part of the platform, effort: ""}
+  stays: {label: Platform, effort: ""}
 
 columns:
   - {id: sources, label: Source systems}
@@ -35,32 +35,32 @@ nodes:
     kind: source
     role: ERP
     tool: Sage X3
-    what: Orders, shipments, invoices, purchasing, inventory and the general ledger.
+    what: Sales orders, deliveries, invoices, purchasing, inventory and general ledger.
   - id: hubspot
     column: sources
     kind: source
     role: CRM
     tool: HubSpot
-    what: Companies, contacts, deals and the sales pipeline.
+    what: Companies, contacts, deals and pipeline stages.
   - id: netstock
     column: sources
     kind: source
     role: Inventory planning
     tool: Netstock
-    what: Demand forecasts, forecast accuracy and replenishment advice.
+    what: Demand forecasts, forecast accuracy and replenishment recommendations.
   - id: azure_cost
     column: sources
     kind: source
     role: Cloud bill
     tool: Azure Cost
-    what: What this platform itself costs to run, by component.
+    what: Azure cost export for this platform, by component.
 
   - id: ingestion
     column: collect
     component: ingestion
     role: Ingestion and change capture
     tool: dlt
-    what: Picks up only what changed in each system since the last run - new rows, updates and deletes - without slowing the systems down.
+    what: Extracts inserts, updates and deletes since the last run. Uses SQL Server CDC for X3 and API queries for HubSpot and Netstock.
     step: collect
 
   - id: raw_storage
@@ -68,7 +68,7 @@ nodes:
     component: raw_storage
     role: Raw storage
     tool: Azure Data Lake
-    what: Keeps every version of every record the systems ever sent, in an open format. Nothing here is edited, so any report can be rebuilt as it looked on any past day.
+    what: Append-only history of every extracted record, stored as Delta tables. Any table can be rebuilt as of a past date.
     swap: {existing: port, mix_1: adapter, mix_2: adapter}
     step: collect
 
@@ -77,9 +77,9 @@ nodes:
     component: transformation
     role: Transformation
     tool: dbt
-    what: Cleans names, dates and codes, joins the systems together, and runs quality tests on every table.
+    what: Staging, joins across systems and the gold tables, as SQL models with data tests.
     swap: {existing: rebuild, mix_1: port, mix_2: port}
-    swap_note: A port while the logic stays in dbt (dbt runs on Fabric and Snowflake); a rebuild if it moves into another tool.
+    swap_note: Port if the models stay in dbt (dbt supports Fabric and Snowflake). Rebuild if they move to another tool.
     step: clean
 
   - id: mdm
@@ -87,7 +87,7 @@ nodes:
     component: master_data_management
     role: Master data
     tool: Splink
-    what: Recognises the same customer in X3 and HubSpot, and the same person across systems, and gives each one ID.
+    what: Matches customers across X3 and HubSpot, and employees across systems, and assigns a golden ID to each.
     step: match
 
   - id: warehouse
@@ -95,7 +95,7 @@ nodes:
     component: warehouse_storage
     role: Warehouse
     tool: DuckDB
-    what: "The star schema: fact tables (orders, deliveries, invoices, deals ...) and dimensions (customer, item, site, employee ...) that every metric reads."
+    what: Fact tables (order lines, deliveries, invoices, deals) and dimensions (customer, item, site, employee).
     step: model
 
   - id: semantic
@@ -104,7 +104,7 @@ nodes:
     kind: heart
     role: Semantic layer
     tool: MetricFlow
-    what: Every metric is defined once - its formula, owner, status and caveats - and every number anyone sees is computed from that one definition.
+    what: Metric definitions in YAML, with owner, status and caveats. Dashboards, marts, the API and AI tools all compute from these definitions.
     step: metrics
 
   - id: powerbi
@@ -112,28 +112,28 @@ nodes:
     component: visualization
     role: Dashboards
     tool: Power BI
-    what: Imports the precomputed metrics and draws them. It holds no formulas of its own, so it can never disagree with the other channels.
+    what: Imports one precomputed metrics table. Measures are generated from three templates; there is no hand-written DAX.
     step: metrics
   - id: marts
     column: use
     component: downstream_apps
     role: Data marts and apps
     tool: Postgres
-    what: The same metrics as plain tables, for other systems and apps to read.
+    what: Metric tables loaded into Postgres for other applications.
     step: serve
   - id: api
     column: use
     role: API
     tool: REST + MCP
     fixed: true
-    what: Any app or AI tool can ask for any metric, cut any valid way, and gets the governed number with its caveats.
+    what: REST API and MCP server. Returns any metric by any valid dimension, with its status and caveats.
     step: serve
   - id: ai
     column: use
     component: applied_ai
     role: AI assistants
     tool: Claude
-    what: Ask a question in plain English; the assistant answers with the governed numbers, through the same definitions.
+    what: Answers metric questions through the MCP server.
     step: serve
 
 foundation:
@@ -141,18 +141,18 @@ foundation:
     component: cloud_infrastructure
     role: Cloud
     tool: Azure
-    what: Everything runs in Azure, described as code, with a budget and alerts per environment.
+    what: Azure resources defined in Bicep, with budgets and alerts per environment.
   - id: orchestration
     component: orchestration
     role: Orchestration
     tool: Dagster
-    what: Runs the steps in order every day. It only calls the steps; none of the logic lives in it, so it is the cheapest piece to replace.
+    what: Schedules the pipeline steps. Holds no business logic.
   - id: assurance
     role: Assurance
     tool: Contracts, tests and golden answers
     fixed: true
     kind: keep
-    what: The written contracts between components, the tests that enforce them, and the frozen golden answers every tool must reproduce. They are how a swap is proven safe.
+    what: Contracts between components, conformance tests, and golden answers. Used to verify a replacement component.
 
 edges:
   - {from: sage_x3, to: ingestion, contract: C1}
@@ -170,34 +170,76 @@ edges:
   - {from: api, to: ai, vertical: true}
 
 contracts:
+  # files: what defines the contract, shown in the Studio (from = the first
+  # line to show, lines = how many). suites: what the "Run tests" button runs.
+  # kind is pytest, dbt, verify, golden or parity (apps/studio/contracts.py).
   C1:
     name: Source specification
-    promise: For every source table, which rows identify a record and how changes are picked up.
-    proof: The ingestion is generated from the specification, so it cannot drift from it.
+    promise: Tables, keys and extraction method for each source.
+    proof: Ingestion is generated from the specification files.
+    files:
+      - {path: ingestion/specs/sage_x3.yml, lines: 60}
+      - {path: ingestion/specs/hubspot.yml, lines: 60}
+      - {path: ingestion/specs/netstock.yml, lines: 60}
+    enforced: No separate test. The extraction code reads these files directly, so it cannot drift from them.
+    suites: []
   C2:
     name: Raw history
-    promise: Every change is kept - deletes included - with the source's own column names, in an open format. A column that disappears stops the load.
-    proof: Rebuilding each source table from the raw history must match the source exactly, every row and column.
+    promise: Append-only change log per source table, deletes included, with source column names. A schema change fails the load.
+    proof: Each source table rebuilt from raw history is compared with the source, row by row.
+    files:
+      - {path: ingestion/schemas/sage_x3.schema.yaml, from: "  COMPANY:", lines: 70}
+      - {path: transform/macros/bronze_current.sql, lines: 70}
+    suites:
+      - {kind: verify, title: Source tables against raw history}
+      - {kind: pytest, title: "Full simulation: CDC, a retention gap and hard deletes",
+         path: tests/conformance/test_ingestion_convergence.py, optional: true,
+         note: Runs in a temporary folder. About 2 minutes.}
   C3:
     name: Golden IDs
-    promise: Every customer and employee record from every system maps to exactly one golden ID.
-    proof: The output is checked against the contract, and match quality is scored against a known answer key.
+    promise: Each customer and employee record maps to one golden ID.
+    proof: Schema and coverage checks, plus precision and recall against a labelled answer key.
+    files:
+      - {path: mdm/contract.yml, lines: 80}
+    suites:
+      - {kind: pytest, title: MDM contract tests, path: tests/conformance/test_mdm_contract.py}
   C4:
     name: Star schema
-    promise: Every fact and dimension has fixed columns and types. If anything upstream changes them, the build stops.
-    proof: Enforced table contracts and a test on every relationship.
+    promise: Fixed columns and types for every fact and dimension table.
+    proof: dbt enforced contracts and relationship tests.
+    files:
+      - {path: transform/models/gold/_gold__models.yml, from: "- name: fct_sales_order_line", lines: 80}
+    suites:
+      - {kind: dbt, title: dbt tests on the gold tables, select: "path:models/gold"}
   C5:
     name: Metric definitions
-    promise: Every metric is defined once, with an owner, a status and caveats. Anything that computes metrics must reproduce the golden answers.
-    proof: Golden answers, each computed two independent ways and compared with the frozen number.
+    promise: One definition per metric, with owner, status and caveats.
+    proof: "Golden answers: each query runs through the semantic layer and through reference SQL, and both are compared with the frozen result."
+    files:
+      - {path: transform/models/semantic/metrics.yml, from: "  - name: on_time_delivery_rate", lines: 60}
+      - {path: evaluation/golden_answers.yml, from: "queries:", lines: 60}
+    suites:
+      - {kind: golden, title: Golden answers}
+      - {kind: pytest, title: Governance lint and SQL portability, path: tests/conformance/test_governance.py}
   C6:
-    name: API and AI tools
-    promise: A fixed set of API endpoints and AI tools that return governed numbers - or the reason they cannot.
-    proof: The API and tool list are tested against the published contract.
+    name: API and MCP tools
+    promise: Published REST endpoints and MCP tools. Invalid requests return a reason.
+    proof: Contract tests on the OpenAPI spec and the MCP tool list.
+    files:
+      - {path: tests/conformance/test_data_service.py, lines: 70}
+    suites:
+      - {kind: pytest, title: API and MCP contract tests, path: tests/conformance/test_data_service.py}
   C7:
     name: Dashboard tables
-    promise: One table of precomputed metrics per dashboard grain, which Power BI and the marts read as-is.
-    proof: Every dashboard number is recomputed through Power BI's measure math and compared with the golden answers.
+    promise: One table per saved query, plus the combined table Power BI imports.
+    proof: Golden answers recomputed with the Power BI measure templates.
+    files:
+      - {path: powerbi/ControlTower.SemanticModel/definition/tables/dashboard_cube.tmdl, lines: 60}
+      - {path: transform/models/semantic/saved_queries.yml, lines: 85}
+    suites:
+      - {kind: parity, title: Golden answers through the Power BI measure templates}
+      - {kind: pytest, title: Dashboard table structure, path: tests/conformance/test_dashboard_cube.py,
+         exclude: [test_golden_answers_through_the_cube]}
 
 keeps:
   - {id: contracts, label: Contracts between components}

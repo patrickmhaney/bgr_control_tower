@@ -52,7 +52,10 @@ def differences(warehouse_path: str | None = None, mock_db: str | None = None) -
 if __name__ == "__main__":
     tables = compare()
     bad = [t for t in tables if t["missing"] or t["extra"]]
-    for t in bad:
-        print(f"FAIL {t['source']}.{t['table']}: missing {t['missing']}, extra {t['extra']}")
+    for t in tables:
+        if t in bad:
+            print(f"FAIL {t['source']}.{t['table']}: missing {t['missing']}, extra {t['extra']}")
+        else:
+            print(f"ok   {t['source']}.{t['table']}: {t['rows']:,} rows")
     print(f"{len(tables) - len(bad)} of {len(tables)} source tables match bronze exactly.")
     sys.exit(1 if bad else 0)

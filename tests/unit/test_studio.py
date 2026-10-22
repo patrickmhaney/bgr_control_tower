@@ -24,7 +24,7 @@ def test_map_matches_the_component_registry():
 
 def test_every_step_runs_real_commands_and_has_a_probe():
     for step in pipeline.STEPS + [pipeline.RESET]:
-        assert step["id"] in PROBES
+        assert step is pipeline.RESET or step["id"] in PROBES
         for cmd in step["commands"]:
             assert cmd[0] == "ctl"
             if cmd[1] == "build":
@@ -35,3 +35,23 @@ def test_dbt_progress_is_read_from_the_log():
     assert pipeline.progress("12 of 45 OK created sql table model gold.dim_site") == (12, 45)
     assert pipeline.progress("3 of 45 START sql table model gold.dim_site") is None
     assert pipeline.facts_from_log("collect", ["hubspot          163 rows"])[0]["raw"] == 163
+
+
+def test_every_contract_shows_real_files_and_runnable_suites():
+    import os
+
+    from apps.studio import contracts
+    from core.settings import ROOT
+
+    with open(os.path.join(ROOT, "apps", "studio", "content.yml")) as fh:
+        content = yaml.safe_load(fh)
+    for cid, c in content["contracts"].items():
+        assert c["files"], cid
+        for f in c["files"]:
+            assert contracts.excerpt(f)["text"], f["path"]
+        for suite in c["suites"]:
+            assert contracts.command(suite, live=True)
+            if suite["kind"] == "pytest":
+                assert os.path.exists(os.path.join(ROOT, suite["path"])), suite["path"]
+                assert contracts.cases(suite), suite["path"]
+        assert c["suites"] or c.get("enforced"), cid

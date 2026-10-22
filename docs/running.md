@@ -48,7 +48,9 @@ steps through a day one stage at a time. Every button runs the real step
 commands, then the boundary check for that stage (C2 to C7) - the same
 functions the conformance tests call - and shows what happened in plain
 numbers. The customer matcher toggle swaps the MDM component (Splink or rules)
-and re-runs from the match. A full day takes about 30 seconds; reset rebuilds
+and re-runs from the match. Clicking a contract opens its definition files and
+its tests (`apps/studio/content.yml` lists both); **Run tests** runs them and
+shows each case as it passes. A full day takes about 30 seconds; reset rebuilds
 day 0 in about the same.
 
 The frozen golden answers hold only for day 0, so on later days the Studio

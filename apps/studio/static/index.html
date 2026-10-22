@@ -25,9 +25,8 @@
     <section class="view active" id="view-map">
       <div class="hero">
         <div>
-          <h1>The architecture is the product</h1>
-          <p>Tools plug into fixed contracts. Swap a tool and the contracts, the metric definitions and the
-            tests stay put - and those are what prove the swap is safe.</p>
+          <h1>Architecture</h1>
+          <p>Components, and the contracts between them. Select a stack to compare tools.</p>
         </div>
         <div class="switcher-wrap">
           <div class="segmented" id="stacks"></div>
@@ -45,8 +44,8 @@
 
       <div class="below">
         <div class="panel">
-          <h3>What stays when the tools change</h3>
-          <p class="sub">The parts of the platform that belong to the client, whichever software runs it.</p>
+          <h3>Platform assets</h3>
+          <p class="sub">Unchanged when a component is replaced.</p>
           <div class="tiles" id="keeps"></div>
         </div>
         <div class="panel">
@@ -60,10 +59,10 @@
     <!-- ====================================================== run view -->
     <section class="view" id="view-run">
       <div id="run-setup" class="panel setup" hidden>
-        <h2>Set up the simulated source systems</h2>
-        <p>Creates realistic copies of Sage X3, HubSpot and Netstock as of day 0, then runs the whole
-          pipeline once so every screen has numbers. About a minute.</p>
-        <button class="btn primary" id="setup-btn">Set up day 0</button>
+        <h2>Initialize</h2>
+        <p>Creates the simulated Sage X3, HubSpot and Netstock data as of day 0 and runs the pipeline once.
+          Takes about 35 seconds.</p>
+        <button class="btn primary" id="setup-btn">Initialize</button>
       </div>
 
       <div id="run-main">
@@ -79,15 +78,16 @@
               <button data-provider="splink">Splink</button>
               <button data-provider="rules">Rules</button>
             </div>
-            <div class="hint">A live component swap: re-run from "Match"</div>
+            <div class="hint">Changing this re-runs the pipeline from Match</div>
           </div>
           <div class="actions">
             <button class="btn ghost" id="reset-btn" title="Back to day 0">Reset</button>
             <button class="btn" id="next-btn" title="Run the next step (→)">Next step</button>
-            <button class="btn primary" id="day-btn">Run a full day</button>
+            <button class="btn primary" id="day-btn">Run full day</button>
           </div>
         </div>
 
+        <div class="banner" id="banner" hidden></div>
         <div class="strip" id="strip"></div>
 
         <div class="detail">
@@ -104,7 +104,7 @@
             <div class="bar hidden" id="step-bar"><i></i></div>
             <div class="facts" id="step-facts"></div>
             <div id="step-alert"></div>
-            <button class="techtoggle" id="techtoggle">Show technical log</button>
+            <button class="techtoggle" id="techtoggle">Show log</button>
             <div class="log" id="log"></div>
           </div>
           <div id="step-checks"></div>
