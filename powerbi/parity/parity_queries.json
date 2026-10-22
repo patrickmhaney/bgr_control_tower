@@ -1,0 +1,575 @@
+[
+  {
+    "id": "on_time_delivery_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "on_time_delivery_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery])",
+    "expected": [
+      [
+        "",
+        0.7010854439187308
+      ]
+    ]
+  },
+  {
+    "id": "order_fill_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "order_fill_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"order_fill_rate\", [Order Fill Rate])",
+    "expected": [
+      [
+        "",
+        0.9444698583725325
+      ]
+    ]
+  },
+  {
+    "id": "return_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "return_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"return_rate\", [Return Rate])",
+    "expected": [
+      [
+        "",
+        0.01105092893581606
+      ]
+    ]
+  },
+  {
+    "id": "dso_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "dso_days_to_pay_proxy"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"dso_days_to_pay_proxy\", [DSO (days-to-pay proxy)])",
+    "expected": [
+      [
+        "",
+        47.006534239414535
+      ]
+    ]
+  },
+  {
+    "id": "unsettled_invoice_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "unsettled_invoice_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"unsettled_invoice_rate\", [Unsettled Invoice Rate])",
+    "expected": [
+      [
+        "",
+        0.21031991744066048
+      ]
+    ]
+  },
+  {
+    "id": "match_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "match_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"match_rate\", [Match Rate])",
+    "expected": [
+      [
+        "",
+        0.7048672566371681
+      ]
+    ]
+  },
+  {
+    "id": "inventory_accuracy_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "inventory_accuracy"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"inventory_accuracy\", [Inventory Accuracy])",
+    "expected": [
+      [
+        "",
+        0.9323414806942969
+      ]
+    ]
+  },
+  {
+    "id": "win_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "win_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"win_rate\", [Win Rate])",
+    "expected": [
+      [
+        "",
+        0.6618181818181819
+      ]
+    ]
+  },
+  {
+    "id": "pipeline_value_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "pipeline_value"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"pipeline_value\", [Pipeline Value])",
+    "expected": [
+      [
+        "",
+        10194966.36
+      ]
+    ]
+  },
+  {
+    "id": "sales_cycle_days_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "sales_cycle_days"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"sales_cycle_days\", [Sales Cycle Days])",
+    "expected": [
+      [
+        "",
+        116.41758241758242
+      ]
+    ]
+  },
+  {
+    "id": "revenue_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "revenue"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"revenue\", [Revenue])",
+    "expected": [
+      [
+        "",
+        198795170.1246
+      ]
+    ]
+  },
+  {
+    "id": "customer_match_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "customer_match_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"customer_match_rate\", [Customer Match Rate])",
+    "expected": [
+      [
+        "",
+        0.8225806451612904
+      ]
+    ]
+  },
+  {
+    "id": "on_time_delivery_by_site",
+    "cube": "mart_i2d",
+    "group_by": [
+      "site__site_name"
+    ],
+    "metrics": [
+      "on_time_delivery_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Site Name], TREATAS({\"mart_i2d\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery])",
+    "expected": [
+      [
+        "Dallas TX Distribution Center",
+        0.7133134836239898
+      ],
+      [
+        "Reno NV Distribution Center",
+        0.6986919260261615
+      ],
+      [
+        "Toronto ON Distribution Center",
+        0.6725502130249543
+      ]
+    ]
+  },
+  {
+    "id": "on_time_delivery_by_department",
+    "cube": "mart_department_scorecard",
+    "group_by": [
+      "employee__department_name"
+    ],
+    "metrics": [
+      "on_time_delivery_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Department Name], TREATAS({\"mart_department_scorecard\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery])",
+    "expected": [
+      [
+        "Unassigned",
+        0.6850220264317181
+      ],
+      [
+        "Warehouse",
+        0.7043400647104764
+      ]
+    ]
+  },
+  {
+    "id": "return_rate_by_department",
+    "cube": "mart_department_scorecard",
+    "group_by": [
+      "employee__department_name"
+    ],
+    "metrics": [
+      "return_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Department Name], TREATAS({\"mart_department_scorecard\"}, 'dashboard_cube'[Cube]), \"return_rate\", [Return Rate])",
+    "expected": [
+      [
+        "Customer Service",
+        0.018541486436498954
+      ],
+      [
+        "Sales",
+        0.01008871522739761
+      ],
+      [
+        "Unassigned",
+        0.007322272929496356
+      ]
+    ]
+  },
+  {
+    "id": "unsettled_by_site",
+    "cube": "mart_o2c",
+    "group_by": [
+      "site__site_name"
+    ],
+    "metrics": [
+      "unsettled_invoice_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Site Name], TREATAS({\"mart_o2c\"}, 'dashboard_cube'[Cube]), \"unsettled_invoice_rate\", [Unsettled Invoice Rate])",
+    "expected": [
+      [
+        "Dallas TX Distribution Center",
+        0.2074569789674952
+      ],
+      [
+        "Reno NV Distribution Center",
+        0.21223377909856364
+      ],
+      [
+        "Toronto ON Distribution Center",
+        0.21321525885558584
+      ]
+    ]
+  },
+  {
+    "id": "match_rate_by_supplier_top",
+    "cube": "mart_s2p",
+    "group_by": [
+      "supplier__supplier_name"
+    ],
+    "metrics": [
+      "match_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Supplier Name], TREATAS({\"mart_s2p\"}, 'dashboard_cube'[Cube]), \"match_rate\", [Match Rate])",
+    "expected": [
+      [
+        "Ashford Castings Ltd",
+        0.7058823529411765
+      ],
+      [
+        "Ashford Import Corp",
+        0.7380952380952381
+      ],
+      [
+        "Ashford Trading Group",
+        0.660377358490566
+      ],
+      [
+        "Bluepeak Import Corp",
+        0.6530612244897959
+      ],
+      [
+        "Brightwater Metals Corp",
+        0.7213114754098361
+      ],
+      [
+        "Cardinal Forge Corp",
+        0.7272727272727273
+      ],
+      [
+        "Cardinal Polymers Ltd",
+        0.8153846153846154
+      ],
+      [
+        "Dovetail Trading Co",
+        0.6
+      ],
+      [
+        "Halcyon Castings Ltd",
+        0.7555555555555555
+      ],
+      [
+        "Harborview Import Co",
+        0.7627118644067796
+      ],
+      [
+        "Harborview Metals Corp",
+        0.8360655737704918
+      ],
+      [
+        "Harborview Polymers Inc",
+        0.6666666666666666
+      ],
+      [
+        "Ironclad Polymers Corp",
+        0.647887323943662
+      ],
+      [
+        "Ironclad Trading Ltd",
+        0.5952380952380952
+      ],
+      [
+        "Ivyridge Castings Ltd",
+        0.7037037037037037
+      ],
+      [
+        "Ivyridge Forge Ltd",
+        0.7083333333333334
+      ],
+      [
+        "Juniper Trading Co",
+        0.7096774193548387
+      ],
+      [
+        "Keystone Metals Inc",
+        0.7169811320754716
+      ],
+      [
+        "Keystone Trading LLC",
+        0.8571428571428571
+      ],
+      [
+        "Lakeshore Trading LLC",
+        0.7037037037037037
+      ],
+      [
+        "Longview Polymers LLC",
+        0.7321428571428571
+      ],
+      [
+        "Meridian Castings Co",
+        0.6923076923076923
+      ],
+      [
+        "Millbrook Castings LLC",
+        0.6666666666666666
+      ],
+      [
+        "Northgate Polymers Group",
+        0.7049180327868853
+      ],
+      [
+        "Oakhurst Metals Co",
+        0.7166666666666667
+      ],
+      [
+        "Oakhurst Trading Group",
+        0.6530612244897959
+      ],
+      [
+        "Pinehurst Castings Ltd",
+        0.6551724137931034
+      ],
+      [
+        "Pinehurst Import Inc",
+        0.6296296296296297
+      ],
+      [
+        "Quarry Trading LLC",
+        0.6615384615384615
+      ],
+      [
+        "Redstone Castings Co",
+        0.8113207547169812
+      ],
+      [
+        "Redstone Castings Group",
+        0.6805555555555556
+      ],
+      [
+        "Redstone Polymers Co",
+        0.6964285714285714
+      ],
+      [
+        "Stonebridge Import Group",
+        0.6857142857142857
+      ],
+      [
+        "Stonebridge Metals LLC",
+        0.6785714285714286
+      ],
+      [
+        "Stonebridge Polymers Group",
+        0.7441860465116279
+      ],
+      [
+        "Summit Import Inc",
+        0.7380952380952381
+      ],
+      [
+        "Summit Polymers Inc",
+        0.7605633802816901
+      ],
+      [
+        "Thornton Trading Corp",
+        0.7317073170731707
+      ],
+      [
+        "Union Import Co",
+        0.6
+      ],
+      [
+        "Vanguard Castings LLC",
+        0.7714285714285715
+      ],
+      [
+        "Vertex Castings Inc",
+        0.7142857142857143
+      ],
+      [
+        "Westfield Forge Inc",
+        0.6875
+      ],
+      [
+        "Westfield Trading Inc",
+        0.675
+      ],
+      [
+        "Yorkville Forge Inc",
+        0.7021276595744681
+      ],
+      [
+        "Yorkville Polymers Corp",
+        0.6226415094339622
+      ]
+    ]
+  },
+  {
+    "id": "match_rate_by_department",
+    "cube": "mart_department_scorecard",
+    "group_by": [
+      "employee__department_name"
+    ],
+    "metrics": [
+      "match_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Department Name], TREATAS({\"mart_department_scorecard\"}, 'dashboard_cube'[Cube]), \"match_rate\", [Match Rate])",
+    "expected": [
+      [
+        "Purchasing",
+        0.7204169221336604
+      ],
+      [
+        "Unassigned",
+        0.6645468998410174
+      ]
+    ]
+  },
+  {
+    "id": "win_rate_by_department",
+    "cube": "mart_department_scorecard",
+    "group_by": [
+      "employee__department_name"
+    ],
+    "metrics": [
+      "win_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Department Name], TREATAS({\"mart_department_scorecard\"}, 'dashboard_cube'[Cube]), \"win_rate\", [Win Rate])",
+    "expected": [
+      [
+        "Sales",
+        0.6618181818181819
+      ]
+    ]
+  },
+  {
+    "id": "two_metrics_by_site",
+    "cube": "mart_o2c",
+    "group_by": [
+      "site__site_name"
+    ],
+    "metrics": [
+      "on_time_delivery_rate",
+      "return_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Site Name], TREATAS({\"mart_o2c\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery], \"return_rate\", [Return Rate])",
+    "expected": [
+      [
+        "Dallas TX Distribution Center",
+        0.7133134836239898,
+        0.006287973665243482
+      ],
+      [
+        "Reno NV Distribution Center",
+        0.6986919260261615,
+        0.01633018197491485
+      ],
+      [
+        "Toronto ON Distribution Center",
+        0.6725502130249543,
+        0.008752772486739268
+      ]
+    ]
+  },
+  {
+    "id": "cloud_cost_by_component",
+    "cube": "mart_platform_cost",
+    "group_by": [
+      "cloud_cost_line__component"
+    ],
+    "metrics": [
+      "cloud_cost"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Component], TREATAS({\"mart_platform_cost\"}, 'dashboard_cube'[Cube]), \"cloud_cost\", [Platform Cloud Cost])",
+    "expected": [
+      [
+        "downstream_apps",
+        84.8056
+      ],
+      [
+        "governance",
+        0.0
+      ],
+      [
+        "monitoring",
+        42.4416
+      ],
+      [
+        "orchestration",
+        126.3474
+      ],
+      [
+        "raw_storage",
+        23.928
+      ],
+      [
+        "security",
+        1.8345
+      ]
+    ]
+  }
+]

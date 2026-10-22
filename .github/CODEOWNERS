@@ -1,0 +1,11 @@
+# Changes to a contract or a metric need the owner's review.
+*                                   @data-platform
+/transform/models/semantic/         @data-lead
+/semantic/                          @data-lead
+/transform/seeds/process_metric.csv @data-lead
+/transform/seeds/department_metric.csv @data-lead
+/evaluation/golden_answers.yml      @data-lead
+/ingestion/                         @data-engineering
+/mdm/                               @data-engineering
+/infra/                             @platform
+/.github/                           @platform

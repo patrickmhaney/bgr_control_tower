@@ -1,0 +1,13 @@
+# Contract C1: the platform's own cloud cost, from the Azure Cost Management
+# daily export in FOCUS format. In Azure the export lands as files in the
+# storage account's `costs` container; locally the generator synthesises it.
+version: 1
+source: azure_cost
+system: Azure Cost Management export (FOCUS)
+access: Files in the costs container of the environment's storage account.
+auth: The pipeline's managed identity.
+tables:
+  focus_cost:
+    keys: [ChargePeriodStart, ResourceName]
+    strategy: api_cursor
+    cursor: ChargePeriodStart

@@ -1,0 +1,70 @@
+# CD on merge to main: build the image, deploy to dev, smoke-test, then
+# promote to test and prod behind GitHub Environment approvals.
+#
+# Needs, per environment: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+# (a federated credential - no secrets in GitHub), CT_POSTGRES_PASSWORD and
+# CT_ALERT_EMAIL as environment secrets, and for test/prod the Power BI
+# workspace and dataset ids for the parity check.
+name: cd
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}"}
+      - uses: docker/build-push-action@v6
+        with: {push: true, tags: "${{ steps.meta.outputs.image }}"}
+
+  deploy:
+    needs: image
+    strategy:
+      max-parallel: 1
+      matrix:
+        env: [dev, test, prod]
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.env }}          # test and prod require an approval
+    env:
+      CT_IMAGE: ${{ needs.image.outputs.image }}
+      CT_POSTGRES_PASSWORD: ${{ secrets.CT_POSTGRES_PASSWORD }}
+      CT_ALERT_EMAIL: ${{ secrets.CT_ALERT_EMAIL }}
+      CT_ALERT_WEBHOOK: ${{ secrets.CT_ALERT_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Infrastructure and apps
+        run: |
+          az group create -n ct-${{ matrix.env }} -l eastus2 --tags env=${{ matrix.env }} stack=oss-baseline
+          az deployment group create -g ct-${{ matrix.env }} -f infra/main.bicep \
+            -p infra/env/${{ matrix.env }}.bicepparam
+      - name: Smoke test - the data service answers
+        run: |
+          url=$(az deployment group show -g ct-${{ matrix.env }} -n main --query properties.outputs.dataServiceUrl.value -o tsv)
+          curl --fail --retry 10 --retry-delay 15 "$url/health"
+      - name: Power BI parity (test only)
+        if: matrix.env == 'test' && vars.PBI_DATASET_ID != ''
+        env:
+          PBI_WORKSPACE_ID: ${{ vars.PBI_WORKSPACE_ID }}
+          PBI_DATASET_ID: ${{ vars.PBI_DATASET_ID }}
+        run: |
+          export PBI_ACCESS_TOKEN=$(az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv)
+          pip install uv && uv sync && uv run python -m serving.powerbi_parity run

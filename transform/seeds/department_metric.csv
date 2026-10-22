@@ -1,0 +1,17 @@
+department_code,process_code,metric_name,influence
+SALES,P2C,win_rate,owns
+SALES,P2C,pipeline_value,owns
+SALES,P2C,sales_cycle_days,owns
+SALES,O2C,return_rate,contributes
+CUSTSVC,O2C,return_rate,owns
+CUSTSVC,O2C,on_time_delivery_rate,contributes
+WHSE,I2D,on_time_delivery_rate,owns
+WHSE,I2D,inventory_accuracy,owns
+WHSE,I2D,order_fill_rate,owns
+WHSE,O2C,on_time_delivery_rate,contributes
+PURCH,S2P,match_rate,owns
+PURCH,S2P,supplier_on_time_receipt_rate,owns
+PLAN,F2P,forecast_accuracy,owns
+PLAN,I2D,order_fill_rate,contributes
+FIN,O2C,dso_days_to_pay_proxy,owns
+FIN,R2P,trailing_90d_revenue,owns

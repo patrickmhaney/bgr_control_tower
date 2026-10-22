@@ -1,0 +1,789 @@
+# Contract C4: gold. Every model's columns and types are enforced - dbt fails
+# the build if a model's output drifts from this file. Owners are required
+# (python -m semantic.lint checks).
+version: 2
+models:
+- name: dim_date
+  time_spine:
+    standard_granularity_column: date_day
+    custom_granularities:
+    - name: fiscal_quarter
+      column_name: fiscal_quarter_start_date
+    - name: fiscal_year
+      column_name: fiscal_year_start_date
+  description: One row per day. The conformed calendar and MetricFlow's time spine; fiscal periods follow
+    var fiscal_year_start_month (open question 4).
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: date_day
+    data_type: date
+    granularity: day
+    tests:
+    - unique
+    - not_null
+  - name: calendar_year
+    data_type: integer
+  - name: calendar_quarter
+    data_type: integer
+  - name: calendar_month
+    data_type: integer
+  - name: calendar_month_label
+    data_type: varchar
+  - name: calendar_quarter_label
+    data_type: varchar
+  - name: month_start_date
+    data_type: date
+  - name: fiscal_year
+    data_type: integer
+  - name: fiscal_quarter
+    data_type: integer
+  - name: fiscal_year_label
+    data_type: varchar
+  - name: fiscal_quarter_label
+    data_type: varchar
+  - name: fiscal_quarter_start_date
+    data_type: date
+  - name: fiscal_year_start_date
+    data_type: date
+- name: dim_customer
+  description: One row per golden customer from MDM (contract C3). X3 wins financial attributes, HubSpot
+    firmographics (open question 7). CRM-only companies stay in, so the unmatched rate is visible.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: customer_key
+    data_type: varchar
+    description: Golden customer key from MDM. UNKNOWN when the source record did not resolve.
+    tests:
+    - unique
+    - not_null
+  - name: customer_name
+    data_type: varchar
+  - name: x3_customer_code
+    data_type: varchar
+  - name: hubspot_company_id
+    data_type: varchar
+  - name: source_scope
+    data_type: varchar
+    description: 'both, erp_only or crm_only: which systems the golden customer appears in.'
+  - name: match_rule
+    data_type: varchar
+  - name: match_score
+    data_type: double
+  - name: needs_steward_review
+    data_type: integer
+  - name: customer_group_code
+    data_type: varchar
+  - name: payment_term_code
+    data_type: varchar
+  - name: currency_code
+    data_type: varchar
+  - name: credit_limit_amount
+    data_type: decimal(18,4)
+  - name: primary_rep_code
+    data_type: varchar
+  - name: primary_rep_name
+    data_type: varchar
+  - name: industry
+    data_type: varchar
+  - name: employee_count
+    data_type: double
+  - name: domain
+    data_type: varchar
+  - name: country_code
+    data_type: varchar
+  - name: crm_company_count
+    data_type: integer
+  - name: crm_matched_company_count
+    data_type: integer
+  - name: first_seen_date
+    data_type: date
+    description: The earliest date either system knew this customer. MetricFlow's time dimension for customer
+      metrics.
+- name: dim_employee
+  description: One row per golden employee from MDM, with the department their work counts toward (decision
+    D7).
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: employee_key
+    data_type: varchar
+    description: Golden employee key of the person who performed the activity. E-UNKNOWN for system users
+      (EDI, WMS) and unresolved users.
+    tests:
+    - unique
+    - not_null
+  - name: employee_name
+    data_type: varchar
+  - name: email
+    data_type: varchar
+  - name: x3_user_code
+    data_type: varchar
+  - name: x3_rep_code
+    data_type: varchar
+  - name: hubspot_owner_id
+    data_type: varchar
+  - name: function_profile
+    data_type: varchar
+  - name: crm_team_name
+    data_type: varchar
+  - name: department_code
+    data_type: varchar
+    description: From the person's X3 function profile or HubSpot team, through seeds (decision D7).
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_department')
+          field: department_code
+  - name: department_name
+    data_type: varchar
+- name: dim_department
+  description: One row per department. Placeholders (open question Q-A).
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: department_code
+    data_type: varchar
+    description: From the person's X3 function profile or HubSpot team, through seeds (decision D7).
+    tests:
+    - unique
+    - not_null
+  - name: department_name
+    data_type: varchar
+  - name: display_order
+    data_type: integer
+- name: dim_item
+  description: 'One row per item: the X3 item master with Netstock planning attributes.'
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - unique
+    - not_null
+  - name: item_description
+    data_type: varchar
+  - name: item_category_code
+    data_type: varchar
+  - name: statistical_group
+    data_type: varchar
+  - name: stock_unit
+    data_type: varchar
+  - name: item_status
+    data_type: varchar
+  - name: is_active_item
+    data_type: integer
+  - name: base_sales_price
+    data_type: decimal(18,4)
+  - name: base_purchase_price
+    data_type: decimal(18,4)
+  - name: best_abc_class
+    data_type: varchar
+  - name: best_xyz_class
+    data_type: varchar
+  - name: planned_location_count
+    data_type: integer
+  - name: has_high_stockout_risk
+    data_type: integer
+  - name: netstock_last_sync_date
+    data_type: date
+  - name: is_planned_in_netstock
+    data_type: integer
+- name: dim_site
+  description: One row per site. X3 codes are the conformed key.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - unique
+    - not_null
+  - name: site_name
+    data_type: varchar
+  - name: city
+    data_type: varchar
+  - name: state_province
+    data_type: varchar
+  - name: country_code
+    data_type: varchar
+  - name: company_code
+    data_type: varchar
+  - name: company_name
+    data_type: varchar
+  - name: netstock_location_code
+    data_type: varchar
+- name: dim_supplier
+  description: One row per supplier, with X3's and Netstock's lead times side by side.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: supplier_code
+    data_type: varchar
+    tests:
+    - unique
+    - not_null
+  - name: supplier_name
+    data_type: varchar
+  - name: payment_term_code
+    data_type: varchar
+  - name: x3_lead_time_days
+    data_type: integer
+  - name: netstock_lead_time_days
+    data_type: integer
+- name: fct_sales_order_line
+  description: One row per sales order line. Feeds Return Rate and Order Fill Rate.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: sales_order_number
+    data_type: varchar
+    tests:
+    - not_null
+  - name: sales_order_line_number
+    data_type: bigint
+    tests:
+    - not_null
+  - name: order_date
+    data_type: date
+  - name: requested_delivery_date
+    data_type: date
+  - name: customer_key
+    data_type: varchar
+    description: Golden customer key from MDM. UNKNOWN when the source record did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_customer')
+          field: customer_key
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_item')
+          field: item_code
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_site')
+          field: site_code
+  - name: employee_key
+    data_type: varchar
+    description: Golden employee key of the person who performed the activity. E-UNKNOWN for system users
+      (EDI, WMS) and unresolved users.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_employee')
+          field: employee_key
+  - name: rep_code
+    data_type: varchar
+  - name: order_status
+    data_type: varchar
+  - name: document_currency_code
+    data_type: varchar
+  - name: ordered_qty
+    data_type: decimal(18,4)
+  - name: delivered_qty
+    data_type: decimal(18,4)
+  - name: line_net_amount_doc
+    data_type: decimal(18,4)
+  - name: line_net_amount_usd
+    data_type: decimal(18,4)
+  - name: invoiced_amount_usd
+    data_type: decimal(18,4)
+    description: Invoiced value of the line. Return Rate's denominator (open question 16).
+  - name: returned_amount_usd
+    data_type: decimal(18,4)
+    description: Credit value of returns raised against the line. Return Rate's numerator.
+  - name: is_invoiced
+    data_type: integer
+  - name: is_returned
+    data_type: integer
+  - name: is_fully_delivered
+    data_type: integer
+  - name: is_cancelled
+    data_type: integer
+  - name: order_line_count
+    data_type: integer
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - sales_order_number
+        - sales_order_line_number
+- name: fct_delivery_line
+  description: One row per delivery line - one shipment of one order line. Feeds On-Time Delivery.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: delivery_number
+    data_type: varchar
+    tests:
+    - not_null
+  - name: delivery_line_number
+    data_type: bigint
+    tests:
+    - not_null
+  - name: sales_order_number
+    data_type: varchar
+  - name: sales_order_line_number
+    data_type: bigint
+  - name: ship_date
+    data_type: date
+  - name: delivered_date
+    data_type: date
+  - name: requested_delivery_date
+    data_type: date
+  - name: customer_key
+    data_type: varchar
+    description: Golden customer key from MDM. UNKNOWN when the source record did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_customer')
+          field: customer_key
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_item')
+          field: item_code
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_site')
+          field: site_code
+  - name: employee_key
+    data_type: varchar
+    description: Golden employee key of the person who performed the activity. E-UNKNOWN for system users
+      (EDI, WMS) and unresolved users.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_employee')
+          field: employee_key
+  - name: delivered_qty
+    data_type: decimal(18,4)
+  - name: is_delivered
+    data_type: integer
+    description: 1 once proof of delivery has arrived. Undelivered lines are outside On-Time Delivery's
+      denominator.
+  - name: is_on_time
+    data_type: integer
+    description: 1 when delivered on or before the customer's requested date (open question 1).
+  - name: days_late
+    data_type: integer
+  - name: delivery_line_count
+    data_type: integer
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - delivery_number
+        - delivery_line_number
+- name: fct_invoice_line
+  description: One row per sales invoice or credit memo line. Feeds DSO, Unsettled Invoice Rate and revenue;
+    reconciles to GL 41000.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: invoice_number
+    data_type: varchar
+    tests:
+    - not_null
+  - name: invoice_line_number
+    data_type: bigint
+    tests:
+    - not_null
+  - name: invoice_date
+    data_type: date
+  - name: payment_date
+    data_type: date
+  - name: customer_key
+    data_type: varchar
+    description: Golden customer key from MDM. UNKNOWN when the source record did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_customer')
+          field: customer_key
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_item')
+          field: item_code
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_site')
+          field: site_code
+  - name: sales_order_number
+    data_type: varchar
+  - name: invoice_type_code
+    data_type: varchar
+  - name: payment_term_code
+    data_type: varchar
+  - name: document_currency_code
+    data_type: varchar
+  - name: invoiced_qty
+    data_type: decimal(18,4)
+  - name: line_net_amount_doc
+    data_type: decimal(18,4)
+  - name: line_net_amount_usd
+    data_type: decimal(18,4)
+  - name: is_settled
+    data_type: integer
+  - name: is_unsettled
+    data_type: integer
+  - name: days_to_pay_settled_only
+    data_type: integer
+    description: Days from invoice to payment; null until paid. The DSO proxy (open question 2).
+  - name: invoice_line_count
+    data_type: integer
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - invoice_number
+        - invoice_line_number
+- name: fct_supplier_invoice_line
+  description: One row per supplier invoice line with its three-way match outcome. Feeds Match Rate.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: supplier_invoice_number
+    data_type: varchar
+    tests:
+    - not_null
+  - name: supplier_invoice_line_number
+    data_type: bigint
+    tests:
+    - not_null
+  - name: invoice_date
+    data_type: date
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_item')
+          field: item_code
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_site')
+          field: site_code
+  - name: supplier_code
+    data_type: varchar
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_supplier')
+          field: supplier_code
+  - name: employee_key
+    data_type: varchar
+    description: Golden employee key of the person who performed the activity. E-UNKNOWN for system users
+      (EDI, WMS) and unresolved users.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_employee')
+          field: employee_key
+  - name: purchase_order_number
+    data_type: varchar
+  - name: receipt_number
+    data_type: varchar
+  - name: match_result
+    data_type: varchar
+    description: matched, quantity_variance, price_variance, not_received, po_line_not_found or no_purchase_order.
+  - name: invoiced_qty
+    data_type: decimal(18,4)
+  - name: received_qty
+    data_type: decimal(18,4)
+  - name: line_net_amount_usd
+    data_type: decimal(18,4)
+  - name: qty_variance_pct
+    data_type: decimal(18,4)
+  - name: price_variance_pct
+    data_type: decimal(18,4)
+  - name: is_three_way_matched
+    data_type: integer
+    description: 1 when quantity and price agree within the match tolerances (open question 14).
+  - name: is_maverick_spend
+    data_type: integer
+  - name: is_multi_delivery
+    data_type: integer
+  - name: invoice_line_count
+    data_type: integer
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - supplier_invoice_number
+        - supplier_invoice_line_number
+- name: fct_inventory_count_line
+  description: One row per counted stock position. Feeds Inventory Accuracy.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: count_session_number
+    data_type: varchar
+    tests:
+    - not_null
+  - name: count_line_number
+    data_type: bigint
+    tests:
+    - not_null
+  - name: count_date
+    data_type: date
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_item')
+          field: item_code
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_site')
+          field: site_code
+  - name: employee_key
+    data_type: varchar
+    description: Golden employee key of the person who performed the activity. E-UNKNOWN for system users
+      (EDI, WMS) and unresolved users.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_employee')
+          field: employee_key
+  - name: location_code
+    data_type: varchar
+  - name: count_type
+    data_type: varchar
+  - name: session_status
+    data_type: varchar
+  - name: system_qty
+    data_type: decimal(18,4)
+  - name: counted_qty
+    data_type: decimal(18,4)
+  - name: absolute_variance_qty
+    data_type: decimal(18,4)
+  - name: is_accurate_position
+    data_type: integer
+    description: 1 when the count matches the system quantity within var inventory_accuracy_tolerance_pct
+      (open question 15).
+  - name: count_line_count
+    data_type: integer
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - count_session_number
+        - count_line_number
+- name: fct_deal
+  description: One row per HubSpot deal as it stands today. Feeds Win Rate, Pipeline Value and Sales Cycle
+    Days.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: deal_id
+    data_type: varchar
+    tests:
+    - unique
+    - not_null
+  - name: created_date
+    data_type: date
+  - name: close_date
+    data_type: date
+    description: When the deal closed. Null while it is open.
+  - name: expected_close_date
+    data_type: date
+    description: An open deal's expected close date, which goes stale when nobody updates it.
+  - name: customer_key
+    data_type: varchar
+    description: Golden customer key from MDM. UNKNOWN when the source record did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_customer')
+          field: customer_key
+  - name: employee_key
+    data_type: varchar
+    description: Golden employee key of the person who performed the activity. E-UNKNOWN for system users
+      (EDI, WMS) and unresolved users.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_employee')
+          field: employee_key
+  - name: pipeline_id
+    data_type: varchar
+  - name: deal_stage_id
+    data_type: varchar
+  - name: deal_stage
+    data_type: varchar
+  - name: deal_type
+    data_type: varchar
+  - name: deal_amount_usd
+    data_type: decimal(18,4)
+  - name: open_amount_usd
+    data_type: decimal(18,4)
+  - name: is_open
+    data_type: integer
+  - name: is_closed
+    data_type: integer
+  - name: is_won
+    data_type: integer
+  - name: is_lost
+    data_type: integer
+  - name: days_to_win
+    data_type: integer
+  - name: deal_count
+    data_type: integer
+- name: fct_forecast_accuracy
+  description: One row per item, location and month with an actual. Feeds Forecast Accuracy.
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: period_start_date
+    data_type: date
+    tests:
+    - not_null
+  - name: item_code
+    data_type: varchar
+    description: X3 item code. UNKNOWN when it did not resolve.
+    tests:
+    - relationships:
+        arguments:
+          to: ref('dim_item')
+          field: item_code
+  - name: netstock_item_code
+    data_type: varchar
+    tests:
+    - not_null
+  - name: site_code
+    data_type: varchar
+    description: X3 site code. UNKNOWN when it did not resolve.
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_site')
+          field: site_code
+  - name: forecast_qty
+    data_type: decimal(18,4)
+  - name: actual_qty
+    data_type: decimal(18,4)
+  - name: absolute_error_qty
+    data_type: decimal(18,4)
+  - name: forecast_line_count
+    data_type: integer
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - period_start_date
+        - netstock_item_code
+        - site_code
+- name: fct_cloud_cost
+  description: 'One row per Azure resource per day: the platform''s own running cost by component.'
+  config:
+    contract:
+      enforced: true
+    meta:
+      owner: data-platform
+  columns:
+  - name: charge_date
+    data_type: date
+    tests:
+    - not_null
+  - name: resource_name
+    data_type: varchar
+    tests:
+    - not_null
+  - name: resource_type
+    data_type: varchar
+  - name: component
+    data_type: varchar
+  - name: environment
+    data_type: varchar
+  - name: cost_usd
+    data_type: decimal(18,4)
+  tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - charge_date
+        - resource_name

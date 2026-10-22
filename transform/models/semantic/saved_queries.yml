@@ -1,0 +1,85 @@
+# The semantic layer, part 3: saved queries - the cubes.
+#
+# Each saved query is a fixed set of metrics at a fixed grain. The
+# materializer (python -m serving.materialize) compiles each one through
+# MetricFlow into a table in the warehouse's `marts` schema, adding the
+# numerator and denominator of every ratio so the rows can be rolled up
+# (semantic/rollup.py). It then stacks all of them into one table,
+# marts.dashboard_cube, with a `_cube` column naming the saved query: the one
+# table Power BI imports. The reverse load copies every mart to the serving
+# database for apps.
+#
+# A saved query is the grain a dashboard visual can rely on. A sum or a ratio
+# rolls up from it to any coarser grain; a fixed metric (a distinct count, a
+# derived or cumulative metric) shows only at exactly this grain. So a page
+# that needs a fixed metric both by site and company-wide reads two cubes.
+# A saved query's dimensions must be valid for every metric in it.
+
+saved_queries:
+  - name: mart_company_monthly
+    description: Every business KPI company-wide by month - headline cards and trend lines.
+    query_params:
+      metrics: [on_time_delivery_rate, order_fill_rate, return_rate, dso_days_to_pay_proxy,
+                unsettled_invoice_rate, match_rate, inventory_accuracy, forecast_accuracy,
+                win_rate, pipeline_value, sales_cycle_days, revenue, customer_match_rate]
+      group_by: ["TimeDimension('metric_time', 'month')"]
+
+  - name: mart_o2c
+    description: O2C process cube by site and month.
+    query_params:
+      metrics: [on_time_delivery_rate, return_rate, dso_days_to_pay_proxy, unsettled_invoice_rate,
+                order_fill_rate]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')"]
+
+  - name: mart_i2d
+    description: I2D process cube by site and month.
+    query_params:
+      metrics: [inventory_accuracy, on_time_delivery_rate, order_fill_rate]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')"]
+
+  - name: mart_s2p
+    description: S2P process cube by site, supplier and month.
+    query_params:
+      metrics: [match_rate]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')",
+                 "Dimension('supplier__supplier_name')"]
+
+  - name: mart_p2c
+    description: P2C process cube by department and month.
+    query_params:
+      metrics: [win_rate, pipeline_value, sales_cycle_days]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('employee__department_name')"]
+
+  - name: mart_f2p
+    description: F2P process cube by site, item category and month.
+    query_params:
+      metrics: [forecast_accuracy]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')",
+                 "Dimension('item__item_category_code')"]
+
+  - name: mart_r2p
+    description: R2P revenue trend by month, with the trailing 90-day window.
+    query_params:
+      metrics: [revenue, trailing_90d_revenue]
+      group_by: ["TimeDimension('metric_time', 'month')"]
+
+  - name: mart_department_scorecard
+    description: >
+      Every department-attributable metric by department and month - the
+      department side of the process x department matrix.
+    query_params:
+      metrics: [on_time_delivery_rate, return_rate, order_fill_rate, match_rate,
+                inventory_accuracy, win_rate]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('employee__department_name')"]
+
+  - name: mart_customer_scorecard
+    description: Customer-level service and payment metrics by month, for account reviews and apps.
+    query_params:
+      metrics: [on_time_delivery_rate, return_rate, dso_days_to_pay_proxy, unsettled_invoice_rate, revenue]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('customer__customer_name')"]
+
+  - name: mart_platform_cost
+    description: The platform's own cloud cost by component and month.
+    query_params:
+      metrics: [cloud_cost]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('cloud_cost_line__component')"]

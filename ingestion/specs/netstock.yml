@@ -1,0 +1,21 @@
+# Contract C1: what is extracted from Netstock, and how.
+#
+# Netstock regenerates its planning dataset wholesale on every sync and stamps
+# every row with the same last_sync_at. There is no per-row change, so an
+# incremental read would be wrong: a row that drops out of the recomputed set
+# would persist forever. Each extract is a full snapshot, skipped when
+# last_sync_at has not moved.
+version: 1
+source: netstock
+system: Netstock (demand planning)
+access: REST API. Unconfirmed - vendor discovery required.
+auth: Assumed API key.
+strategy: snapshot
+tables:
+  item_location:                {keys: [item_code, location_code], note: "35 item-locations reference items not in the ERP. Land them."}
+  forecast:                     {keys: [item_code, location_code, period_start]}
+  forecast_accuracy:            {keys: [item_code, location_code, period_start]}
+  replenishment_recommendation: {keys: [recommendation_id]}
+  supplier:                     {keys: [supplier_code]}
+pitfalls:
+  - The snapshot lags the ERP by construction. last_sync_at is carried through to gold so freshness is visible.

@@ -1,0 +1,114 @@
+# The component registry: what each component must do, its contract, the
+# open-source baseline, and the candidates every stack column offers.
+# Columns: existing = the client's current stack; mix_1 = Boomi + Microsoft
+# Fabric; mix_2 = Snowflake + Fivetran. Nothing but the baseline is built.
+# swap_cost: adapter (days) | port (weeks) | rebuild (logic re-expressed).
+
+version: 1
+
+components:
+  cloud_infrastructure:
+    contract: infra/ modules, tags env/component/stack/owner
+    baseline: Azure, Bicep
+    candidates: {existing: Azure, mix_1: Azure, mix_2: Azure}
+    swap_cost: none
+
+  master_data_management:
+    requirements: [conformed customer and employee, operational and analytical MDM]
+    contract: C3 (mdm/contract.yml)
+    baseline: Splink, with a rules matcher for comparison
+    candidates: {existing: Boomi Data Hub, mix_1: Boomi Data Hub, mix_2: Profisee, other: []}
+    swap_cost: adapter
+    test: tests/conformance/test_mdm_contract.py
+    note: A product runs outside the pipeline and owns operational sync back to the sources.
+
+  orchestration:
+    contract: step commands (python -m ctl ...); quality checks in dbt
+    baseline: Dagster OSS
+    candidates: {existing: Azure Data Factory, mix_1: Boomi DI Logic Flow,
+                 mix_2: Fivetran schedules + Snowflake Tasks, other: [Dagster+]}
+    swap_cost: adapter
+
+  ingestion:
+    requirements: [incremental refresh, deletes, change history, original column names]
+    contract: C1, C2
+    baseline: dlt
+    candidates: {existing: Azure Data Factory, mix_1: Boomi DI source-to-target flows,
+                 mix_2: Fivetran, other: [Airbyte]}
+    swap_cost: adapter (one bronze adapter macro per tool)
+    test: tests/conformance/test_ingestion_convergence.py
+    note: Netstock is likely a custom connector in every tool.
+
+  change_data_capture:
+    contract: C2 (_op, _change_seq)
+    baseline: dlt over SQL Server CDC change tables
+    candidates: {existing: Azure Data Factory, mix_1: Boomi DI SQL Server CDC,
+                 mix_2: Fivetran Change Tracking or CDC, other: [dltHub Change Tracking connector]}
+    swap_cost: adapter
+    note: Every option needs CDC or Change Tracking enabled on X3 (open question Q-C).
+
+  raw_storage:
+    contract: C2 (append-only Delta changelog)
+    baseline: ADLS Gen2
+    candidates: {existing: Azure SQL Managed Instance, mix_1: OneLake Lakehouse,
+                 mix_2: Snowflake or ADLS}
+    swap_cost: adapter for OneLake and ADLS; port for SQL MI or Snowflake tables
+
+  transformation:
+    contract: C4; portable SQL (checks/portability.py)
+    baseline: dbt Core
+    candidates: {existing: ADF with pure SQL, mix_1: Microsoft Fabric,
+                 mix_2: Snowflake SQL or dbt Projects on Snowflake}
+    swap_cost: port if it stays dbt; rebuild if it does not
+
+  warehouse_storage:
+    contract: C4
+    baseline: DuckDB file
+    candidates: {existing: Azure SQL Managed Instance, mix_1: Fabric Warehouse,
+                 mix_2: Snowflake, other: [Databricks, MotherDuck]}
+    swap_cost: port
+    note: On SQL MI or Fabric, MetricFlow follows through the T-SQL path.
+
+  compute:
+    contract: C4
+    baseline: DuckDB
+    candidates: {existing: Azure SQL Managed Instance, mix_1: Fabric capacity, mix_2: Snowflake}
+    swap_cost: port
+
+  semantic_modeling:
+    requirements: [any valid dimension combination and grain, single source of truth for five routes]
+    contract: C5, C6
+    baseline: MetricFlow YAML
+    candidates: {existing: Power BI semantic models,
+                 mix_1: Boomi Meta Hub glossary + Power BI semantic models,
+                 mix_2: Snowflake Semantic Views,
+                 other: [dbt Cloud Semantic Layer, Cube, AtScale, Boring Semantic Layer]}
+    swap_cost: rebuild of definitions plus a semantic_service backend; consumers unchanged
+    test: evaluation/golden_answers.yml
+
+  visualization:
+    contract: C7 - marts.dashboard_cube, one table of saved-query results; LoadMart is the model's only source reference
+    baseline: Power BI
+    candidates: {existing: Power BI, mix_1: Power BI, mix_2: Power BI}
+    swap_cost: adapter (the partition source); any BI tool that imports a table and does SUM and divide
+    test: python -m serving.powerbi_parity local | run
+
+  distribution:
+    baseline: Power BI apps and subscriptions; the data service
+    candidates: {existing: Power BI, mix_1: Power BI, mix_2: Power BI}
+    swap_cost: none
+
+  downstream_apps:
+    contract: C6, C7
+    baseline: data service (REST + MCP) and Postgres via dlt reverse load
+    candidates: {existing: none, mix_1: Boomi Integration, mix_2: Snowflake Postgres}
+    swap_cost: adapter
+    test: tests/conformance/test_data_service.py
+
+  applied_ai:
+    contract: C6 (MCP tools)
+    baseline: Claude Code and the MCP server; embedded example on the Claude API
+    candidates: {existing: none, mix_1: Boomi Agentstudio and suite,
+                 mix_2: Snowflake Cortex and/or Claude Code,
+                 other: [Fabric data agents or Copilot, Databricks Genie]}
+    swap_cost: adapter for any MCP-capable agent; Cortex Analyst follows the semantic swap

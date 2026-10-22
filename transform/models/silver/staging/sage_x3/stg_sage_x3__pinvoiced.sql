@@ -1,0 +1,25 @@
+-- Cleaning only: no business logic.
+-- Grain: One row per supplier invoice line.
+with source as (
+    select * from {{ ref('bronze_sage_x3__pinvoiced') }}
+),
+
+cleaned as (
+
+    select
+        {{ clean_str('NUM_0') }} as supplier_invoice_number,
+        cast(PIDLIN_0 as bigint) as supplier_invoice_line_number,
+        {{ clean_str('POHNUM_0') }} as purchase_order_number,
+        cast(POPLIN_0 as bigint) as purchase_order_line_number,
+        {{ clean_str('PTHNUM_0') }} as receipt_number,
+        {{ clean_str('ITMREF_0') }} as item_code,
+        cast(QTY_0 as decimal(18, 4)) as invoiced_qty,
+        cast(NETPRI_0 as decimal(18, 4)) as invoiced_unit_price,
+        cast(AMTNOTLIN_0 as decimal(18, 4)) as line_net_amount,
+        {{ clean_str('PIHFCY_0') }} as site_code
+
+    from source
+
+)
+
+select * from cleaned

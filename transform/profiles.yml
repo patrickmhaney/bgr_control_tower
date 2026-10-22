@@ -1,0 +1,23 @@
+# Locations come from config/<env>.yaml through core/settings.py, which sets the
+# CT_* variables below. Run dbt through `python -m ctl dbt ...` (or `make`) and
+# they are always set; the defaults are the local layout.
+control_tower:
+  target: "{{ env_var('CT_DBT_TARGET', 'local') }}"
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('CT_WAREHOUSE_PATH', '../.data/warehouse.duckdb') }}"
+      threads: 8
+      extensions: [delta]
+
+    # Azure: bronze is read straight from ADLS with the container's managed
+    # identity, and the warehouse file is built on local disk then published.
+    azure:
+      type: duckdb
+      path: "{{ env_var('CT_WAREHOUSE_PATH', '/tmp/ct/warehouse.duckdb') }}"
+      threads: 4
+      extensions: [delta, azure]
+      secrets:
+        - type: azure
+          provider: credential_chain
+          account_name: "{{ env_var('CT_STORAGE_ACCOUNT', '') }}"

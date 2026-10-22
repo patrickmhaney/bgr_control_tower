@@ -1,0 +1,12 @@
+# A laptop. Everything lives under .data/, which is gitignored and disposable.
+env: local
+data_dir: .data
+mock_db: .data/mock_sources.duckdb
+bronze_root: .data/bronze
+warehouse_path: .data/warehouse.duckdb
+exports_root: .data/exports
+serving_destination: duckdb
+serving_url: .data/serving.duckdb
+mdm_provider: splink
+source_mode: mock
+dbt_target: local

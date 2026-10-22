@@ -1,0 +1,54 @@
+name: control_tower
+version: 2.0.0
+config-version: 2
+profile: control_tower
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Documented assumptions. Each is an open question in docs/open_questions.md;
+  # they are vars so reversing a business decision is a config change.
+
+  # Q4 Fiscal calendar. 1 means fiscal = calendar until Finance confirms.
+  fiscal_year_start_month: 1
+  # Q10 Reporting currency. Rates are derived from the X3 GL (AMTLOC/AMTCUR).
+  reporting_currency: USD
+  # X3's sentinel date meaning "no date".
+  x3_null_date: '1753-01-01'
+  # Q14 Three-way match tolerance, percent. Zero means exact.
+  match_qty_tolerance_pct: 0.0
+  match_price_tolerance_pct: 2.0
+  # Q15 Inventory accuracy tolerance, percent. Zero means exact.
+  inventory_accuracy_tolerance_pct: 0.0
+  # Relationship tests on known-dirty joins warn instead of failing the build.
+  dirty_join_severity: warn
+
+models:
+  control_tower:
+    +materialized: view
+    bronze:
+      +schema: bronze
+      +materialized: table
+      +tags: ["bronze"]
+    silver:
+      +schema: silver
+      staging:
+        +tags: ["staging"]
+      intermediate:
+        +tags: ["intermediate"]
+      conformed:
+        +materialized: table
+        +tags: ["conformed"]
+    gold:
+      +schema: gold
+      +materialized: table
+      +tags: ["gold"]
+
+seeds:
+  control_tower:
+    +schema: seed

@@ -1,0 +1,659 @@
+# Golden answers: the acceptance test every semantic engine and BI tool must pass.
+#
+# Each query names metrics and dimensions the way the semantic layer does,
+# carries an independent reference query written by hand against gold, and a
+# frozen expected answer. `python -m evaluation.golden check` runs each
+# query through the semantic service and through its reference SQL and
+# requires all three to agree. A candidate tool (Cube, a Power BI model, a
+# Fabric semantic model, Snowflake semantic views) passes when it reproduces
+# `expected` from the same synthetic sources.
+#
+# Expected values hold for the sources as of `as_of` - the state after
+# `make mock` and a first `make run`. Queries marked mdm_sensitive depend on
+# which MDM provider ran and keep an answer per provider.
+#
+# Freeze new answers with `python -m evaluation.golden freeze` and review the
+# diff: a changed number in this file is a changed number on a dashboard.
+
+version: 1
+as_of: '2026-09-05'
+tolerance: 1.0e-06
+queries:
+- id: on_time_delivery_total
+  metrics:
+  - on_time_delivery_rate
+  reference_sql: select sum(is_on_time) * 1.0 / sum(is_delivered) from gold.fct_delivery_line
+  expected:
+  - - ''
+    - 0.7010854439187308
+- id: order_fill_rate_total
+  metrics:
+  - order_fill_rate
+  reference_sql: 'select sum(delivered_qty) * 1.0 / sum(ordered_qty) from gold.fct_sales_order_line where
+    is_cancelled = 0
+
+    '
+  expected:
+  - - ''
+    - 0.9444698583725325
+- id: return_rate_total
+  metrics:
+  - return_rate
+  reference_sql: 'select sum(returned_amount_usd) * 1.0 / sum(invoiced_amount_usd) from gold.fct_sales_order_line
+
+    '
+  expected:
+  - - ''
+    - 0.01105092893581606
+- id: dso_total
+  metrics:
+  - dso_days_to_pay_proxy
+  reference_sql: 'select sum(days_to_pay_settled_only) * 1.0 / sum(is_settled) from gold.fct_invoice_line
+
+    '
+  expected:
+  - - ''
+    - 47.006534239414535
+- id: unsettled_invoice_rate_total
+  metrics:
+  - unsettled_invoice_rate
+  reference_sql: select sum(is_unsettled) * 1.0 / sum(invoice_line_count) from gold.fct_invoice_line
+  expected:
+  - - ''
+    - 0.21031991744066048
+- id: match_rate_total
+  metrics:
+  - match_rate
+  reference_sql: 'select sum(is_three_way_matched) * 1.0 / sum(invoice_line_count) from gold.fct_supplier_invoice_line
+
+    '
+  expected:
+  - - ''
+    - 0.7048672566371681
+- id: inventory_accuracy_total
+  metrics:
+  - inventory_accuracy
+  reference_sql: 'select sum(is_accurate_position) * 1.0 / sum(count_line_count) from gold.fct_inventory_count_line
+
+    '
+  expected:
+  - - ''
+    - 0.9323414806942969
+- id: forecast_accuracy_total
+  metrics:
+  - forecast_accuracy
+  reference_sql: 'select 1 - sum(absolute_error_qty) * 1.0 / sum(actual_qty) from gold.fct_forecast_accuracy
+
+    '
+  expected:
+  - - ''
+    - 0.710154755278531
+- id: win_rate_total
+  metrics:
+  - win_rate
+  reference_sql: select sum(is_won) * 1.0 / sum(is_closed) from gold.fct_deal
+  expected:
+  - - ''
+    - 0.6618181818181819
+- id: pipeline_value_total
+  metrics:
+  - pipeline_value
+  reference_sql: select sum(open_amount_usd) from gold.fct_deal
+  expected:
+  - - ''
+    - 10194966.36
+- id: sales_cycle_days_total
+  metrics:
+  - sales_cycle_days
+  reference_sql: select sum(days_to_win) * 1.0 / sum(is_won) from gold.fct_deal
+  expected:
+  - - ''
+    - 116.41758241758242
+- id: revenue_total
+  metrics:
+  - revenue
+  reference_sql: select sum(line_net_amount_usd) from gold.fct_invoice_line
+  expected:
+  - - ''
+    - 198795170.1246
+- id: customer_match_rate_total
+  metrics:
+  - customer_match_rate
+  mdm_sensitive: true
+  reference_sql: 'select sum(crm_matched_company_count) * 1.0 / sum(crm_company_count) from gold.dim_customer
+
+    '
+  expected_by_provider:
+    splink:
+    - - ''
+      - 0.8225806451612904
+- id: on_time_delivery_by_site
+  metrics:
+  - on_time_delivery_rate
+  group_by:
+  - site__site_name
+  reference_sql: 'select s.site_name, sum(f.is_on_time) * 1.0 / sum(f.is_delivered) from gold.fct_delivery_line
+    f join gold.dim_site s on s.site_code = f.site_code group by 1
+
+    '
+  expected:
+  - - Dallas TX Distribution Center
+    - 0.7133134836239898
+  - - Reno NV Distribution Center
+    - 0.6986919260261615
+  - - Toronto ON Distribution Center
+    - 0.6725502130249543
+- id: on_time_delivery_by_department
+  metrics:
+  - on_time_delivery_rate
+  group_by:
+  - employee__department_name
+  reference_sql: 'select e.department_name, sum(f.is_on_time) * 1.0 / nullif(sum(f.is_delivered), 0) from
+    gold.fct_delivery_line f join gold.dim_employee e on e.employee_key = f.employee_key group by 1
+
+    '
+  expected:
+  - - Unassigned
+    - 0.6850220264317181
+  - - Warehouse
+    - 0.7043400647104764
+- id: on_time_delivery_by_quarter
+  metrics:
+  - on_time_delivery_rate
+  group_by:
+  - metric_time__quarter
+  reference_sql: 'select date_trunc(''quarter'', ship_date), sum(is_on_time) * 1.0 / nullif(sum(is_delivered),
+    0) from gold.fct_delivery_line group by 1
+
+    '
+  expected:
+  - - '2024-07-01'
+    - 0.7091743119266055
+  - - '2024-10-01'
+    - 0.6889714993804213
+  - - '2025-01-01'
+    - 0.6831683168316832
+  - - '2025-04-01'
+    - 0.6927044952100221
+  - - '2025-07-01'
+    - 0.7147016011644832
+  - - '2025-10-01'
+    - 0.7157622739018088
+  - - '2026-01-01'
+    - 0.6778656126482213
+  - - '2026-04-01'
+    - 0.709572742022715
+  - - '2026-07-01'
+    - 0.7016393442622951
+- id: return_rate_by_site_and_year
+  metrics:
+  - return_rate
+  group_by:
+  - site__site_name
+  - metric_time__year
+  reference_sql: "select s.site_name, date_trunc('year', f.order_date),\n       sum(f.returned_amount_usd)\
+    \ * 1.0 / nullif(sum(f.invoiced_amount_usd), 0)\nfrom gold.fct_sales_order_line f join gold.dim_site\
+    \ s on s.site_code = f.site_code group by 1, 2\n"
+  expected:
+  - - Dallas TX Distribution Center|2024-01-01
+    - 0.0089919256389337
+  - - Dallas TX Distribution Center|2025-01-01
+    - 0.004982620801114771
+  - - Dallas TX Distribution Center|2026-01-01
+    - 0.006536136112796018
+  - - Reno NV Distribution Center|2024-01-01
+    - 0.009726980539831986
+  - - Reno NV Distribution Center|2025-01-01
+    - 0.015210988317332889
+  - - Reno NV Distribution Center|2026-01-01
+    - 0.020640613332602552
+  - - Toronto ON Distribution Center|2024-01-01
+    - 0.0002771849494715541
+  - - Toronto ON Distribution Center|2025-01-01
+    - 0.0036841166633303233
+  - - Toronto ON Distribution Center|2026-01-01
+    - 0.02127857247587672
+- id: return_rate_by_department
+  metrics:
+  - return_rate
+  group_by:
+  - employee__department_name
+  reference_sql: 'select e.department_name, sum(f.returned_amount_usd) * 1.0 / nullif(sum(f.invoiced_amount_usd),
+    0) from gold.fct_sales_order_line f join gold.dim_employee e on e.employee_key = f.employee_key group
+    by 1
+
+    '
+  expected:
+  - - Customer Service
+    - 0.018541486436498954
+  - - Sales
+    - 0.01008871522739761
+  - - Unassigned
+    - 0.007322272929496356
+- id: dso_by_payment_term
+  metrics:
+  - dso_days_to_pay_proxy
+  group_by:
+  - invoice_line__payment_term_code
+  reference_sql: 'select payment_term_code, sum(days_to_pay_settled_only) * 1.0 / nullif(sum(is_settled),
+    0) from gold.fct_invoice_line group by 1
+
+    '
+  expected:
+  - - COD
+    - 49.839260312944525
+  - - NET30
+    - 46.879941434846266
+  - - NET45
+    - 46.096696212731665
+  - - NET60
+    - 46.793167701863354
+- id: dso_by_customer_industry
+  metrics:
+  - dso_days_to_pay_proxy
+  group_by:
+  - customer__industry
+  mdm_sensitive: true
+  reference_sql: 'select c.industry, sum(f.days_to_pay_settled_only) * 1.0 / nullif(sum(f.is_settled),
+    0) from gold.fct_invoice_line f join gold.dim_customer c on c.customer_key = f.customer_key group
+    by 1
+
+    '
+  expected_by_provider:
+    splink:
+    - - ''
+      - 47.51438689685702
+    - - AUTOMOTIVE
+      - 44.616724738675956
+    - - CONSTRUCTION
+      - 46.54347826086956
+    - - INDUSTRIAL_AUTOMATION
+      - 49.22466960352423
+    - - MACHINERY
+      - 48.703839122486286
+    - - MINING_METALS
+      - 47.830708661417326
+    - - OIL_ENERGY
+      - 45.51186790505676
+- id: revenue_by_month_2026
+  metrics:
+  - revenue
+  group_by:
+  - metric_time__month
+  where:
+  - '{{ TimeDimension(''metric_time'', ''day'') }} >= ''2026-01-01'''
+  reference_sql: 'select date_trunc(''month'', invoice_date), sum(line_net_amount_usd) from gold.fct_invoice_line
+    where invoice_date >= date ''2026-01-01'' group by 1
+
+    '
+  expected:
+  - - '2026-01-01'
+    - 4747010.6188
+  - - '2026-02-01'
+    - 5784648.2552
+  - - '2026-03-01'
+    - 7130509.9814
+  - - '2026-04-01'
+    - 10729257.7588
+  - - '2026-05-01'
+    - 12201963.7058
+  - - '2026-06-01'
+    - 12709261.2272
+  - - '2026-07-01'
+    - 11677180.5652
+  - - '2026-08-01'
+    - 9887226.8548
+  - - '2026-09-01'
+    - 1208192.911
+- id: revenue_by_fiscal_quarter
+  metrics:
+  - revenue
+  group_by:
+  - metric_time__fiscal_quarter
+  reference_sql: 'select d.fiscal_quarter_start_date, sum(f.line_net_amount_usd) from gold.fct_invoice_line
+    f join gold.dim_date d on d.date_day = f.invoice_date group by 1
+
+    '
+  expected:
+  - - '2024-07-01'
+    - 18018373.5998
+  - - '2024-10-01'
+    - 13888232.2044
+  - - '2025-01-01'
+    - 18992815.925
+  - - '2025-04-01'
+    - 23806644.1772
+  - - '2025-07-01'
+    - 25860418.0242
+  - - '2025-10-01'
+    - 22153434.3158
+  - - '2026-01-01'
+    - 17662168.8554
+  - - '2026-04-01'
+    - 35640482.6918
+  - - '2026-07-01'
+    - 22772600.331
+- id: unsettled_by_site
+  metrics:
+  - unsettled_invoice_rate
+  group_by:
+  - site__site_name
+  reference_sql: 'select s.site_name, sum(f.is_unsettled) * 1.0 / sum(f.invoice_line_count) from gold.fct_invoice_line
+    f join gold.dim_site s on s.site_code = f.site_code group by 1
+
+    '
+  expected:
+  - - Dallas TX Distribution Center
+    - 0.2074569789674952
+  - - Reno NV Distribution Center
+    - 0.21223377909856364
+  - - Toronto ON Distribution Center
+    - 0.21321525885558584
+- id: match_rate_by_supplier_top
+  metrics:
+  - match_rate
+  group_by:
+  - supplier__supplier_name
+  reference_sql: 'select s.supplier_name, sum(f.is_three_way_matched) * 1.0 / sum(f.invoice_line_count)
+    from gold.fct_supplier_invoice_line f join gold.dim_supplier s on s.supplier_code = f.supplier_code
+    group by 1
+
+    '
+  expected:
+  - - Ashford Castings Ltd
+    - 0.7058823529411765
+  - - Ashford Import Corp
+    - 0.7380952380952381
+  - - Ashford Trading Group
+    - 0.660377358490566
+  - - Bluepeak Import Corp
+    - 0.6530612244897959
+  - - Brightwater Metals Corp
+    - 0.7213114754098361
+  - - Cardinal Forge Corp
+    - 0.7272727272727273
+  - - Cardinal Polymers Ltd
+    - 0.8153846153846154
+  - - Dovetail Trading Co
+    - 0.6
+  - - Halcyon Castings Ltd
+    - 0.7555555555555555
+  - - Harborview Import Co
+    - 0.7627118644067796
+  - - Harborview Metals Corp
+    - 0.8360655737704918
+  - - Harborview Polymers Inc
+    - 0.6666666666666666
+  - - Ironclad Polymers Corp
+    - 0.647887323943662
+  - - Ironclad Trading Ltd
+    - 0.5952380952380952
+  - - Ivyridge Castings Ltd
+    - 0.7037037037037037
+  - - Ivyridge Forge Ltd
+    - 0.7083333333333334
+  - - Juniper Trading Co
+    - 0.7096774193548387
+  - - Keystone Metals Inc
+    - 0.7169811320754716
+  - - Keystone Trading LLC
+    - 0.8571428571428571
+  - - Lakeshore Trading LLC
+    - 0.7037037037037037
+  - - Longview Polymers LLC
+    - 0.7321428571428571
+  - - Meridian Castings Co
+    - 0.6923076923076923
+  - - Millbrook Castings LLC
+    - 0.6666666666666666
+  - - Northgate Polymers Group
+    - 0.7049180327868853
+  - - Oakhurst Metals Co
+    - 0.7166666666666667
+  - - Oakhurst Trading Group
+    - 0.6530612244897959
+  - - Pinehurst Castings Ltd
+    - 0.6551724137931034
+  - - Pinehurst Import Inc
+    - 0.6296296296296297
+  - - Quarry Trading LLC
+    - 0.6615384615384615
+  - - Redstone Castings Co
+    - 0.8113207547169812
+  - - Redstone Castings Group
+    - 0.6805555555555556
+  - - Redstone Polymers Co
+    - 0.6964285714285714
+  - - Stonebridge Import Group
+    - 0.6857142857142857
+  - - Stonebridge Metals LLC
+    - 0.6785714285714286
+  - - Stonebridge Polymers Group
+    - 0.7441860465116279
+  - - Summit Import Inc
+    - 0.7380952380952381
+  - - Summit Polymers Inc
+    - 0.7605633802816901
+  - - Thornton Trading Corp
+    - 0.7317073170731707
+  - - Union Import Co
+    - 0.6
+  - - Vanguard Castings LLC
+    - 0.7714285714285715
+  - - Vertex Castings Inc
+    - 0.7142857142857143
+  - - Westfield Forge Inc
+    - 0.6875
+  - - Westfield Trading Inc
+    - 0.675
+  - - Yorkville Forge Inc
+    - 0.7021276595744681
+  - - Yorkville Polymers Corp
+    - 0.6226415094339622
+- id: match_rate_by_department
+  metrics:
+  - match_rate
+  group_by:
+  - employee__department_name
+  reference_sql: 'select e.department_name, sum(f.is_three_way_matched) * 1.0 / sum(f.invoice_line_count)
+    from gold.fct_supplier_invoice_line f join gold.dim_employee e on e.employee_key = f.employee_key
+    group by 1
+
+    '
+  expected:
+  - - Purchasing
+    - 0.7204169221336604
+  - - Unassigned
+    - 0.6645468998410174
+- id: inventory_accuracy_by_site_and_month_2026
+  metrics:
+  - inventory_accuracy
+  group_by:
+  - site__site_name
+  - metric_time__month
+  where:
+  - '{{ TimeDimension(''metric_time'', ''day'') }} >= ''2026-01-01'''
+  reference_sql: "select s.site_name, date_trunc('month', f.count_date),\n       sum(f.is_accurate_position)\
+    \ * 1.0 / sum(f.count_line_count)\nfrom gold.fct_inventory_count_line f join gold.dim_site s on s.site_code\
+    \ = f.site_code where f.count_date >= date '2026-01-01' group by 1, 2\n"
+  expected:
+  - - Dallas TX Distribution Center|2026-01-01
+    - 0.8809523809523809
+  - - Dallas TX Distribution Center|2026-02-01
+    - 0.9032258064516129
+  - - Dallas TX Distribution Center|2026-03-01
+    - 0.8928571428571429
+  - - Dallas TX Distribution Center|2026-04-01
+    - 0.9310344827586207
+  - - Dallas TX Distribution Center|2026-05-01
+    - 1.0
+  - - Dallas TX Distribution Center|2026-06-01
+    - 0.9642857142857143
+  - - Dallas TX Distribution Center|2026-07-01
+    - 0.8611111111111112
+  - - Dallas TX Distribution Center|2026-08-01
+    - 0.9473684210526315
+  - - Reno NV Distribution Center|2026-01-01
+    - 0.9655172413793104
+  - - Reno NV Distribution Center|2026-02-01
+    - 0.926829268292683
+  - - Reno NV Distribution Center|2026-03-01
+    - 0.95
+  - - Reno NV Distribution Center|2026-04-01
+    - 0.8666666666666667
+  - - Reno NV Distribution Center|2026-05-01
+    - 0.9487179487179487
+  - - Reno NV Distribution Center|2026-06-01
+    - 0.9722222222222222
+  - - Reno NV Distribution Center|2026-07-01
+    - 0.8918918918918919
+  - - Reno NV Distribution Center|2026-08-01
+    - 0.9428571428571428
+  - - Toronto ON Distribution Center|2026-01-01
+    - 0.9111111111111111
+  - - Toronto ON Distribution Center|2026-02-01
+    - 1.0
+  - - Toronto ON Distribution Center|2026-03-01
+    - 0.96875
+  - - Toronto ON Distribution Center|2026-04-01
+    - 0.9512195121951219
+  - - Toronto ON Distribution Center|2026-05-01
+    - 0.9772727272727273
+  - - Toronto ON Distribution Center|2026-06-01
+    - 0.9655172413793104
+  - - Toronto ON Distribution Center|2026-07-01
+    - 0.9444444444444444
+  - - Toronto ON Distribution Center|2026-08-01
+    - 1.0
+- id: forecast_accuracy_by_item_category
+  metrics:
+  - forecast_accuracy
+  group_by:
+  - item__item_category_code
+  reference_sql: 'select i.item_category_code, 1 - sum(f.absolute_error_qty) * 1.0 / sum(f.actual_qty)
+    from gold.fct_forecast_accuracy f join gold.dim_item i on i.item_code = f.item_code group by 1
+
+    '
+  expected:
+  - - ''
+    - 0.7144081822227579
+  - - CMP
+    - 0.7121732836891808
+  - - FG
+    - 0.7115223807633456
+  - - PKG
+    - 0.7077948719915472
+  - - RM
+    - 0.7053140860039657
+- id: win_rate_by_department
+  metrics:
+  - win_rate
+  group_by:
+  - employee__department_name
+  reference_sql: 'select e.department_name, sum(f.is_won) * 1.0 / nullif(sum(f.is_closed), 0) from gold.fct_deal
+    f join gold.dim_employee e on e.employee_key = f.employee_key group by 1
+
+    '
+  expected:
+  - - Sales
+    - 0.6618181818181819
+- id: pipeline_by_deal_stage
+  metrics:
+  - pipeline_value
+  group_by:
+  - deal__deal_stage
+  reference_sql: select deal_stage, sum(open_amount_usd) from gold.fct_deal group by 1
+  expected:
+  - - Closed Lost
+    - 0.0
+  - - Closed Won
+    - 0.0
+  - - Contract Sent
+    - 1402229.19
+  - - Discovery
+    - 2328541.6
+  - - Negotiation
+    - 1614167.95
+  - - Proposal Sent
+    - 2250239.48
+  - - Qualified
+    - 2599788.14
+- id: two_metrics_by_site
+  metrics:
+  - on_time_delivery_rate
+  - return_rate
+  group_by:
+  - site__site_name
+  reference_sql: "with otd as (\n  select s.site_name, sum(f.is_on_time) * 1.0 / sum(f.is_delivered) as\
+    \ v\n  from gold.fct_delivery_line f join gold.dim_site s on s.site_code = f.site_code group by 1),\n\
+    rr as (\n  select s.site_name, sum(f.returned_amount_usd) * 1.0 / sum(f.invoiced_amount_usd) as v\n\
+    \  from gold.fct_sales_order_line f join gold.dim_site s on s.site_code = f.site_code group by 1)\n\
+    select coalesce(otd.site_name, rr.site_name), otd.v, rr.v from otd full outer join rr on otd.site_name\
+    \ = rr.site_name\n"
+  expected:
+  - - Dallas TX Distribution Center
+    - 0.7133134836239898
+    - 0.006287973665243482
+  - - Reno NV Distribution Center
+    - 0.6986919260261615
+    - 0.01633018197491485
+  - - Toronto ON Distribution Center
+    - 0.6725502130249543
+    - 0.008752772486739268
+- id: cloud_cost_by_component
+  metrics:
+  - cloud_cost
+  group_by:
+  - cloud_cost_line__component
+  reference_sql: select component, sum(cost_usd) from gold.fct_cloud_cost group by 1
+  expected:
+  - - downstream_apps
+    - 84.8056
+  - - governance
+    - 0.0
+  - - monitoring
+    - 42.4416
+  - - orchestration
+    - 126.3474
+  - - raw_storage
+    - 23.928
+  - - security
+    - 1.8345
+- id: trailing_90d_revenue_at_as_of_month
+  metrics:
+  - trailing_90d_revenue
+  group_by:
+  - metric_time__day
+  where:
+  - '{{ TimeDimension(''metric_time'', ''day'') }} = ''2026-08-31'''
+  reference_sql: 'select date ''2026-08-31'', sum(line_net_amount_usd) from gold.fct_invoice_line where
+    invoice_date > date ''2026-08-31'' - interval 90 day and invoice_date <= date ''2026-08-31''
+
+    '
+  expected:
+  - - '2026-08-31'
+    - 32497912.9972
+- id: refuse_dso_by_department
+  metrics:
+  - dso_days_to_pay_proxy
+  group_by:
+  - employee__department_name
+  expect_refusal: cannot be grouped by
+- id: refuse_match_rate_by_customer
+  metrics:
+  - match_rate
+  group_by:
+  - customer__customer_name
+  expect_refusal: cannot be grouped by
+- id: refuse_blocked_metric
+  metrics:
+  - cost_per_shipment
+  expect_refusal: has no number
+- id: refuse_placeholder_metric
+  metrics:
+  - supplier_on_time_receipt_rate
+  expect_refusal: has no number
+- id: refuse_unknown_metric
+  metrics:
+  - gross_margin
+  expect_refusal: Unknown metric

@@ -1,0 +1,131 @@
+version: 2
+version_hash: XotQkIDGs/1LZ352mBaNKnIR2dulSM+cur9CgQHAz1s=
+engine_version: 11
+name: azure_cost
+tables:
+  _dlt_version:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: false
+      schema:
+        data_type: text
+        nullable: false
+    write_disposition: skip
+    resource: _dlt_version
+    description: Created by DLT. Tracks schema updates
+  _dlt_loads:
+    columns:
+      load_id:
+        data_type: text
+        nullable: false
+        precision: 64
+      schema_name:
+        data_type: text
+        nullable: true
+      status:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_version_hash:
+        data_type: text
+        nullable: true
+    write_disposition: skip
+    resource: _dlt_loads
+    description: Created by DLT. Tracks completed loads
+  focus_cost:
+    columns:
+      ChargePeriodStart:
+        data_type: date
+        nullable: true
+      ChargePeriodEnd:
+        data_type: date
+        nullable: true
+      ResourceName:
+        data_type: text
+        nullable: true
+      ResourceType:
+        data_type: text
+        nullable: true
+      ServiceCategory:
+        data_type: text
+        nullable: true
+      BilledCost:
+        data_type: double
+        nullable: true
+      EffectiveCost:
+        data_type: double
+        nullable: true
+      BillingCurrency:
+        data_type: text
+        nullable: true
+      Tags:
+        data_type: text
+        nullable: true
+      x_Component:
+        data_type: text
+        nullable: true
+      x_Environment:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: focus_cost
+settings:
+  detections:
+  - iso_timestamp
+  default_hints:
+    not_null:
+    - _dlt_id
+    - _dlt_root_id
+    - _dlt_parent_id
+    - _dlt_list_idx
+    - _dlt_load_id
+    parent_key:
+    - _dlt_parent_id
+    root_key:
+    - _dlt_root_id
+    unique:
+    - _dlt_id
+    row_key:
+    - _dlt_id
+  schema_contract: evolve
+normalizers:
+  names: direct
+  json:
+    module: dlt.common.normalizers.json.relational
+previous_hashes:
+- ZfBVQo6Do+tpFg5jCA48QQxAgK3TCGm2fACpLrNUlAM=
+- VR0Pyaq35UWWhJjCbSahMOEo1ZFakU/eozvJNlLjt/k=

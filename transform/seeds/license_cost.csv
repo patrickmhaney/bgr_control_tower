@@ -1,0 +1,7 @@
+component,product,pricing_model,unit_price_usd_month,quantity,note
+visualization,Power BI Pro,per_user,14.00,25,"List price; quantity is a placeholder. Verify against the client's agreement."
+transformation,dbt Core,open_source,0.00,1,
+orchestration,Dagster OSS,open_source,0.00,1,
+ingestion,dlt,open_source,0.00,1,
+semantic_modeling,MetricFlow,open_source,0.00,1,
+master_data_management,Splink,open_source,0.00,1,

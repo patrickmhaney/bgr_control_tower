@@ -1,0 +1,62 @@
+# Contract C1: what is extracted from Sage X3, and how.
+#
+# Strategy for every table: change data capture. One initial snapshot, then
+# the SQL Server CDC change tables from the LSN the snapshot was taken at.
+# CDC sees inserts, updates in place and hard deletes, which removes the
+# business-date windows and weekly key reconciliation the v1 design needed:
+# 27 of these 30-odd tables carry no modification date at all, and UPDTICK_0
+# is a per-row lock counter, not a watermark.
+#
+# Fallback if CDC cannot be enabled on the client's instance (open question
+# Q-C): SQL Server Change Tracking (the commercial dltHub connector), or a
+# header-date window plus a weekly key reconciliation. The notes below say
+# which tables that fallback would hurt.
+version: 1
+source: sage_x3
+system: Sage X3 (ERP)
+access: >
+  Direct read of a SQL Server read replica of the production folder. Never
+  write: Sage's supported position is read-only access.
+auth: Database login with SELECT on the folder schema and on the cdc schema.
+strategy: cdc
+cdc:
+  retention_days: 3     # SQL Server's default; an outage longer than this forces a resnapshot
+tables:
+  COMPANY:    {keys: [CPY_0], note: "2 rows. The production extract must also carry the company currency (CUR_0) - see open question 10."}
+  FACILITY:   {keys: [FCY_0]}
+  APLSTD:     {keys: [CHAPTER_0, CODE_0, LANNUM_0], note: "Local menu labels. Verify the table name against the client's folder."}
+  ATEXTRA:    {keys: [CODFIC_0, ZONE_0, LANNUM_0, IDENT1_0, IDENT2_0], note: "Translations. Large in a real folder - revisit."}
+  AUTILIS:    {keys: [USR_0], note: "X3 users. PRFFCT_0 is the function profile, which is how a document's creator maps to a department."}
+  REPRESENT:  {keys: [REPNUM_0]}
+  BPARTNER:   {keys: [BPRNUM_0]}
+  BPCUSTOMER: {keys: [BPCNUM_0], note: "Rep reassignments arrive as updates. CDC keeps the before-image, which is the as-was history open question 11 needs."}
+  BPSUPPLIER: {keys: [BPSNUM_0]}
+  BPADDRESS:  {keys: [BPANUM_0, BPAADD_0], note: "No change signal of its own at all; only CDC sees its changes."}
+  ITMMASTER:  {keys: [ITMREF_0]}
+  ITMFACILIT: {keys: [ITMREF_0, STOFCY_0]}
+  STOCK:      {keys: [STOFCY_0, ITMREF_0, LOT_0, LOC_0], note: "Current on-hand. A position that goes to zero and is removed arrives as a delete."}
+  STOJOU:     {keys: [ROWID], note: "Append-only movement journal."}
+  SORDER:     {keys: [SOHNUM_0], note: "Cancelled orders are sometimes hard-deleted. Only CDC sees it."}
+  SORDERQ:    {keys: [SOHNUM_0, SOPLIN_0], note: "SHTQTY_0 changes in place as deliveries go out - the update a header-date window would miss."}
+  SORDERP:    {keys: [SOHNUM_0, SOPLIN_0]}
+  SDELIVERY:  {keys: [SDHNUM_0], note: "DLVDAT_0 is the proof-of-delivery date and is filled in after the goods leave. Verify the table name."}
+  SDELIVERYD: {keys: [SDHNUM_0, SDDLIN_0]}
+  SINVOICEV:  {keys: [NUM_0], note: "PAYDAT_0 is set in place when the customer pays - months after INVDAT_0."}
+  SINVOICED:  {keys: [NUM_0, SIDLIN_0]}
+  SRETURN:    {keys: [SRHNUM_0], note: "Returns are dated on the return, often months after the order."}
+  SRETURND:   {keys: [SRHNUM_0, SRDLIN_0]}
+  PORDER:     {keys: [POHNUM_0]}
+  PORDERQ:    {keys: [POHNUM_0, POPLIN_0], note: "RCPQTY_0/RCPDAT_0 are updated in place when goods arrive."}
+  PRECEIPT:   {keys: [PTHNUM_0]}
+  PRECEIPTD:  {keys: [PTHNUM_0, PTDLIN_0]}
+  PINVOICE:   {keys: [NUM_0]}
+  PINVOICED:  {keys: [NUM_0, PIDLIN_0], note: "A blank PTHNUM_0 is meaningful - billed, never received. Do not filter it."}
+  GACCENTRY:  {keys: [NUM_0]}
+  GACCENTRYD: {keys: [NUM_0, LIN_0]}
+  STOCOUNT:   {keys: [SESNUM_0], note: "A session moves from counted (2) to posted (3) three days after counting. Verify the table name."}
+  STOCOUNTD:  {keys: [SESNUM_0, CNTLIN_0], note: "QTYTHEO_0 is the system quantity at count time and cannot be recovered later."}
+pitfalls:
+  - A real X3 folder holds 2,000-4,000 tables. Selecting these is the discovery work that matters.
+  - X3 installs have several folders (SEED plus production). Confirm which schema is production.
+  - CHAR padding arrives in the extract. It is trimmed in staging, never here - bronze stays lossless.
+  - CDC needs SQL Server Agent (on-premises or managed instance) and SQL Server Standard or above.

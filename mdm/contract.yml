@@ -1,0 +1,44 @@
+# Contract C3: what any master data management provider must produce.
+#
+# The open-source providers here (Splink, and a rules matcher) write these
+# tables into the `mdm/` area of raw storage, where an external MDM product's
+# export would land. Silver reads them only through source('mdm', ...), so a
+# product (Boomi Data Hub, Profisee, ...) replaces the provider and nothing
+# downstream changes. tests/conformance/test_mdm_contract.py checks any
+# provider's output against this file.
+#
+# Domains with shared exact keys (items and suppliers: X3 and Netstock use the
+# same codes) need no matching and are not part of the contract.
+version: 1
+tables:
+  mdm_xref:
+    description: One row per source record, naming the golden record it belongs to.
+    columns:
+      domain:         {type: string, required: true, values: [customer, employee]}
+      source_system:  {type: string, required: true}
+      source_key:     {type: string, required: true}
+      golden_key:     {type: string, required: true}
+      match_score:    {type: double, required: false, note: "0-1. A product without scores leaves it null."}
+      match_rule:     {type: string, required: false}
+      steward_status: {type: string, required: false, values: [auto, needs_review, unmatched, anchor]}
+      valid_from:     {type: date,   required: false}
+    unique: [domain, source_system, source_key]
+  mdm_golden_customer:
+    description: One row per golden customer.
+    columns:
+      golden_key:          {type: string, required: true}
+      golden_name:         {type: string, required: true}
+      x3_customer_code:    {type: string, required: false}
+      hubspot_company_id:  {type: string, required: false}
+      source_scope:        {type: string, required: true, values: [both, erp_only, crm_only]}
+    unique: [golden_key]
+  mdm_golden_employee:
+    description: One row per golden employee.
+    columns:
+      golden_key:        {type: string, required: true}
+      display_name:      {type: string, required: true}
+      email:             {type: string, required: false}
+      x3_user_code:      {type: string, required: false}
+      x3_rep_code:       {type: string, required: false}
+      hubspot_owner_id:  {type: string, required: false}
+    unique: [golden_key]

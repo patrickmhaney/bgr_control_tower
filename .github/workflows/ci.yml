@@ -1,0 +1,78 @@
+# CI on every pull request: the whole platform runs on synthetic data, so a
+# PR is tested end to end - sources, ingestion, MDM, dbt, the semantic layer,
+# the golden answers, the dashboard cube and Power BI model, the data service - and
+# through the T-SQL path against a real SQL Server.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-extras
+      - name: Blocked words (list held in a secret, never in the repo)
+        env: {BLOCKED_WORDS: "${{ secrets.BLOCKED_WORDS }}"}
+        run: uv run python -m checks.blocked_words --commits
+      - run: uv run ruff check .
+      - run: uv run pytest -q tests/unit
+      - name: dbt parse, MetricFlow validation, governance lint, SQL portability
+        run: |
+          uv run python -m ctl dbt deps --quiet
+          uv run python -m ctl dbt compile --quiet
+          uv run python -m semantic.lint
+          uv run python -m checks.portability
+      - uses: gitleaks/gitleaks-action@v2
+        env: {GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"}
+
+  pipeline:
+    runs-on: ubuntu-latest
+    needs: checks
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: {ACCEPT_EULA: "Y", MSSQL_SA_PASSWORD: "Ct-Passw0rd!"}
+        ports: ["1433:1433"]
+    env:
+      TSQL_URL: mssql://sa:Ct-Passw0rd!@localhost:1433/warehouse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-extras
+      - name: The daily pipeline on synthetic sources
+        run: make mock run
+      - name: Golden answers (DuckDB)
+        run: uv run python -m evaluation.golden check
+      - name: Generated files are current (Power BI model, catalog, parity queries)
+        run: |
+          uv run python -m semantic.catalog
+          uv run python -m ctl powerbi
+          git diff --exit-code -- powerbi docs/metric_catalog.md
+      - name: The T-SQL path - gold in SQL Server, golden answers through sqlglot
+        run: |
+          uv run python -m evaluation.load_tsql
+          uv run python -m evaluation.golden check --backend tsql
+      - name: Conformance tests (ingestion convergence, MDM, dashboard cube, data service, governance)
+        run: uv run pytest -q tests/conformance
+      - name: The step commands run without Dagster, and Dagster loads them
+        run: uv run python -c "from orchestration.definitions import defs; defs.get_repository_def()"
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bicep build and lint
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          az bicep lint --file infra/main.bicep

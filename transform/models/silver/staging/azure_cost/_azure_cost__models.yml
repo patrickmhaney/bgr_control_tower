@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: stg_azure_cost__focus_cost
+    description: "Grain: one row per Azure resource per day."
+    columns:
+      - name: charge_date
+        tests: [not_null]
+      - name: component
+        description: The platform component the resource implements, from its `component` tag.
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [charge_date, resource_name]

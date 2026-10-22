@@ -1,0 +1,15 @@
+# Azure prod. Storage URLs use the environment's storage account; the container
+# app's managed identity reaches them, so no keys appear here. Secrets (the
+# Postgres password, source credentials) come from Key Vault as CT_* variables.
+env: prod
+data_dir: /tmp/ct
+mock_db: /tmp/ct/mock_sources.duckdb
+bronze_root: az://bronze/prod
+warehouse_path: /tmp/ct/warehouse.duckdb
+exports_root: az://exports/prod
+serving_destination: postgres
+serving_url: postgresql://ctadmin@ct-prod-pg.postgres.database.azure.com:5432/serving
+mdm_provider: splink
+source_mode: live
+dbt_target: azure
+storage_account: ctprodlake

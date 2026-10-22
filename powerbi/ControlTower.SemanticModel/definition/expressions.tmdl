@@ -1,0 +1,17 @@
+expression MartFolder = "C:\\control-tower\\exports\\marts\\" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+expression MartSource = "local" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+/// The only place the model knows where data lives (rule 6). "local" reads the
+/// Parquet export from a folder; "adls" reads it from the storage account's
+/// exports container (set MartFolder to its https://...dfs.core.windows.net/ URL).
+/// Pointing the model at Postgres, Fabric or Snowflake replaces this function.
+expression LoadMart =
+		(name as text) as table =>
+		let
+			Bytes = if MartSource = "adls"
+				then AzureStorage.DataLakeContents(MartFolder & name & ".parquet")
+				else File.Contents(MartFolder & name & ".parquet"),
+			Data = Parquet.Document(Binary.Buffer(Bytes))
+		in
+			Data

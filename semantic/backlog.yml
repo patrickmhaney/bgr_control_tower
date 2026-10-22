@@ -1,0 +1,57 @@
+# Metrics the business wants that have no definition yet.
+#
+# MetricFlow cannot hold a metric without a definition, so these live here
+# with the same governance fields. The catalog merges them in with their
+# reason, and the API and MCP tools return the reason instead of a value.
+#
+#   placeholder   the data exists; the business has not defined the metric
+#   blocked       the data does not exist in any source system
+
+metrics:
+  - name: cost_per_shipment
+    label: Cost Per Shipment
+    status: blocked
+    owner: TBD
+    owner_proposed: Logistics Manager
+    description: Average freight cost of moving one shipment.
+    blocked_reason: >
+      No freight or carrier-cost source is in scope. X3 deliveries record
+      what shipped and when, not what it cost to move.
+    unblock_requires:
+      - A carrier or freight-audit source keyed to the X3 delivery number.
+
+  - name: cost_per_order
+    label: Cost Per Order
+    status: blocked
+    owner: TBD
+    owner_proposed: Director of Sales Operations
+    description: Average fulfilment cost of one sales order.
+    blocked_reason: >
+      Needs a freight cost source and a decision on the cost pool (open
+      question 3). Neither exists.
+    unblock_requires:
+      - A freight cost source.
+      - A cost-pool decision from Finance.
+
+  - name: supplier_on_time_receipt_rate
+    label: Supplier On-Time Receipt
+    status: placeholder
+    owner: TBD
+    owner_proposed: Purchasing Manager
+    description: The share of purchase order lines received on or before the expected date.
+    placeholder_reason: >
+      Computable today from PORDERQ (expected and actual receipt dates), but
+      Purchasing has not said whether partial receipts count, or which date
+      is the promise.
+
+  - name: perfect_order_rate
+    label: Perfect Order Rate
+    status: blocked
+    owner: TBD
+    owner_proposed: VP Operations
+    description: The share of orders delivered complete, on time, damage-free and correctly invoiced.
+    blocked_reason: >
+      Needs a damage or claims source, which no system in scope has. The
+      other three components are computable.
+    unblock_requires:
+      - A damage or claims source keyed to the delivery or order.

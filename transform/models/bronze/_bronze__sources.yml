@@ -1,0 +1,169 @@
+# Bronze: the raw changelog each ingestion run appends to (contract C2).
+# Read as Delta tables straight from raw storage. One bronze model per table
+# turns the changelog into current state through the bronze_current macro.
+version: 2
+sources:
+- name: sage_x3
+  description: 'Sage X3 ERP. High-fidelity mock: `_0` column suffixes, array columns, `UPDTICK_0` optimistic-lock
+    counters, CHAR-padded keys, SQL Server sentinel dates (1753-01-01), integer local menus, no enforced
+    foreign keys. Table and column names are close to a real X3 folder but must be validated against the
+    client install before production DDL.'
+  config:
+    meta:
+      external_location: delta_scan('{{ env_var("CT_BRONZE_ROOT", "../.data/bronze") }}/sage_x3/{name}')
+  tables:
+  - name: COMPANY
+    description: Legal entity. Two rows - a US and a Canadian company.
+  - name: FACILITY
+    description: Site. Three rows - Dallas, Reno, Toronto.
+  - name: APLSTD
+    description: Local menu labels, keyed by chapter and code.
+  - name: ATEXTRA
+    description: Field-level translations (FRA here).
+  - name: AUTILIS
+    description: X3 users. PRFFCT_0 is the function profile; ADDEML_0 the email, blank for two users.
+  - name: REPRESENT
+    description: Sales representative. REPNAM_0 is "LASTNAME FIRSTNAME" upper case, matched to X3 users by name.
+  - name: BPARTNER
+    description: Business partner master. BPCFLG_0/BPSFLG_0 flag the roles.
+  - name: BPCUSTOMER
+    description: Customer role extension of BPARTNER. REP_0/REP_1 is an X3 array column - about 18% of
+      customers carry a second rep.
+  - name: BPSUPPLIER
+    description: Supplier role extension of BPARTNER.
+  - name: BPADDRESS
+    description: Partner x address code. Multiple ship-tos per customer.
+  - name: ITMMASTER
+    description: Item master. ITMSTA_0 is a local menu (chapter 20).
+  - name: ITMFACILIT
+    description: Item x site replenishment parameters.
+  - name: STOCK
+    description: Current on-hand by item, site, lot and location.
+  - name: STOJOU
+    description: 'Stock journal. TRSTYP_0 is a local menu (chapter 700). Every movement resolves to the
+      document that caused it: VCRNUM_0 carries the receipt (PTH), count session (CNT), return (RTN) or
+      order number. Adjustments (code 3) are posted BY a count session and are still not a substitute
+      for one - they record the correction, not the count.'
+  - name: SORDER
+    description: Sales order header. BPCORD_0 is CHAR-padded. SHIDAT_0 carries the 1753-01-01 sentinel
+      on 413 rows.
+  - name: SORDERQ
+    description: Sales order line, quantity side. ITMREF_0 is CHAR-padded on every row. Joins to SORDERP
+      on SOHNUM_0 + SOPLIN_0.
+  - name: SORDERP
+    description: Sales order line, price side. ITMDES1_0 is denormalised at order time and drifts from
+      ITMMASTER - real X3 behaviour, not a defect.
+  - name: SDELIVERY
+    description: Delivery header. One per shipment of a sales order; SHIDAT_0 is the ship date, DLVDAT_0
+      the proof-of-delivery date (1753-01-01 until it arrives).
+  - name: SDELIVERYD
+    description: Delivery line. Carries the order line it fulfils (SOHNUM_0 + SOPLIN_0).
+  - name: SINVOICEV
+    description: Sales invoice header. PAYDAT_0 carries the sentinel on 703 rows. There is no cash application
+      table anywhere in the source estate.
+  - name: SINVOICED
+    description: Sales invoice line. Carries SOHNUM_0/SOPLIN_0 back to the order.
+  - name: SRETURN
+    description: Customer return header. RTNDAT_0 is the return date and can be months after the order
+      - returns cross period boundaries.
+  - name: SRETURND
+    description: 'Customer return line. SOHNUM_0 references the original order and is unreliable on ~8%
+      of rows: blank or lowercased.'
+  - name: PORDER
+    description: Purchase order header.
+  - name: PORDERQ
+    description: Purchase order line with expected and actual receipt. RCPDAT_0 carries the sentinel on
+      754 rows. It is a denormalised copy of the LAST receipt - PRECEIPTD is the document, and the two
+      disagree on any line received more than once.
+  - name: PRECEIPT
+    description: Goods receipt header. The receipt as a document, with its own date - which is what makes
+      a late receipt against an old PO extractable.
+  - name: PRECEIPTD
+    description: Goods receipt line, carrying the PO line reference. A PO line received in two deliveries
+      has two rows here and one RCPDAT_0 on PORDERQ.
+  - name: PINVOICE
+    description: Supplier (AP) invoice header.
+  - name: PINVOICED
+    description: Supplier invoice line. POHNUM_0 and PTHNUM_0 are the PO and receipt references; either
+      can be null, and a null is meaningful - it is maverick spend or an invoice with no receipt, not
+      a data error.
+  - name: GACCENTRY
+    description: 'GL journal header. Two journals: sales (JOU_0 = SAL, TYP_0 = SIH for invoices and SCH
+      for credit memos) and purchasing (PUR / PIH).'
+  - name: GACCENTRYD
+    description: GL journal line. AMTCUR_0 is document currency, AMTLOC_0 is company currency; the ratio
+      is the only FX signal in the estate.
+  - name: STOCOUNT
+    description: Inventory count session. NAME UNVERIFIED - the counting mechanism is right, the table
+      name is constructed. Validate against the install.
+  - name: STOCOUNTD
+    description: Counted position. QTYTHEO_0 is the system quantity AT COUNT TIME and cannot be reconstructed
+      later. NAME UNVERIFIED.
+- name: hubspot
+  description: HubSpot CRM as a Fivetran/Airbyte landing. Properties arrive as strings, associations are
+    a separate many-to-many, and deleted records arrive as `archived = true` rather than disappearing.
+  config:
+    meta:
+      external_location: delta_scan('{{ env_var("CT_BRONZE_ROOT", "../.data/bronze") }}/hubspot/{name}')
+  tables:
+  - name: company
+    description: Company object. 12 archived rows. `name` is the only candidate link to X3 BPCUSTOMER
+      and the names have drifted.
+  - name: contact
+    description: Contact object. 23 archived rows and ~40 near-duplicates with mangled emails.
+  - name: deal
+    description: Deal object. `amount` and `hs_deal_stage_probability` are varchar. `erp_order_number`
+      is the CRM-to-ERP handoff and it is dirty - see int_deal_erp_order_number.
+  - name: engagement
+    description: Calls, emails, meetings.
+  - name: deal_stage_history
+    description: One row per deal stage change.
+  - name: association
+    description: Deal/contact/company many-to-many.
+  - name: owner
+    description: HubSpot owner, with team. `email` matches the X3 user's email (one arrives in different casing),
+      the highest-confidence employee link in the estate.
+  - name: pipeline_stage
+    description: Pipeline x stage reference, with is_closed / is_closed_won.
+- name: netstock
+  description: Netstock demand planning. Grain and column semantics are right; exact names are inferred.
+    Regenerated wholesale on each sync, so the natural landing pattern is a snapshot fact, not an SCD.
+  config:
+    meta:
+      external_location: delta_scan('{{ env_var("CT_BRONZE_ROOT", "../.data/bronze") }}/netstock/{name}')
+  tables:
+  - name: item_location
+    description: Item x location planning parameters. last_sync_at = 2026-09-02, so it is stale relative
+      to X3. 35 rows reference items with no ITMMASTER row.
+  - name: forecast
+    description: Item x location x month forecast.
+  - name: forecast_accuracy
+    description: Item x location x month realised forecast error.
+  - name: replenishment_recommendation
+    description: Suggested replenishment. erp_po_number is populated on 247 of 896 rows and every one
+      resolves to an X3 PORDER - a clean cross-system link that the README's join map does not mention.
+      Populated across all four statuses, so it is not an acceptance flag.
+  - name: supplier
+    description: Netstock supplier. supplier_code joins cleanly to BPSUPPLIER.
+- name: azure_cost
+  description: The platform's own Azure cost, from the Cost Management daily export (FOCUS).
+  config:
+    meta:
+      external_location: delta_scan('{{ env_var("CT_BRONZE_ROOT", "../.data/bronze") }}/azure_cost/{name}')
+  tables:
+  - name: focus_cost
+    description: Daily cost per Azure resource, FOCUS columns plus the resource's component and environment
+      tags.
+- name: mdm
+  description: 'Contract C3: the master data provider''s output, landed where an external MDM''s export
+    would land. See mdm/contract.yml.'
+  config:
+    meta:
+      external_location: delta_scan('{{ env_var("CT_BRONZE_ROOT", "../.data/bronze") }}/mdm/{name}')
+  tables:
+  - name: mdm_xref
+    description: 'One row per source record: the golden record it belongs to, and how confidently.'
+  - name: mdm_golden_customer
+    description: One row per golden customer.
+  - name: mdm_golden_employee
+    description: One row per golden employee.

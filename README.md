@@ -1,129 +1,86 @@
-# BGR Control Tower
+# Control Tower
 
-A proof of concept for a process-performance data model: nine Power BI
-dashboards, one per business process, driven by metrics that are **defined
-once** and mapped to dashboards through a seed.
+An open-source baseline data platform: three source systems through bronze,
+silver and gold into a **MetricFlow semantic layer** that defines every measure
+once, feeding process and department dashboards, data marts, agentic AI chat,
+apps built with AI coding tools, and apps with embedded AI. Every component sits
+behind a written contract with a test, so any one of them can be swapped for
+another tool - which is what makes it the reference implementation a software
+evaluation is measured against. The source systems are simulated, so the
+whole platform runs end to end on a laptop, in CI and in Azure.
 
-Five mock source systems (Sage X3, HubSpot, Paycom, Netstock, Pangea) flow
-through a dlt ingestion layer into a dbt star schema. Ten metrics compile from
-YAML into warehouse SQL, nine dashboard views, a generated Power BI model, and a
-registry an AI agent can read.
+[PLAN.md](PLAN.md) is the design and the decisions; [docs/](docs/) is the
+platform as built.
 
 ## Run it
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-dbt deps
-export DBT_PROFILES_DIR="$PWD" BGR_CONTROL_TOWER_HOME="$PWD"
-
-python run_ingestion.py               # source systems -> landing/ -> raw.duckdb
-dbt build                             # raw -> staging -> core -> metrics -> dashboards
-python scripts/compile_metrics.py     # the metric registry ask_metric.py reads
-python scripts/export_powerbi.py      # Parquet + a Power BI model in exports/
-python scripts/q.py                   # query anything
+make setup     # Python 3.11 + uv
+make mock      # the synthetic sources as of 2026-09-05
+make run       # ingest, build, MDM, cubes, serving load
+make golden    # the golden answers: every route gives the same numbers
+make test      # unit and conformance tests
+make serve     # REST + MCP on http://localhost:8000
+make ui        # Dagster on http://localhost:3000
 ```
 
-Setup details, a full teardown-and-rebuild, and troubleshooting are in
-[docs/running_it.md](docs/running_it.md).
+## The stack
 
-## How it fits together
+| Component | Open-source baseline | Where |
+|---|---|---|
+| Sources (simulated) | Sage X3 (SQL Server + CDC), HubSpot (REST), Netstock (snapshot) | `sources/` |
+| Ingestion, CDC | dlt → append-only Delta changelog | `ingestion/` |
+| Raw storage | ADLS Gen2 (`.data/` locally) | `infra/modules/storage.bicep` |
+| Master data | Splink, with a rules matcher for comparison | `mdm/` |
+| Transformation | dbt Core | `transform/` |
+| Warehouse, compute | DuckDB | `transform/profiles.yml` |
+| Semantic layer | MetricFlow YAML + governance + the process × department matrix | `transform/models/semantic/`, `semantic/` |
+| Dashboards | Power BI importing one cube MetricFlow computed; generated model, templated measures | `serving/powerbi.py`, `powerbi/` |
+| Cubes, marts, apps | Saved queries → cubes → Postgres; REST API | `serving/`, `apps/data_service/` |
+| Applied AI | MCP server for Claude Code; embedded example on the Claude API | `apps/` |
+| Orchestration | Dagster | `orchestration/` |
+| Cloud, CI/CD | Azure (Bicep), GitHub Actions | `infra/`, `.github/` |
+| Evaluation | component registry, golden answers, scorecard | `evaluation/` |
 
-```
-mock_sources.duckdb           five source systems, shipped with the repo
-      │  run_ingestion.py
-      ▼
-landing/ -> raw.duckdb        BRONZE  append-only Parquet archive, projected to raw
-      │  dbt build
-      ▼
-staging -> intermediate       SILVER  cleaned, and matched across systems
-      │
-      ▼
-core                          GOLD    5 conformed dimensions, 6 facts
-      │
-      ├──► marts/metrics (10 views) -> marts/process (9 dashboard views)
-      │      SQL route: what analysts and the AI agent query
-      │
-      └──► exports/: the Gold tables as Parquet + a Power BI model
-             Power BI route: DAX measures computed on the facts
+## Where things stand
 
-semantic/metrics/*.yml        the metric definitions. They hold no data: they
-                              describe Gold, and scripts turn each one into the
-                              SQL views and the DAX measures above.
-```
+All 37 golden answers pass on DuckDB. Bronze converges exactly on every source
+table through daily CDC, a retention gap and hard deletes. The MDM providers
+score 0.90/0.91 (Splink) and 0.86/0.93 (rules) on customer precision/recall
+against the generator's true identities. The 21 golden answers a dashboard
+cube can serve come back identically through the cube and the Power BI
+measure templates, rollups included.
 
-## What's where
+| Metric | Value (as of 2026-09-05) | Status |
+|---|---|---|
+| On-Time Delivery | 70.1% | provisional |
+| Order Fill Rate | 94.4% | provisional |
+| Return Rate | 1.1% | provisional |
+| DSO (days-to-pay proxy) | 47.0 days | provisional |
+| Unsettled Invoice Rate | 21.0% | active |
+| Match Rate | 70.5% | provisional |
+| Inventory Accuracy | 93.2% | provisional |
+| Forecast Accuracy | 71.0% | provisional |
+| Win Rate | 66.2% | provisional |
+| Customer Match Rate | 82.3% | active, data quality |
 
-| Path | What |
-|---|---|
-| `ingestion/` | The extraction spec (`config.py`), dlt resources, the landing-to-raw projection and the schema contract. `simulators/` stands in for the real source clients. |
-| `models/` | dbt: `staging/` (generated), `intermediate/`, `marts/core/`, `marts/metrics/` (generated), `marts/process/` (generated). |
-| `semantic/` | One YAML per metric, plus the fact-to-dimension bindings and the conformed dimensions. |
-| `seeds/` | The process list, the process-to-metric map, the site crosswalk, legal suffixes, and the compiled metric registry. |
-| `snapshots/`, `tests/`, `macros/` | Type 2 history, singular tests, name-matching macros. |
-| `scripts/` | Generators, the query tool and checks - see below. |
-| `generate_mock_sources.py`, `mock_sources.duckdb`, `schema.sql` | The mock source data, its generator, and portable DDL for it. |
+Plus Pipeline Value, Sales Cycle Days, Revenue, Trailing 90-day Revenue and
+Platform Cloud Cost, and four backlog metrics that return reasons instead of
+numbers. Full list: [docs/metric_catalog.md](docs/metric_catalog.md).
 
-| Script | What it does |
-|---|---|
-| `run_ingestion.py` | Source systems → landing → raw. `--explain` prints the extraction spec, `--state` the watermarks. |
-| `scripts/q.py` | Query the sources, raw and the warehouse from one prompt. |
-| `scripts/compile_metrics.py` | Compiles `semantic/metrics/` into the `mtr_*` views, the registry seed and JSON, and the catalogue. |
-| `scripts/generate_process_views.py` | Generates the nine dashboard views from the seed map. |
-| `scripts/generate_staging.py` | Generates the staging models from a column spec. |
-| `scripts/freeze_schema_contract.py` | Pins the expected source schema. Run by hand, and review the diff, when a source change is accepted. |
-| `scripts/regenerate.py` | Runs the generators in order: staging, metrics, dashboard views. `--with-exports` adds the parity test and the Power BI export. `--check` fails if any generated file was stale. |
-| `scripts/test_metric_parity.py` | Reconciles every metric view against its base fact, and writes the Power BI parity queries. |
-| `scripts/export_powerbi.py` | Writes the Parquet export and the generated Power BI (TMDL) model. |
-| `scripts/ask_metric.py` | Answers a metric question from the registry alone - the AI use case. |
-| `scripts/verify_ingestion.py` | Builds via the pipeline and directly from source, and diffs the two. |
-| `scripts/profile_sources.py` | Reproduces the numbers in the feasibility audit. |
-
-## A note on "model"
-
-The word does four jobs in these docs, so it is worth pinning down:
-
-| Term | Means |
-|---|---|
-| **dbt model** | One SQL file under `models/`. dbt builds it as either a **table** or a **view**. The Gold layer (`marts/core`) is tables; staging, the `mtr_*` metric views and the `mart_*` dashboard views are views. Where the docs mean the thing you query, they say table or view; where they mean the file you edit or build, they say model. |
-| **data model** | The dimensional design itself: the five dimensions and six facts in Gold. |
-| **Power BI model** | The semantic model Power BI loads, generated by `scripts/export_powerbi.py`. |
-| **metric definition** | One YAML file in `semantic/metrics/`. Not a model of any kind: it describes how to compute a metric from Gold, and scripts turn it into SQL and DAX. |
+Not yet verified: the generated Power BI model opened in Desktop (needs
+Windows), the Azure deployment, and the T-SQL path's execution (CI runs it
+against SQL Server; this repo's machine has no Docker).
 
 ## Documentation
 
-Roughly in reading order:
-
-| Document | Read it for |
+| Document | For |
 |---|---|
-| [architecture.md](docs/architecture.md) | The design: one conformed core, how a metric is added, entity resolution, what is generated. |
-| [metric_feasibility.md](docs/metric_feasibility.md) | Whether each metric can be computed, and the business decision each one hides. |
-| [open_questions.md](docs/open_questions.md) | What the data could not answer, what was assumed, and the cost to reverse each assumption. |
-| [running_it.md](docs/running_it.md) | Hands on: run, step through, query, change. |
-| [adding_a_metric.md](docs/adding_a_metric.md) | A new metric from data already in the warehouse: start with SQL against the star schema, translate it into a metric definition, check the two agree. Worked examples. |
-| [sources.md](docs/sources.md) | The five mock source systems: fidelity, grain, the cross-system join map, the deliberate data-quality landmines. |
-| [ingestion.md](docs/ingestion.md) | Source systems to raw: extraction strategies, per-system difficulty, pitfalls. |
-| [data_model.md](docs/data_model.md) | Diagrams: source ERDs, the star schema, the pipeline DAGs. |
-| [powerbi_model.md](docs/powerbi_model.md) | The Power BI model, the I2D dashboard, and how to open it. |
-| [metric_catalog.md](docs/metric_catalog.md) | Generated. Every metric's definition, grain, owner and lineage. |
-
-## Where it stands
-
-All ten metrics compute. Five are provisional because each waits on a business
-decision recorded in [open_questions.md](docs/open_questions.md).
-
-| Metric | Dashboard | Value | Status |
-|---|---|---|---|
-| On-Time Delivery | I2D | 75.6% | active |
-| Cost Per Shipment | I2D | $1,563.34 | active |
-| Inventory Accuracy | I2D | 93.4% | provisional |
-| DSO (days-to-pay proxy) | O2C | 47.3 days | provisional |
-| Return Rate | O2C | 1.27% | provisional |
-| Cost Per Order | O2C | $1,559.22 | provisional |
-| Match Rate | S2P | 70.8% | provisional |
-| Unmatched CRM Customers | — | 11.9% | active, data quality |
-| Shipment Order Reference Coverage | — | 85.4% | active, data quality |
-| Unsettled Invoice Rate | — | 18.7% | active, companion to DSO |
-
-Six of the nine dashboards have no defined metrics yet. Their views exist,
-typed and empty, so the architecture is exercised against the empty case.
+| [docs/architecture.md](docs/architecture.md) | The design: layers, contracts, the semantic layer, the five routes |
+| [docs/components.md](docs/components.md) | Each component, its contract, and how to swap it |
+| [docs/running.md](docs/running.md) | Commands, incremental refresh, the data service, Dagster, environments |
+| [docs/adding_a_metric.md](docs/adding_a_metric.md) | From SQL to a governed metric on every route |
+| [docs/sources.md](docs/sources.md) | The synthetic sources, the clock, the landmines |
+| [docs/powerbi.md](docs/powerbi.md) | The cube, the generated model and the pages to build |
+| [docs/evaluation.md](docs/evaluation.md) | How the baseline evaluates other tools |
+| [docs/open_questions.md](docs/open_questions.md) | What is assumed, and what it costs to reverse |

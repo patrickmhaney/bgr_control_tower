@@ -1,7 +1,8 @@
 # --- Python ---------------------------------------------------------------
 .venv/
 venv/
-env/
+# Root only: infra/env/ holds the per-environment Bicep parameters, which are committed.
+/env/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -12,6 +13,9 @@ dist/
 .mypy_cache/
 .ruff_cache/
 .ipynb_checkpoints/
+.coverage
+.coverage.*
+htmlcov/
 
 # --- dbt ------------------------------------------------------------------
 target/
@@ -21,16 +25,31 @@ logs/
 .user.yml
 
 # --- Pipeline data --------------------------------------------------------
-# Everything below is produced by `generate_mock_sources.py` and the ingestion
-# and dbt runs. The one deliberate exception is mock_sources.duckdb, the shipped
-# source data, which is committed on purpose - see docs/running_it.md.
-raw.duckdb
-warehouse.duckdb
+# Everything the pipeline produces lives under .data/ and is reproducible with
+# `make mock run`. .blocked_words holds the words the blocked-word check rejects;
+# it must never be committed.
+.data/
+*.duckdb
 *.duckdb.wal
-*.duckdb.tmp/
-landing/
-ingestion/_state/
-exports/
+transform/target/
+transform/dbt_packages/
+transform/logs/
+.blocked_words
+
+# --- Dagster ---------------------------------------------------------------
+# `dagster dev` keeps its run history in a temporary home in the working
+# directory, or under DAGSTER_HOME when that points at orchestration/.
+.tmp_dagster_home_*/
+orchestration/storage/
+orchestration/history/
+orchestration/schedules/
+
+# --- Power BI -------------------------------------------------------------
+# Desktop writes per-user settings and a data cache beside a Power BI Project;
+# the model and report definitions are committed, these are not.
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+*.pbix
 
 # --- Secrets and local config ---------------------------------------------
 .env
@@ -40,6 +59,8 @@ exports/
 *.key
 credentials.json
 service-account*.json
+# Claude Code's per-user permissions; .claude/skills/ is shared.
+.claude/settings.local.json
 
 # --- Editors and OS -------------------------------------------------------
 .vscode/

@@ -1,0 +1,20 @@
+# Dagster instance configuration for Azure. Locally, `dagster dev` uses a
+# temporary SQLite instance and ignores this file unless DAGSTER_HOME points here.
+storage:
+  postgres:
+    postgres_db:
+      hostname: {env: DAGSTER_PG_HOST}
+      username: {env: DAGSTER_PG_USER}
+      password: {env: DAGSTER_PG_PASSWORD}
+      db_name: dagster
+      port: 5432
+      params: {sslmode: require}
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 1        # one writer for the DuckDB file
+
+telemetry:
+  enabled: false

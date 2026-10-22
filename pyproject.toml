@@ -1,0 +1,74 @@
+[project]
+name = "control-tower"
+version = "2.0.0"
+description = "An open-source baseline data platform: synthetic sources, dlt, dbt on DuckDB, a MetricFlow semantic layer, and five downstream routes."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    # Transformation, warehouse and semantic layer. Pinned together: dbt-metricflow
+    # 0.15 requires dbt-core >=1.11,<1.13.
+    "dbt-core==1.12.3",
+    "dbt-duckdb==1.11.0",
+    "dbt-metricflow==0.15.0",
+    "duckdb==1.5.5",
+    # Ingestion. Delta for bronze, az for ADLS, postgres for the serving DB.
+    "dlt[duckdb,filesystem,parquet,deltalake,az,postgres]==1.30.0",
+    # Master data management.
+    "splink>=5.0,<6",
+    # SQL translation: the portability check and the T-SQL path.
+    "sqlglot>=27",
+    # Orchestration.
+    "dagster>=1.13,<1.14",
+    "dagster-webserver>=1.13,<1.14",
+    "dagster-dbt>=0.29,<0.30",
+    # Data service: REST and MCP.
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "mcp>=1.10",
+    "pyyaml>=6",
+    "pyarrow>=17",
+]
+
+[project.optional-dependencies]
+# The T-SQL backend for semantic_service. A pure wheel, so no ODBC driver is needed.
+tsql = ["pymssql>=2.3"]
+# The embedded-AI example app.
+examples = ["anthropic>=1.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "pre-commit>=3.7",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+# Installed (editable) so every process - Dagster's step subprocesses, the
+# containers, tests - imports the platform the same way, wherever it runs from.
+[tool.setuptools.packages.find]
+include = ["core*", "ctl*", "sources*", "ingestion*", "mdm*", "semantic*", "serving*",
+           "apps*", "orchestration*", "evaluation*", "checks*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yml", "*.yaml", "*.sh"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "pipeline: needs a built warehouse (run `make run` first)",
+    "tsql: needs a SQL Server reachable through TSQL_URL",
+    "isolated: builds its own data in a temporary directory",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["transform/dbt_packages", "transform/target"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B905"]  # B905: zip() over cursor rows is equal-length by construction

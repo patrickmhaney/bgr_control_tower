@@ -1,0 +1,8 @@
+department_code,department_name,display_order
+SALES,Sales,1
+CUSTSVC,Customer Service,2
+PURCH,Purchasing,3
+WHSE,Warehouse,4
+PLAN,Planning,5
+FIN,Finance,6
+UNASSIGNED,Unassigned,99

@@ -1,0 +1,113 @@
+# Running it
+
+## Setup
+
+Python 3.11 and [uv](https://docs.astral.sh/uv/).
+
+```bash
+make setup        # uv sync --all-extras, then dbt deps
+make mock         # the synthetic sources as of 2026-09-05
+make run          # ingest, build, MDM, cubes, serving load (~1 minute)
+make golden       # 37 golden answers: semantic layer == reference SQL == frozen
+make test         # unit and conformance tests
+```
+
+Everything the pipeline writes lives under `.data/` (gitignored). `make reset`
+deletes it.
+
+## The step commands
+
+Every step runs on its own, which is what Dagster calls and what any other
+orchestrator could call:
+
+| Command | Does |
+|---|---|
+| `python -m ctl sources init` | Rebuild the mock sources as of the initial date |
+| `python -m ctl sources advance --days N` | Move the sources forward N days (new orders, payments, deliveries, deletes) |
+| `python -m ctl ingest [--source S] [--full-refresh] [--reconcile]` | Extract into the bronze changelog |
+| `python -m ctl dbt <args>` | dbt with the environment's locations set |
+| `python -m ctl mdm [--provider splink\|rules]` | Run MDM and land contract C3 |
+| `python -m ctl build` | dbt before MDM, MDM, dbt after MDM |
+| `python -m ctl materialize` | Saved queries → cubes, stacked into `dashboard_cube` for Power BI |
+| `python -m ctl serve-load` | Marts → the serving database |
+| `python -m ctl publish` | Copy the warehouse file to raw storage |
+| `python -m ctl run` | The daily pipeline |
+| `python -m ctl powerbi` | Regenerate the Power BI model and parity queries (files in git; only when the semantic layer changes) |
+
+## Watch incremental refresh work
+
+```bash
+make mock run
+make advance DAYS=3
+python -m ctl ingest --source sage_x3     # reads a few hundred CDC rows, not 100,000
+python -m ctl sources status              # LSN counters and change rows retained
+make advance DAYS=6                       # longer than CDC retention (3 days)
+python -m ctl ingest --source sage_x3     # takes a fresh snapshot instead of leaving a hole
+```
+
+`tests/conformance/test_ingestion_convergence.py` does this end to end in a
+temporary directory and checks bronze equals every source table afterwards.
+
+## Ask the semantic layer
+
+```bash
+make serve                                # http://localhost:8000/docs
+curl -s localhost:8000/query -H 'content-type: application/json' \
+  -d '{"metrics": ["on_time_delivery_rate"], "group_by": ["site__site_name"]}'
+```
+
+Or from Python:
+
+```python
+from serving.semantic_service import SemanticService
+svc = SemanticService()
+svc.query(["return_rate"], group_by=["employee__department_name", "metric_time__quarter"])
+```
+
+Or with MetricFlow directly, from `transform/` with the environment set:
+`python -m ctl dbt parse` first, then `mf query --metrics win_rate --group-by employee__department_name`.
+
+**Claude Code** picks up the MCP server from `.mcp.json` - ask "which site has
+the worst on-time delivery this year?" in this repo.
+
+**The embedded-AI example** needs Anthropic credentials (`ANTHROPIC_API_KEY`
+or `ant auth login`):
+`uv run python -m apps.examples.ask_metrics.app "How is win rate by department?"`
+
+## Dagster
+
+```bash
+make ui                                   # http://localhost:3000
+```
+
+Jobs: `daily` (everything, schedule 06:00), `weekly_reconcile` (HubSpot hard
+deletes, Sundays), `cdc_resnapshot` (manual). Set `CT_ALERT_WEBHOOK` to a Teams
+or Slack incoming webhook to get failed runs posted.
+
+## Swap drill 1: the MDM provider
+
+```bash
+python -m ctl build --provider rules
+```
+
+Nothing downstream changes - silver reads only contract C3. The match quality
+changes, and `.data/mdm_quality.json` says by how much. The golden answers
+that depend on matching are marked `mdm_sensitive` and keep one answer per
+provider.
+
+## Environments
+
+`PLATFORM_ENV` selects `config/<env>.yaml` (`local`, `dev`, `test`, `prod`). Any
+key can be overridden with `CT_<KEY>`. In Azure, the image runs as two
+container apps from `infra/main.bicep`; see [components.md](components.md) for
+what each resource is.
+
+## When something breaks
+
+| Symptom | Likely cause |
+|---|---|
+| `No semantic manifest` | run `python -m ctl dbt parse` |
+| A new column fails ingestion | the source changed under contract C2 - review, then `python -m ingestion.run --freeze-schemas` and commit the schema diff |
+| A golden answer fails | a number changed. If intended, `python -m evaluation.golden freeze` and explain the diff in the PR |
+| Seed load error after a seed's columns change | the old table is still in the warehouse: `python -m ctl dbt seed --full-refresh` |
+| MCP returns `Invalid Host header` | set `CT_ALLOWED_HOSTS` to the service's host name |
