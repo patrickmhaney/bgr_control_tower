@@ -27,12 +27,35 @@ orchestrator could call:
 | `python -m ctl ingest [--source S] [--full-refresh] [--reconcile]` | Extract into the bronze changelog |
 | `python -m ctl dbt <args>` | dbt with the environment's locations set |
 | `python -m ctl mdm [--provider splink\|rules]` | Run MDM and land contract C3 |
-| `python -m ctl build` | dbt before MDM, MDM, dbt after MDM |
+| `python -m ctl build [--stage raw\|clean\|mdm\|model]` | dbt before MDM (bronze, then staging and seeds), MDM, dbt after MDM - or one stage |
 | `python -m ctl materialize` | Saved queries → cubes, stacked into `dashboard_cube` for Power BI |
 | `python -m ctl serve-load` | Marts → the serving database |
 | `python -m ctl publish` | Copy the warehouse file to raw storage |
 | `python -m ctl run` | The daily pipeline |
 | `python -m ctl powerbi` | Regenerate the Power BI model and parity queries (files in git; only when the semantic layer changes) |
+
+## The Studio
+
+```bash
+make studio                               # http://localhost:8800
+```
+
+A small web app for showing the platform to people who don't read code
+(`apps/studio/`). **Architecture** draws the components and the contracts
+between them, and switches between the stack options to show what each would
+put in each box - and that the contracts don't move. **Run the pipeline**
+steps through a day one stage at a time. Every button runs the real step
+commands, then the boundary check for that stage (C2 to C7) - the same
+functions the conformance tests call - and shows what happened in plain
+numbers. The customer matcher toggle swaps the MDM component (Splink or rules)
+and re-runs from the match. A full day takes about 30 seconds; reset rebuilds
+day 0 in about the same.
+
+The frozen golden answers hold only for day 0, so on later days the Studio
+checks that the semantic layer and the hand-written reference SQL agree
+(`python -m evaluation.golden check --live`, `python -m serving.powerbi_parity
+local --live`). It listens on localhost only, because it runs commands; on a
+VM it belongs behind Entra ID sign-in.
 
 ## Watch incremental refresh work
 

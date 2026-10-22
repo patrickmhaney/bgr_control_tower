@@ -2,6 +2,7 @@
 
     python -m evaluation.golden check            # semantic layer == reference SQL == expected
     python -m evaluation.golden check --backend tsql
+    python -m evaluation.golden check --live     # after `as_of`: semantic layer == reference SQL only
     python -m evaluation.golden freeze           # write today's answers as expected (review the diff!)
 
 See evaluation/golden_answers.yml for what the file is and why.
@@ -80,7 +81,7 @@ def semantic(svc, q: dict) -> dict:
     return _rows_to_map(rows, len(group_by))
 
 
-def run(mode: str, backend: str = "duckdb") -> int:
+def run(mode: str, backend: str = "duckdb", frozen: bool = True) -> int:
     from serving.semantic_service import MetricRequestError, SemanticService
 
     with open(GOLDEN) as fh:
@@ -116,7 +117,7 @@ def run(mode: str, backend: str = "duckdb") -> int:
             problem = _maps_equal(sem, ref, tol)
             expected = (q.get("expected_by_provider", {}).get(provider)
                         if q.get("mdm_sensitive") else q.get("expected"))
-            if problem is None and expected is not None:
+            if problem is None and expected is not None and frozen:
                 exp = {row[0]: row[1:] for row in expected}
                 problem = _maps_equal(sem, exp, tol)
                 if problem:
@@ -140,8 +141,10 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="python -m evaluation.golden")
     p.add_argument("mode", choices=["check", "freeze"])
     p.add_argument("--backend", choices=["duckdb", "tsql"], default="duckdb")
+    p.add_argument("--live", action="store_true",
+                   help="skip the frozen answers, which hold only for the sources as of `as_of`")
     a = p.parse_args()
-    sys.exit(run(a.mode, a.backend))
+    sys.exit(run(a.mode, a.backend, frozen=not a.live))
 
 
 if __name__ == "__main__":

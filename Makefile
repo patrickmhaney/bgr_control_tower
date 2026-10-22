@@ -1,7 +1,7 @@
 # The whole interface. Every target calls a step command (python -m ctl ...).
 PY := uv run python
 
-.PHONY: setup mock advance run golden test lint ui serve reset
+.PHONY: setup mock advance run golden test lint ui serve studio reset
 setup:            ## install dependencies and dbt packages
 	uv sync --all-extras
 	$(PY) -m ctl dbt deps --quiet
@@ -24,5 +24,7 @@ ui:               ## Dagster UI on http://localhost:3000
 	uv run dagster dev -m orchestration.definitions
 serve:            ## data service (REST + MCP) on http://localhost:8000
 	uv run uvicorn apps.data_service.app:app --port 8000
+studio:           ## the Studio: the architecture and a live pipeline walk-through, http://localhost:8800
+	$(PY) -m apps.studio
 reset:            ## delete everything under .data/
 	$(PY) -m ctl reset

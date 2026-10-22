@@ -53,7 +53,7 @@ include = ["core*", "ctl*", "sources*", "ingestion*", "mdm*", "semantic*", "serv
            "apps*", "orchestration*", "evaluation*", "checks*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yml", "*.yaml", "*.sh"]
+"*" = ["*.yml", "*.yaml", "*.sh", "static/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -22,6 +22,7 @@ make golden    # the golden answers: every route gives the same numbers
 make test      # unit and conformance tests
 make serve     # REST + MCP on http://localhost:8000
 make ui        # Dagster on http://localhost:3000
+make studio    # the architecture and a live pipeline walk-through, http://localhost:8800
 ```
 
 ## The stack
@@ -78,7 +79,7 @@ against SQL Server; this repo's machine has no Docker).
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | The design: layers, contracts, the semantic layer, the five routes |
 | [docs/components.md](docs/components.md) | Each component, its contract, and how to swap it |
-| [docs/running.md](docs/running.md) | Commands, incremental refresh, the data service, Dagster, environments |
+| [docs/running.md](docs/running.md) | Commands, the Studio, incremental refresh, the data service, Dagster, environments |
 | [docs/adding_a_metric.md](docs/adding_a_metric.md) | From SQL to a governed metric on every route |
 | [docs/sources.md](docs/sources.md) | The synthetic sources, the clock, the landmines |
 | [docs/powerbi.md](docs/powerbi.md) | The cube, the generated model and the pages to build |

@@ -20,6 +20,7 @@ import pytest
 
 from ctl.__main__ import dbt
 from ingestion.run import extract
+from ingestion.verify import differences
 from sources import clock
 from sources import generate as g
 
@@ -58,24 +59,10 @@ def test_bronze_converges_on_the_sources(isolated_data):
 
     assert dbt("build", "--select", "path:models/bronze", "--quiet", check=False) == 0
 
+    assert differences() == []
+
     con = duckdb.connect(str(isolated_data / "warehouse.duckdb"), read_only=True)
-    con.execute(f"attach '{isolated_data / 'mock_sources.duckdb'}' as src (read_only)")
     con.execute("install delta; load delta")
-    differing = []
-    for schema in ("sage_x3", "hubspot", "netstock", "azure_cost"):
-        for (table,) in con.execute("select table_name from duckdb_tables() "
-                                    "where database_name = 'src' and schema_name = ?", [schema]).fetchall():
-            cols = ", ".join(f'"{c}"' for (c,) in con.execute(
-                "select column_name from duckdb_columns() where database_name = 'src' "
-                "and schema_name = ? and table_name = ?", [schema, table]).fetchall())
-            bronze = f'bronze."bronze_{schema}__{table.lower()}"'
-            missing = con.execute(f'select count(*) from (select {cols} from src.{schema}."{table}" '
-                                  f"except select {cols} from {bronze})").fetchone()[0]
-            extra = con.execute(f"select count(*) from (select {cols} from {bronze} "
-                                f'except select {cols} from src.{schema}."{table}")').fetchone()[0]
-            if missing or extra:
-                differing.append(f"{schema}.{table}: missing {missing}, extra {extra}")
-    assert differing == []
 
     root = isolated_data / "bronze"
     snapshots = con.execute(f"select count(distinct _change_seq) from delta_scan('{root}/sage_x3/SORDER') "

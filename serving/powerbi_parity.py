@@ -2,6 +2,7 @@
 
     python -m serving.powerbi_parity write      # powerbi/parity/parity_queries.json
     python -m serving.powerbi_parity local      # the templates' SQL twin over marts.dashboard_cube
+    python -m serving.powerbi_parity local --live   # ... against the reference SQL, on any day
     python -m serving.powerbi_parity run        # the DAX against a deployed model (see below)
 
 `write` maps every golden answer it can to a cube: one that holds all its
@@ -12,7 +13,9 @@ visual would run, with the frozen answer beside it.
 `local` runs the same queries with the SQL twin of each template
 (serving.powerbi.SQL) over the materialised cube. It proves, without Power
 BI, that the cube plus the templates reproduce MetricFlow's golden answers -
-rollups included. `run` sends the DAX to the Power BI REST API's
+rollups included. With `--live` it compares with each golden answer's
+reference SQL instead of the frozen answer, so it holds after the sources
+move past `as_of`. `run` sends the DAX to the Power BI REST API's
 executeQueries endpoint, which proves the deployed model does the same.
 
 `run` reads PBI_WORKSPACE_ID, PBI_DATASET_ID and PBI_ACCESS_TOKEN (a token for
@@ -30,7 +33,7 @@ import duckdb
 import yaml
 
 from core.settings import ROOT, settings
-from evaluation.golden import GOLDEN, _maps_equal, _rows_to_map
+from evaluation.golden import GOLDEN, _maps_equal, _rows_to_map, reference
 from serving.powerbi import TABLE, Cube, measure_sql
 
 OUT = os.path.join(ROOT, "powerbi", "parity", "parity_queries.json")
@@ -75,18 +78,23 @@ def write() -> list[dict]:
     return out
 
 
-def _compare(got: dict, q: dict) -> str | None:
+def _frozen(q: dict) -> dict:
+    return {row[0]: row[1:] for row in q["expected"] or []}
+
+
+def _compare(got: dict, exp: dict) -> str | None:
     # SUMMARIZECOLUMNS leaves out a row whose measures are all blank; so does this.
-    exp = {row[0]: row[1:] for row in q["expected"] or []}
     got, exp = ({k: v for k, v in m.items() if any(x is not None for x in v)} for m in (got, exp))
     return _maps_equal(got, exp, 1e-6)
 
 
-def local() -> list[str]:
+def local(live: bool = False) -> list[str]:
     """Every parity query through the SQL twin of the templates; the problems found."""
     cube = Cube()
     with open(OUT) as fh:
         queries = json.load(fh)
+    with open(GOLDEN) as fh:
+        golden = {q["id"]: q for q in yaml.safe_load(fh)["queries"]}
     problems = []
     con = duckdb.connect(settings.warehouse_path, read_only=True)
     try:
@@ -96,7 +104,7 @@ def local() -> list[str]:
             sql = (f"select {', '.join(dims + exprs)} from marts.{TABLE} where _cube = ?"
                    + (f" group by {', '.join(dims)}" if dims else ""))
             got = _rows_to_map(con.execute(sql, [q["cube"]]).fetchall(), len(dims))
-            problem = _compare(got, q)
+            problem = _compare(got, reference(con, golden[q["id"]]) if live else _frozen(q))
             print(f"{'ok  ' if problem is None else 'FAIL'} {q['id']} ({q['cube']})"
                   + (f": {problem}" if problem else ""))
             if problem:
@@ -124,7 +132,7 @@ def run() -> int:
         with urllib.request.urlopen(req) as resp:
             rows = json.load(resp)["results"][0]["tables"][0]["rows"]
         got = _rows_to_map([list(r.values()) for r in rows], len(q["group_by"]))
-        problem = _compare(got, q)
+        problem = _compare(got, _frozen(q))
         print(f"{'ok  ' if problem is None else 'FAIL'} {q['id']}" + (f": {problem}" if problem else ""))
         failures += problem is not None
     return 1 if failures else 0
@@ -135,5 +143,5 @@ if __name__ == "__main__":
     if mode == "run":
         sys.exit(run())
     if mode == "local":
-        sys.exit(1 if local() else 0)
+        sys.exit(1 if local(live="--live" in sys.argv) else 0)
     write()

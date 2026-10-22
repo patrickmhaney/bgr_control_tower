@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control Tower Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233e5bd8'/%3E%3Cstop offset='1' stop-color='%236d4ae0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Crect x='9' y='10' width='14' height='2.5' rx='1' fill='white'/%3E%3Crect x='9' y='15' width='14' height='2.5' rx='1' fill='white'/%3E%3Crect x='9' y='20' width='14' height='2.5' rx='1' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/studio.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><div><span></span><span></span><span></span></div></div>
+      Control Tower <small>Studio</small>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="map">Architecture</button>
+      <button class="tab" data-view="run">Run the pipeline</button>
+    </nav>
+    <div class="daypill" id="daypill"><span class="dot" id="daydot"></span><span id="daytext">Loading…</span></div>
+  </header>
+
+  <main>
+    <!-- ======================================================= the map -->
+    <section class="view active" id="view-map">
+      <div class="hero">
+        <div>
+          <h1>The architecture is the product</h1>
+          <p>Tools plug into fixed contracts. Swap a tool and the contracts, the metric definitions and the
+            tests stay put - and those are what prove the swap is safe.</p>
+        </div>
+        <div class="switcher-wrap">
+          <div class="segmented" id="stacks"></div>
+          <div class="switcher-note" id="stacknote"></div>
+        </div>
+      </div>
+
+      <div class="map-shell">
+        <div class="map" id="map">
+          <svg class="wires" id="wires"></svg>
+          <div class="map-cols" id="cols"></div>
+          <div class="foundation" id="foundation"></div>
+        </div>
+      </div>
+
+      <div class="below">
+        <div class="panel">
+          <h3>What stays when the tools change</h3>
+          <p class="sub">The parts of the platform that belong to the client, whichever software runs it.</p>
+          <div class="tiles" id="keeps"></div>
+        </div>
+        <div class="panel">
+          <h3 id="swaptitle">This stack</h3>
+          <p class="sub" id="swapsub"></p>
+          <div class="swaplist" id="swaplist"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================== run view -->
+    <section class="view" id="view-run">
+      <div id="run-setup" class="panel setup" hidden>
+        <h2>Set up the simulated source systems</h2>
+        <p>Creates realistic copies of Sage X3, HubSpot and Netstock as of day 0, then runs the whole
+          pipeline once so every screen has numbers. About a minute.</p>
+        <button class="btn primary" id="setup-btn">Set up day 0</button>
+      </div>
+
+      <div id="run-main">
+        <div class="runbar">
+          <div class="bizday">
+            <div class="eyebrow">Business day</div>
+            <div class="date" id="bizdate">-</div>
+            <div class="progressline"><div class="track"><i id="daytrack"></i></div><span id="daycount"></span></div>
+          </div>
+          <div class="matcher">
+            <div class="label">Customer matching</div>
+            <div class="segmented" id="matcher">
+              <button data-provider="splink">Splink</button>
+              <button data-provider="rules">Rules</button>
+            </div>
+            <div class="hint">A live component swap: re-run from "Match"</div>
+          </div>
+          <div class="actions">
+            <button class="btn ghost" id="reset-btn" title="Back to day 0">Reset</button>
+            <button class="btn" id="next-btn" title="Run the next step (→)">Next step</button>
+            <button class="btn primary" id="day-btn">Run a full day</button>
+          </div>
+        </div>
+
+        <div class="strip" id="strip"></div>
+
+        <div class="detail">
+          <div class="panel">
+            <div class="stephead">
+              <div>
+                <div class="eyebrow" id="step-eyebrow"></div>
+                <h2 id="step-title"></h2>
+                <p id="step-lead"></p>
+              </div>
+              <button class="compchip" id="step-comp"></button>
+            </div>
+            <div class="status-line" id="step-status"></div>
+            <div class="bar hidden" id="step-bar"><i></i></div>
+            <div class="facts" id="step-facts"></div>
+            <div id="step-alert"></div>
+            <button class="techtoggle" id="techtoggle">Show technical log</button>
+            <div class="log" id="log"></div>
+          </div>
+          <div id="step-checks"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <button class="close" id="drawer-close" aria-label="Close">×</button>
+    <div id="drawer-body"></div>
+  </aside>
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/studio.js"></script>
+</body>
+</html>

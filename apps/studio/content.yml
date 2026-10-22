@@ -1,0 +1,206 @@
+# What the Studio's map shows, in plain words. The tools in each stack, the
+# technical contract and the conformance test come from
+# evaluation/components.yml; this file only adds the layout and the copy.
+#
+# swap: the cost of moving from the baseline to that stack's tool, where it
+# differs from components.yml's single swap_cost. same = the same tool;
+# none = the stack has nothing for this job.
+
+stacks:
+  - {id: baseline, label: Open source, note: Built and running in this project}
+  - {id: existing, label: Existing stack, note: "Azure Data Factory, Azure SQL Managed Instance, Power BI"}
+  - {id: mix_1, label: "Mix 1 · Boomi + Fabric", note: "Boomi Data Integration and Data Hub, Microsoft Fabric"}
+  - {id: mix_2, label: "Mix 2 · Snowflake + Fivetran", note: "Fivetran, Snowflake, Profisee"}
+
+swap_costs:
+  same: {label: Same tool, effort: ""}
+  adapter: {label: Adapter, effort: days}
+  port: {label: Port, effort: weeks}
+  rebuild: {label: Rebuild, effort: re-expressed and re-verified}
+  none: {label: Not covered, effort: ""}
+  stays: {label: Part of the platform, effort: ""}
+
+columns:
+  - {id: sources, label: Source systems}
+  - {id: collect, label: Collect}
+  - {id: raw, label: Raw history}
+  - {id: clean, label: Clean and connect}
+  - {id: star, label: Star schema}
+  - {id: semantic, label: Semantic layer}
+  - {id: use, label: Use}
+
+nodes:
+  - id: sage_x3
+    column: sources
+    kind: source
+    role: ERP
+    tool: Sage X3
+    what: Orders, shipments, invoices, purchasing, inventory and the general ledger.
+  - id: hubspot
+    column: sources
+    kind: source
+    role: CRM
+    tool: HubSpot
+    what: Companies, contacts, deals and the sales pipeline.
+  - id: netstock
+    column: sources
+    kind: source
+    role: Inventory planning
+    tool: Netstock
+    what: Demand forecasts, forecast accuracy and replenishment advice.
+  - id: azure_cost
+    column: sources
+    kind: source
+    role: Cloud bill
+    tool: Azure Cost
+    what: What this platform itself costs to run, by component.
+
+  - id: ingestion
+    column: collect
+    component: ingestion
+    role: Ingestion and change capture
+    tool: dlt
+    what: Picks up only what changed in each system since the last run - new rows, updates and deletes - without slowing the systems down.
+    step: collect
+
+  - id: raw_storage
+    column: raw
+    component: raw_storage
+    role: Raw storage
+    tool: Azure Data Lake
+    what: Keeps every version of every record the systems ever sent, in an open format. Nothing here is edited, so any report can be rebuilt as it looked on any past day.
+    swap: {existing: port, mix_1: adapter, mix_2: adapter}
+    step: collect
+
+  - id: transformation
+    column: clean
+    component: transformation
+    role: Transformation
+    tool: dbt
+    what: Cleans names, dates and codes, joins the systems together, and runs quality tests on every table.
+    swap: {existing: rebuild, mix_1: port, mix_2: port}
+    swap_note: A port while the logic stays in dbt (dbt runs on Fabric and Snowflake); a rebuild if it moves into another tool.
+    step: clean
+
+  - id: mdm
+    column: clean
+    component: master_data_management
+    role: Master data
+    tool: Splink
+    what: Recognises the same customer in X3 and HubSpot, and the same person across systems, and gives each one ID.
+    step: match
+
+  - id: warehouse
+    column: star
+    component: warehouse_storage
+    role: Warehouse
+    tool: DuckDB
+    what: "The star schema: fact tables (orders, deliveries, invoices, deals ...) and dimensions (customer, item, site, employee ...) that every metric reads."
+    step: model
+
+  - id: semantic
+    column: semantic
+    component: semantic_modeling
+    kind: heart
+    role: Semantic layer
+    tool: MetricFlow
+    what: Every metric is defined once - its formula, owner, status and caveats - and every number anyone sees is computed from that one definition.
+    step: metrics
+
+  - id: powerbi
+    column: use
+    component: visualization
+    role: Dashboards
+    tool: Power BI
+    what: Imports the precomputed metrics and draws them. It holds no formulas of its own, so it can never disagree with the other channels.
+    step: metrics
+  - id: marts
+    column: use
+    component: downstream_apps
+    role: Data marts and apps
+    tool: Postgres
+    what: The same metrics as plain tables, for other systems and apps to read.
+    step: serve
+  - id: api
+    column: use
+    role: API
+    tool: REST + MCP
+    fixed: true
+    what: Any app or AI tool can ask for any metric, cut any valid way, and gets the governed number with its caveats.
+    step: serve
+  - id: ai
+    column: use
+    component: applied_ai
+    role: AI assistants
+    tool: Claude
+    what: Ask a question in plain English; the assistant answers with the governed numbers, through the same definitions.
+    step: serve
+
+foundation:
+  - id: cloud
+    component: cloud_infrastructure
+    role: Cloud
+    tool: Azure
+    what: Everything runs in Azure, described as code, with a budget and alerts per environment.
+  - id: orchestration
+    component: orchestration
+    role: Orchestration
+    tool: Dagster
+    what: Runs the steps in order every day. It only calls the steps; none of the logic lives in it, so it is the cheapest piece to replace.
+  - id: assurance
+    role: Assurance
+    tool: Contracts, tests and golden answers
+    fixed: true
+    kind: keep
+    what: The written contracts between components, the tests that enforce them, and the frozen golden answers every tool must reproduce. They are how a swap is proven safe.
+
+edges:
+  - {from: sage_x3, to: ingestion, contract: C1}
+  - {from: hubspot, to: ingestion, contract: C1}
+  - {from: netstock, to: ingestion, contract: C1}
+  - {from: azure_cost, to: ingestion, contract: C1}
+  - {from: ingestion, to: raw_storage, contract: C2}
+  - {from: raw_storage, to: transformation}
+  - {from: mdm, to: transformation, contract: C3, vertical: true}
+  - {from: transformation, to: warehouse, contract: C4}
+  - {from: warehouse, to: semantic, contract: C5}
+  - {from: semantic, to: powerbi, contract: C7}
+  - {from: semantic, to: marts, contract: C7}
+  - {from: semantic, to: api, contract: C6}
+  - {from: api, to: ai, vertical: true}
+
+contracts:
+  C1:
+    name: Source specification
+    promise: For every source table, which rows identify a record and how changes are picked up.
+    proof: The ingestion is generated from the specification, so it cannot drift from it.
+  C2:
+    name: Raw history
+    promise: Every change is kept - deletes included - with the source's own column names, in an open format. A column that disappears stops the load.
+    proof: Rebuilding each source table from the raw history must match the source exactly, every row and column.
+  C3:
+    name: Golden IDs
+    promise: Every customer and employee record from every system maps to exactly one golden ID.
+    proof: The output is checked against the contract, and match quality is scored against a known answer key.
+  C4:
+    name: Star schema
+    promise: Every fact and dimension has fixed columns and types. If anything upstream changes them, the build stops.
+    proof: Enforced table contracts and a test on every relationship.
+  C5:
+    name: Metric definitions
+    promise: Every metric is defined once, with an owner, a status and caveats. Anything that computes metrics must reproduce the golden answers.
+    proof: Golden answers, each computed two independent ways and compared with the frozen number.
+  C6:
+    name: API and AI tools
+    promise: A fixed set of API endpoints and AI tools that return governed numbers - or the reason they cannot.
+    proof: The API and tool list are tested against the published contract.
+  C7:
+    name: Dashboard tables
+    promise: One table of precomputed metrics per dashboard grain, which Power BI and the marts read as-is.
+    proof: Every dashboard number is recomputed through Power BI's measure math and compared with the golden answers.
+
+keeps:
+  - {id: contracts, label: Contracts between components}
+  - {id: metrics, label: Metric definitions}
+  - {id: golden, label: Golden answers}
+  - {id: star, label: Star schema tables}

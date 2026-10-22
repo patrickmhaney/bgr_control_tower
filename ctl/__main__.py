@@ -4,7 +4,7 @@
     python -m ctl ingest [--source S] [--full-refresh] [--reconcile]
     python -m ctl dbt <any dbt arguments>
     python -m ctl mdm [--provider splink|rules]
-    python -m ctl build            dbt before MDM, MDM, dbt after MDM
+    python -m ctl build [--stage S]  dbt before MDM (raw, clean), MDM, dbt after MDM (model)
     python -m ctl materialize      saved queries -> cubes + dashboard_cube (DuckDB tables + Parquet)
     python -m ctl serve-load       marts -> the serving database (dlt reverse load)
     python -m ctl publish          copy the warehouse file to raw storage
@@ -29,7 +29,10 @@ from core.settings import ROOT, settings
 TRANSFORM = os.path.join(ROOT, "transform")
 
 #: Everything dbt must build before MDM can run: bronze, staging, seeds.
-PRE_MDM = "path:models/bronze path:models/silver/staging path:seeds"
+BEFORE_MDM = {"raw": "path:models/bronze", "clean": "path:models/silver/staging path:seeds"}
+PRE_MDM = " ".join(BEFORE_MDM.values())
+#: The build in order; `--stage` runs one of them.
+STAGES = ("raw", "clean", "mdm", "model")
 
 
 def dbt(*args: str, check: bool = True) -> int:
@@ -45,14 +48,19 @@ def dbt(*args: str, check: bool = True) -> int:
     return result.returncode
 
 
-def build(provider: str | None = None) -> None:
+def build(provider: str | None = None, stages: tuple[str, ...] = STAGES) -> None:
     from mdm.run import run_mdm
 
-    # Cautious: only tests whose every parent is in this step. Tests that also
-    # touch post-MDM models run in the second step.
-    dbt("build", "--select", *PRE_MDM.split(), "--indirect-selection", "cautious")
-    run_mdm(provider)
-    dbt("build", "--exclude", *PRE_MDM.split())
+    # Cautious: only tests whose every parent is in this step. Buildable: the
+    # last step also runs tests that touch earlier models (an MDM output joined
+    # to a seed), which excluding those models would otherwise drop.
+    before = [path for s in ("raw", "clean") if s in stages for path in BEFORE_MDM[s].split()]
+    if before:
+        dbt("build", "--select", *before, "--indirect-selection", "cautious")
+    if "mdm" in stages:
+        run_mdm(provider)
+    if "model" in stages:
+        dbt("build", "--exclude", *PRE_MDM.split(), "--indirect-selection", "buildable")
 
 
 def run_all(reconcile: bool = False) -> None:
@@ -85,6 +93,7 @@ def main() -> None:
     m.add_argument("--provider", choices=["splink", "rules"])
     b = sub.add_parser("build")
     b.add_argument("--provider", choices=["splink", "rules"])
+    b.add_argument("--stage", choices=STAGES, action="append")
     sub.add_parser("materialize")
     sub.add_parser("powerbi")
     sub.add_parser("serve-load")
@@ -119,7 +128,7 @@ def main() -> None:
 
         run_mdm(a.provider)
     elif a.cmd == "build":
-        build(a.provider)
+        build(a.provider, tuple(a.stage or STAGES))
     elif a.cmd == "materialize":
         from serving.materialize import materialize
 
