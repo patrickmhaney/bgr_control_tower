@@ -19,6 +19,7 @@ Flow, Snowflake Tasks, cron - could call them instead.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
 import subprocess
@@ -27,6 +28,10 @@ import sys
 from core.settings import ROOT, settings
 
 TRANSFORM = os.path.join(ROOT, "transform")
+
+#: Commands that write the warehouse, raw storage or dbt's target folder. They
+#: hold the pipeline lock (core/lock.py), so two runs never overlap.
+WRITES = {"sources", "ingest", "dbt", "mdm", "build", "materialize", "serve-load", "run", "reset"}
 
 #: Everything dbt must build before MDM can run: bronze, staging, seeds.
 BEFORE_MDM = {"raw": "path:models/bronze", "clean": "path:models/silver/staging path:seeds"}
@@ -103,6 +108,17 @@ def main() -> None:
     sub.add_parser("reset")
     a = p.parse_args()
 
+    from core.lock import PipelineBusy, held
+
+    writes = a.cmd in WRITES and not (a.cmd == "sources" and a.action == "status")
+    try:
+        with held("python -m ctl " + " ".join(sys.argv[1:])) if writes else contextlib.nullcontext():
+            _dispatch(a)
+    except PipelineBusy as exc:
+        raise SystemExit(str(exc)) from None
+
+
+def _dispatch(a: argparse.Namespace) -> None:
     if a.cmd == "sources":
         from sources import clock
 

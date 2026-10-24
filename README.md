@@ -22,7 +22,7 @@ make golden    # the golden answers: every route gives the same numbers
 make test      # unit and conformance tests
 make serve     # REST + MCP on http://localhost:8000
 make ui        # Dagster on http://localhost:3000
-make studio    # the architecture and a live pipeline walk-through, http://localhost:8800
+make studio    # architecture, live pipeline walk-through, preview dashboards, query and chat: http://localhost:8800
 ```
 
 ## The stack

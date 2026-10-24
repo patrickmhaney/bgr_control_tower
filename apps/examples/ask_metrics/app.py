@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+from contextvars import ContextVar
 
 import anthropic
 from anthropic import beta_tool
@@ -32,12 +33,22 @@ return. If a metric cannot be cut the way the user asked, say why."""
 
 svc = SemanticService()
 
+#: Called with (tool, arguments, result) after every tool call - how a UI shows
+#: what the model asked the semantic layer for.
+on_tool: ContextVar = ContextVar("on_tool", default=None)
+
 
 def _call(fn, *args, **kwargs) -> str:
     try:
-        return json.dumps(fn(*args, **kwargs), default=str)
+        result = fn(*args, **kwargs)
+        out = json.dumps(result, default=str)
     except MetricRequestError as exc:
-        return json.dumps({"error": str(exc)})
+        result = {"error": str(exc)}
+        out = json.dumps(result)
+    hook = on_tool.get()
+    if hook:
+        hook(getattr(fn, "__name__", "query_metrics"), {"args": args, **kwargs}, result)
+    return out
 
 
 @beta_tool
@@ -80,15 +91,16 @@ def query_metrics(metrics: list[str], group_by: list[str] | None = None,
         start: ISO date; earliest metric_time to include.
         end: ISO date; latest metric_time to include.
     """
-    def run():
+    def query_metrics():
         result = svc.query(metrics, group_by=group_by, order_by=order_by,
                            limit=min(limit, 500), start=start, end=end)
         result.pop("sql", None)
         return result
-    return _call(run)
+    return _call(query_metrics, metrics=metrics, group_by=group_by, start=start, end=end)
 
 
-def ask(question: str) -> str:
+def ask(question: str, history: list[dict] | None = None) -> str:
+    """Answer a question; `history` holds earlier turns as {"role", "content"} text messages."""
     client = anthropic.Anthropic()
     runner = client.beta.messages.tool_runner(
         model=MODEL,
@@ -98,7 +110,7 @@ def ask(question: str) -> str:
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
         tools=[list_metrics, describe_metric, valid_dimensions, query_metrics],
-        messages=[{"role": "user", "content": question}],
+        messages=[*(history or []), {"role": "user", "content": question}],
     )
     final = None
     for message in runner:

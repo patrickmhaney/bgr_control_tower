@@ -1,12 +1,17 @@
-"""Control Tower Studio: the architecture, and the pipeline run live, for people who don't read code.
+"""Control Tower Studio: the architecture, the pipeline run live, and preview consumers of its data.
 
     python -m apps.studio            # http://localhost:8800
 
-Two screens. The map draws the components, the contracts between them, and
-what each stack option would put in each box (apps/studio/content.yml and
+The map draws the components, the contracts between them, and what each stack
+option would put in each box (apps/studio/content.yml and
 evaluation/components.yml). Run steps through the pipeline: every button runs
 the platform's own step commands in a subprocess and streams their progress,
 then apps/studio/probe.py reads what happened and runs the boundary checks.
+
+Three preview screens read what the pipeline produced, each through an
+existing route: dashboards over the Power BI cube (contract C7), SQL over gold
+and the marts plus metric queries through the semantic layer (C5, C6), and a
+chat that can only call the governed metric tools (the MCP tools, C6).
 
 It runs commands on this machine, so it listens on localhost only. On a VM it
 belongs behind Entra ID sign-in, like the data service.
@@ -27,9 +32,10 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from core import lock
 from core.settings import ROOT, settings
 
-from . import contracts, pipeline
+from . import contracts, data, pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPONENTS = os.path.join(ROOT, "evaluation", "components.yml")
@@ -174,7 +180,7 @@ def _content() -> dict:
 def _live() -> bool:
     """After day 0 the frozen golden answers no longer apply; compare live instead."""
     # Don't open the source database while a job may be writing it.
-    clock = STATE.get("clock") if CURRENT and STATE.get("clock") else _clock()
+    clock = STATE.get("clock") if (CURRENT or lock.holder()) and STATE.get("clock") else _clock()
     return clock.get("today") != _counts()["as_of"]
 
 
@@ -291,7 +297,7 @@ def _clock() -> dict:
 @app.get("/api/state")
 def state():
     # Only read the source database between jobs: the pipeline may be writing it.
-    clock = STATE.get("clock") if CURRENT else None
+    clock = STATE.get("clock") if CURRENT or lock.holder() else None
     if clock is None:
         clock = _clock()
         STATE["clock"] = clock
@@ -299,6 +305,7 @@ def state():
             "results": STATE["results"], "steps": [{k: s[k] for k in ("id", "title", "lead", "node")}
                                                   | {"checks": s.get("checks", [])} for s in pipeline.STEPS],
             "job": {"id": CURRENT.id, "steps": [s["id"] for s in CURRENT.steps]} if CURRENT else None,
+            "busy": data.busy_reason(bool(CURRENT)),
             "counts": _counts()}
 
 
@@ -312,6 +319,8 @@ async def run(req: RunRequest):
     global CURRENT
     if CURRENT:
         raise HTTPException(409, "A run is already in progress.")
+    if lock.holder():
+        raise HTTPException(409, data.busy_reason(False))
     unknown = [s for s in req.steps if s not in pipeline.BY_ID]
     if unknown or not (req.steps or req.reset):
         raise HTTPException(400, f"Unknown steps: {unknown}" if unknown else "Nothing to run.")
@@ -383,8 +392,8 @@ class TestRequest(BaseModel):
 @app.post("/api/contracts/{cid}/run")
 async def run_contract(cid: str, req: TestRequest):
     global CURRENT
-    if CURRENT:
-        raise HTTPException(409, "Something is already running.")
+    if CURRENT or lock.holder():
+        raise HTTPException(409, data.busy_reason(bool(CURRENT)) or "Something is already running.")
     c = _content()["contracts"].get(cid)
     if not c or not c.get("suites"):
         raise HTTPException(404, "This contract has no tests to run.")
@@ -396,3 +405,182 @@ async def run_contract(cid: str, req: TestRequest):
     CURRENT = job
     asyncio.get_running_loop().create_task(_run_tests(job, cid, chosen))
     return {"id": job.id, "suites": [i for i, _ in chosen]}
+
+
+# ------------------------------------------------------- preview screens --
+def _readable() -> None:
+    reason = data.busy_reason(bool(CURRENT))
+    if reason:
+        raise HTTPException(409, reason)
+    if not os.path.exists(settings.warehouse_path):
+        raise HTTPException(409, "There is no data yet. Initialize on the Run the pipeline screen.")
+
+
+def _today() -> dt.date:
+    clock = STATE.get("clock") or _clock()
+    return dt.date.fromisoformat(clock["today"]) if clock.get("today") else dt.date.today()
+
+
+@app.get("/api/dashboards")
+def dashboards():
+    return {"pages": data.pages()}
+
+
+@app.get("/api/dashboards/{name}")
+def dashboard(name: str, metric: str | None = None, period: str = "ytd", dim: str | None = None):
+    if name not in {p["id"] for p in data.pages()} or period not in ("month", "ytd", "12m"):
+        raise HTTPException(404, "No such page.")
+    _readable()
+    return data.page(name, metric, period, _today(), dim)
+
+
+@app.get("/api/query/schema")
+def query_schema():
+    _readable()
+    return {"tables": data.schema(), "examples": data.examples(), "limit": data.ROW_LIMIT}
+
+
+class SqlRequest(BaseModel):
+    sql: str
+
+
+@app.post("/api/query/sql")
+def query_sql(req: SqlRequest):
+    _readable()
+    try:
+        return data.run_sql(req.sql)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+_SVC = None
+
+
+def _svc():
+    """One semantic service for the Studio, its warehouse reads taken one at a time."""
+    global _SVC
+    if _SVC is None:
+        from serving.semantic_service import SemanticService
+
+        svc = SemanticService()
+
+        def locked(fn):
+            def wrapper(*args, **kwargs):
+                with data.WAREHOUSE:
+                    return fn(*args, **kwargs)
+            return wrapper
+
+        svc.client.query = locked(svc.client.query)
+        svc.as_of_date = locked(svc.as_of_date)
+        _SVC = svc
+    return _SVC
+
+
+@app.get("/api/metrics")
+def metrics():
+    return {"metrics": _svc().list_metrics()}
+
+
+class DimensionsRequest(BaseModel):
+    metrics: list[str]
+
+
+@app.post("/api/metrics/dimensions")
+def metric_dimensions(req: DimensionsRequest):
+    from serving.semantic_service import MetricRequestError
+
+    try:
+        return {"dimensions": _svc().valid_dimensions(req.metrics) if req.metrics else []}
+    except MetricRequestError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+class MetricQueryRequest(BaseModel):
+    metrics: list[str]
+    group_by: list[str] = []
+    start: str | None = None
+
+
+@app.post("/api/metrics/query")
+def metric_query(req: MetricQueryRequest):
+    from serving.semantic_service import MetricRequestError
+
+    _readable()
+    order = [g for g in req.group_by if g.startswith("metric_time")]
+    try:
+        return _svc().query(req.metrics, group_by=req.group_by, order_by=order or None,
+                            limit=500, start=req.start)
+    except MetricRequestError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+@app.get("/api/ask/status")
+def ask_status():
+    try:
+        import anthropic  # noqa: F401
+
+        from apps.examples.ask_metrics.app import MODEL
+    except ImportError:
+        return {"available": False, "reason": "The anthropic package is not installed (uv sync --extra examples)."}
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return {"available": False, "model": MODEL,
+                "reason": "Set ANTHROPIC_API_KEY in the environment and restart the Studio."}
+    return {"available": True, "model": MODEL}
+
+
+class AskRequest(BaseModel):
+    question: str
+    history: list[dict] = []
+
+
+def _summarize(tool: str, result) -> str:
+    if isinstance(result, dict) and "error" in result:
+        return "Refused: " + str(result["error"])
+    if tool == "list_metrics":
+        return f"{len(result)} metrics"
+    if tool == "describe_metric":
+        return f"{result.get('label')} ({result.get('status')})"
+    if tool == "valid_dimensions":
+        return f"{len(result)} valid dimensions"
+    if tool == "query_metrics":
+        return f"{len(result.get('rows', []))} rows"
+    return ""
+
+
+@app.post("/api/ask")
+async def ask(req: AskRequest):
+    if not ask_status()["available"]:
+        raise HTTPException(409, ask_status()["reason"])
+    _readable()
+    from apps.examples.ask_metrics import app as ask_app
+
+    ask_app.svc = _svc()
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+
+    def hook(tool, arguments, result):
+        args = {k: v for k, v in arguments.items() if k != "args" and v}
+        if arguments.get("args"):
+            args["metrics" if tool == "valid_dimensions" else "name"] = arguments["args"][0]
+        event = {"type": "tool", "tool": tool, "input": args, "summary": _summarize(tool, result)}
+        loop.call_soon_threadsafe(queue.put_nowait, event)
+
+    def work():
+        ask_app.on_tool.set(hook)
+        try:
+            history = [{"role": m["role"], "content": m["content"]} for m in req.history
+                       if m.get("role") in ("user", "assistant") and m.get("content")]
+            text = ask_app.ask(req.question, history)
+            event = {"type": "answer", "text": text}
+        except Exception as exc:  # noqa: BLE001 - show the API's message in the chat
+            event = {"type": "error", "message": str(exc).splitlines()[0]}
+        loop.call_soon_threadsafe(queue.put_nowait, event)
+        loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    loop.run_in_executor(None, work)
+
+    async def stream():
+        while (event := await queue.get()) is not None:
+            yield json.dumps(event, default=str) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")

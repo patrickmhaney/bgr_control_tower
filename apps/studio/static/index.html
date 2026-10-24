@@ -16,6 +16,10 @@
     <nav class="tabs">
       <button class="tab active" data-view="map">Architecture</button>
       <button class="tab" data-view="run">Run the pipeline</button>
+      <span class="tabsep"></span>
+      <button class="tab" data-view="dash">Dashboards</button>
+      <button class="tab" data-view="query">Query</button>
+      <button class="tab" data-view="ask">Ask</button>
     </nav>
     <div class="daypill" id="daypill"><span class="dot" id="daydot"></span><span id="daytext">Loading…</span></div>
   </header>
@@ -111,6 +115,47 @@
         </div>
       </div>
     </section>
+    <!-- ==================================================== dashboards -->
+    <section class="view" id="view-dash">
+      <div class="preview-head">
+        <div>
+          <h1>Dashboards <span class="preview-tag">Preview</span></h1>
+          <p>One page per saved query. Numbers come from <span class="mono">marts.dashboard_cube</span> (Contract 7)
+            through the same three measure templates as the Power BI model. The delivered reports are built in Power BI.</p>
+        </div>
+      </div>
+      <div class="dash">
+        <nav class="dash-nav" id="dash-nav"></nav>
+        <div class="dash-main" id="dash-main"></div>
+      </div>
+    </section>
+
+    <!-- ========================================================= query -->
+    <section class="view" id="view-query">
+      <div class="preview-head">
+        <div>
+          <h1>Query <span class="preview-tag">Preview</span></h1>
+          <p>Ask for metrics through the semantic layer, or write SQL against the gold tables and the marts. Read-only.</p>
+        </div>
+        <div class="segmented" id="query-mode">
+          <button data-qmode="metrics" class="active">Metrics</button>
+          <button data-qmode="sql">SQL</button>
+        </div>
+      </div>
+      <div id="query-main"></div>
+    </section>
+
+    <!-- =========================================================== ask -->
+    <section class="view" id="view-ask">
+      <div class="preview-head">
+        <div>
+          <h1>Ask <span class="preview-tag">Preview</span></h1>
+          <p>Questions answered by Claude using only the governed metric tools (the MCP tools, Contract 6). It cannot
+            see the tables or write SQL.</p>
+        </div>
+      </div>
+      <div id="ask-main"></div>
+    </section>
   </main>
 
   <div class="scrim" id="scrim"></div>
@@ -121,5 +166,7 @@
   <div class="toast" id="toast"></div>
 
   <script src="/static/studio.js"></script>
+  <script src="/static/charts.js"></script>
+  <script src="/static/views.js"></script>
 </body>
 </html>

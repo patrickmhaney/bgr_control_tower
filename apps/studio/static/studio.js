@@ -316,7 +316,7 @@ function renderDay() {
 }
 
 function renderControls() {
-  const c = S.state.clock, busy = !!S.job, atEnd = c.initialised && c.day >= c.days;
+  const c = S.state.clock, busy = !!S.job || !!S.state.busy, atEnd = c.initialised && c.day >= c.days;
   $("#day-btn").disabled = busy || atEnd;
   $("#day-btn").textContent = atEnd ? "End of timeline" : "Run full day";
   const nx = c.initialised ? nextStep() : null;
@@ -414,14 +414,16 @@ function renderDetail() {
 function renderBanner() {
   const b = $("#banner");
   const fresh = S.state.clock.initialised && !S.job && !Object.keys(S.results).length;
+  const busy = !S.job && S.state.busy;
   b.className = "banner" + (S.setup?.error ? " error" : "");
-  if (S.setup?.error) b.innerHTML = `<b>Reset failed</b><span>${esc(S.setup.error)}</span>`;
+  if (busy) b.innerHTML = `<b>Pipeline busy.</b><span class="muted">${esc(S.state.busy)}</span>`;
+  else if (S.setup?.error) b.innerHTML = `<b>Reset failed</b><span>${esc(S.setup.error)}</span>`;
   else if (S.setup) {
     const p = S.setup.progress;
     b.innerHTML = `<b>Resetting to day 0</b><span class="activity">${esc(S.setup.activity)}</span>
       <div class="bar ${p ? "" : "indeterminate"}"><i style="width:${p ? (100 * p[0]) / p[1] : 0}%"></i></div>`;
   } else if (fresh) b.innerHTML = `<b>Day 0 ready.</b><span class="muted">No steps have run yet. Use Next step or Run full day.</span>`;
-  b.hidden = !(S.setup || fresh);
+  b.hidden = !(S.setup || fresh || busy);
 }
 
 function renderRun() {
@@ -559,8 +561,21 @@ function showView(name) {
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   try { localStorage.setItem("studio.view", name); } catch { /* private window */ }
   if (name === "map") requestAnimationFrame(drawWires);
-  else renderRun();
+  else if (name === "run") renderRun();
+  else window.Views?.show(name);
 }
+
+// Notice runs started elsewhere (a terminal, a schedule): they hold the pipeline lock.
+setInterval(async () => {
+  if (S.job || !S.state || document.hidden) return;
+  try {
+    const st = await api("/api/state");
+    if (st.busy !== S.state.busy || st.clock.today !== S.state.clock.today) {
+      S.state.busy = st.busy; S.state.clock = st.clock;
+      renderRun();
+    }
+  } catch { /* the server may be restarting */ }
+}, 4000);
 
 let resizeTimer;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawWires, 80); });

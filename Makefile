@@ -24,7 +24,7 @@ ui:               ## Dagster UI on http://localhost:3000
 	uv run dagster dev -m orchestration.definitions
 serve:            ## data service (REST + MCP) on http://localhost:8000
 	uv run uvicorn apps.data_service.app:app --port 8000
-studio:           ## the Studio: the architecture and a live pipeline walk-through, http://localhost:8800
+studio:           ## the Studio: architecture, live pipeline, preview dashboards, query, chat - http://localhost:8800
 	$(PY) -m apps.studio
 reset:            ## delete everything under .data/
 	$(PY) -m ctl reset

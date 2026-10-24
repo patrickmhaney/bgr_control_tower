@@ -53,11 +53,32 @@ its tests (`apps/studio/content.yml` lists both); **Run tests** runs them and
 shows each case as it passes. A full day takes about 30 seconds; reset rebuilds
 day 0 in about the same.
 
+Three **preview** screens read what the pipeline produced, each through a
+route that already exists, so they complete the flow end to end without being
+the delivered product:
+
+| Screen | Reads | Through |
+|---|---|---|
+| **Dashboards** | one page per saved query: cards, a monthly trend, a breakdown | `marts.dashboard_cube` and the Power BI measure templates' SQL (C7) - the numbers the Power BI model shows |
+| **Query → Metrics** | any metrics by any valid dimensions, with the SQL MetricFlow wrote | the semantic service (C5, C6); invalid cuts are refused with the reason |
+| **Query → SQL** | gold and the marts, read-only: one statement, 1,000 rows, 15 seconds, no file access | DuckDB |
+| **Ask** | questions in plain English, each tool call shown | `apps/examples/ask_metrics` - Claude with the four governed MCP tools (C6); needs `ANTHROPIC_API_KEY`, and sends questions and results to the Claude API |
+
 The frozen golden answers hold only for day 0, so on later days the Studio
 checks that the semantic layer and the hand-written reference SQL agree
 (`python -m evaluation.golden check --live`, `python -m serving.powerbi_parity
 local --live`). It listens on localhost only, because it runs commands; on a
 VM it belongs behind Entra ID sign-in.
+
+## One run at a time
+
+The warehouse is one DuckDB file and dbt has one target folder, so two runs at
+once collide. Every step command that writes takes `.data/pipeline.lock` for
+as long as it runs (`core/lock.py`); a second one stops at once and names the
+first. The Studio checks the lock too: while a run started elsewhere holds it,
+its buttons wait and its screens say why. A lock left by a process that died is
+taken over. Dagster calls the step functions directly, not the commands, and
+relies on its run queue (one run at a time) instead.
 
 ## Watch incremental refresh work
 

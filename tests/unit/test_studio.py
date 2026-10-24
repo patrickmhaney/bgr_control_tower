@@ -55,3 +55,53 @@ def test_every_contract_shows_real_files_and_runnable_suites():
                 assert os.path.exists(os.path.join(ROOT, suite["path"])), suite["path"]
                 assert contracts.cases(suite), suite["path"]
         assert c["suites"] or c.get("enforced"), cid
+
+
+def test_sql_editor_runs_one_read_query_only():
+    import pytest
+
+    from apps.studio import data
+
+    for ok in ("select 1", "  WITH x as (select 1) select * from x", "describe gold.dim_site"):
+        assert data.ALLOWED.match(ok), ok
+    for bad, why in (("drop table gold.dim_site", "Only read"), ("select 1; select 2", "One statement"),
+                     ("copy gold.dim_site to 'x.csv'", "Only read"), ("", "Write a query")):
+        with pytest.raises(ValueError, match=why):
+            data.run_sql(bad)
+
+
+def test_pipeline_lock_admits_one_writer(isolated_data):
+    import pytest
+
+    from core.lock import PipelineBusy, held, holder
+
+    with held("python -m ctl run"):
+        assert holder()["command"] == "python -m ctl run"
+        with pytest.raises(PipelineBusy, match="python -m ctl run"):
+            with held("python -m ctl build"):
+                pass
+    assert holder() is None
+
+
+def test_chat_streams_each_tool_call_then_the_answer(monkeypatch):
+    import json
+
+    import pytest
+
+    pytest.importorskip("anthropic")
+    from apps.examples.ask_metrics import app as ask_app
+    from apps.studio import app as studio
+
+    def fake_ask(question, history=None):
+        ask_app.on_tool.get()("query_metrics", {"metrics": ["revenue"], "group_by": None}, {"rows": [[1], [2]]})
+        return f"Answer to: {question}"
+
+    monkeypatch.setattr(studio, "ask_status", lambda: {"available": True, "model": "test"})
+    monkeypatch.setattr(studio, "_readable", lambda: None)
+    monkeypatch.setattr(studio, "_svc", lambda: ask_app.svc)
+    monkeypatch.setattr(ask_app, "ask", fake_ask)
+    r = TestClient(app).post("/api/ask", json={"question": "Revenue?", "history": []})
+    events = [json.loads(line) for line in r.text.splitlines() if line]
+    assert events[0] == {"type": "tool", "tool": "query_metrics", "input": {"metrics": ["revenue"]},
+                         "summary": "2 rows"}
+    assert events[-1] == {"type": "answer", "text": "Answer to: Revenue?"}
