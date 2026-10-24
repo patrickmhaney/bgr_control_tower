@@ -1,9 +1,8 @@
-/* The preview screens: dashboards, query and ask. Uses the helpers in studio.js. */
+/* The preview screens: query and ask (dashboards are in dash.js). Uses the helpers in studio.js. */
 "use strict";
 
 const Views = (() => {
   const V = {
-    dash: { pages: null, page: null, metric: null, period: "ytd", dim: null },
     query: { mode: "metrics", schema: null, sql: "", result: null, metrics: null, chosen: [], dims: [], group: ["", ""], since: "", mresult: null },
     ask: { status: null, thread: [], busy: false },
   };
@@ -13,60 +12,6 @@ const Views = (() => {
   async function load(path, body) {
     try { return { ok: true, data: await api(path, body) }; }
     catch (e) { return { ok: false, error: e.message }; }
-  }
-
-  /* ------------------------------------------------------------ dashboards */
-  async function showDash() {
-    const d = V.dash;
-    if (!d.pages) {
-      const r = await load("/api/dashboards");
-      if (!r.ok) { $("#dash-main").innerHTML = busyHTML(r.error); return; }
-      d.pages = r.data.pages; d.page = d.pages[0].id;
-    }
-    $("#dash-nav").innerHTML = d.pages.map((p) => `<button class="${p.id === d.page ? "active" : ""}" data-dpage="${p.id}">${esc(p.title)}</button>`).join("");
-    const qs = new URLSearchParams({ period: d.period, ...(d.metric ? { metric: d.metric } : {}), ...(d.dim ? { dim: d.dim } : {}) });
-    const r = await load(`/api/dashboards/${d.page}?${qs}`);
-    if (!r.ok) { $("#dash-main").innerHTML = busyHTML(r.error); return; }
-    renderDash(r.data);
-  }
-
-  function renderDash(res) {
-    const d = V.dash, page = d.pages.find((p) => p.id === d.page);
-    const meta = Object.fromEntries(page.metrics.map((m) => [m.id, m]));
-    d.metric = res.metric;
-    const sel = meta[res.metric];
-    const periods = [["month", "This month"], ["ytd", "Year to date"], ["12m", "Last 12 months"]];
-    const cards = res.cards.map((c) => {
-      const m = meta[c.metric];
-      return `<button class="kpi ${c.metric === res.metric ? "selected" : ""}" data-dmetric="${c.metric}">
-        <div class="kl">${esc(m.label)} ${statusBadge(m.status)}</div>
-        <div class="kv">${fmtNum(c.value, m.fmt)}</div>
-        ${c.spark ? `<div class="ks">${Charts.sparkline(c.spark)}</div>` : ""}
-        ${c.note ? `<div class="kn">${esc(c.note)}</div>` : ""}</button>`;
-    }).join("");
-    const others = page.dims.filter((x) => x.id !== "metric_time__month");
-    const dimPicker = res.breakdown && others.length > 1 ? `<select id="dash-dim">${others.map((x) =>
-      `<option value="${x.id}" ${x.id === res.breakdown.dim ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select>` : "";
-    const trend = Charts.line(res.trend, sel.fmt);
-    const right = res.breakdown
-      ? `<div class="panel"><div class="ph"><h3>${esc(sel.label)} by ${esc(res.breakdown.label)}</h3>${dimPicker}</div>
-         <div class="sub">${esc(periods.find((p) => p[0] === res.period)[1])}</div>${Charts.bars(res.breakdown.rows, sel.fmt) || `<div class="empty">No data for this period.</div>`}</div>`
-      : res.table
-      ? `<div class="panel"><div class="ph"><h3>${esc(sel.label)}, ${esc(res.table.month)}</h3></div>
-         <div class="sub">At the page's full grain. This metric does not add up across these dimensions.</div>
-         <div class="tablewrap short"><table class="grid-table"><thead><tr>${res.table.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
-         <tbody>${res.table.rows.map((r) => `<tr>${r.map((v, i) => `<td class="${i === r.length - 1 ? "num" : ""}">${i === r.length - 1 ? fmtNum(v, sel.fmt) : esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`
-      : "";
-    $("#dash-main").innerHTML = `
-      <div class="dash-head"><div><h2>${esc(page.title)}</h2><p class="muted">${esc(page.description)}</p></div>
-        <div class="segmented">${periods.map(([k, l]) => `<button data-dperiod="${k}" class="${k === res.period ? "active" : ""}">${l}</button>`).join("")}</div></div>
-      <div class="kpis">${cards}</div>
-      <div class="dash-row ${right ? "" : "single"}">
-        <div class="panel"><div class="ph"><h3>${esc(sel.label)} by month</h3></div><div class="sub">Last 12 months</div>
-          ${trend || `<div class="empty">${esc(res.trend_note || "No data.")}</div>`}</div>
-        ${right}
-      </div>
-      <div class="foot faint">Saved query <span class="mono">${esc(page.id)}</span> · ${page.dims.map((x) => esc(x.label)).join(" × ")} · ${esc(sel.kind)} measure template</div>`;
   }
 
   /* ----------------------------------------------------------------- query */
@@ -307,10 +252,6 @@ const Views = (() => {
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button, summary");
     if (!t) return;
-    const d = V.dash;
-    if (t.dataset.dpage) { d.page = t.dataset.dpage; d.metric = null; d.dim = null; return showDash(); }
-    if (t.dataset.dmetric) { d.metric = t.dataset.dmetric; return showDash(); }
-    if (t.dataset.dperiod) { d.period = t.dataset.dperiod; return showDash(); }
     if (t.dataset.qmode) { V.query.mode = t.dataset.qmode; return showQuery(); }
     if (t.dataset.mchip) return chooseMetric(t.dataset.mchip);
     if (t.dataset.suggest) return ask(t.dataset.suggest);
@@ -326,7 +267,6 @@ const Views = (() => {
   });
   document.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.id === "dash-dim") { V.dash.dim = t.value; return showDash(); }
     if (t.dataset.mgroup !== undefined) { V.query.group[+t.dataset.mgroup] = t.value; return; }
     if (t.id === "msince") { V.query.since = t.value; return; }
     if (t.id === "sql-example" && t.value !== "") { $("#sql-text").value = V.query.schema.examples[+t.value].sql; V.query.sql = $("#sql-text").value; }
@@ -341,7 +281,7 @@ const Views = (() => {
   });
 
   function show(name) {
-    if (name === "dash") return showDash();
+    if (name === "dash") return Dash.show();
     if (name === "query") return showQuery();
     if (name === "ask") return showAsk();
   }

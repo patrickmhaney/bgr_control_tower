@@ -105,3 +105,47 @@ def test_chat_streams_each_tool_call_then_the_answer(monkeypatch):
     assert events[0] == {"type": "tool", "tool": "query_metrics", "input": {"metrics": ["revenue"]},
                          "summary": "2 rows"}
     assert events[-1] == {"type": "answer", "text": "Answer to: Revenue?"}
+
+
+def test_dashboard_periods_compare_like_with_like():
+    import datetime as dt
+
+    from apps.studio import data
+
+    aug = dt.date(2026, 8, 1)
+    month = data._windows("month", aug)
+    assert month["cur"][:2] == (aug, aug)
+    assert month["prev"][:2] == (dt.date(2026, 7, 1),) * 2
+    assert month["py"][:2] == (dt.date(2025, 8, 1),) * 2
+    qtd = data._windows("qtd", aug)
+    assert qtd["cur"][:2] == (dt.date(2026, 7, 1), aug)
+    assert qtd["prev"][:2] == (dt.date(2026, 4, 1), dt.date(2026, 5, 1))
+    ytd = data._windows("ytd", aug)
+    assert set(ytd) == {"cur", "py"} and ytd["py"][:2] == (dt.date(2025, 1, 1), dt.date(2025, 8, 1))
+    assert data._windows("12m", aug)["cur"][0] == dt.date(2025, 9, 1)
+
+
+def test_dashboard_cards_are_the_cube_rows_metricflow_wrote():
+    """A card over one month is the measure template over one stored row: MetricFlow's own number."""
+    import datetime as dt
+    import os
+
+    import pytest
+
+    from apps.studio import data
+    from core.settings import settings
+
+    if not os.path.exists(settings.warehouse_path):
+        pytest.skip("no warehouse")
+    name = "mart_company_monthly"
+    _, rows = data._read("select max(metric_time__month) from marts.dashboard_cube "
+                         "where _cube = ? and revenue is not null", [name])
+    latest = dt.date.fromisoformat(rows[0][0])
+    asof = data._shift(latest, -1)
+    page = data.page(name, None, "month", dt.date(latest.year, latest.month, 2), asof)
+    assert page["asof"] == asof.isoformat() and not page["window"]["partial"]
+    cols = [c["metric"] for c in page["cards"]]
+    _, stored = data._read(f"select {', '.join(repr(c).replace(chr(39), chr(34)) for c in cols)} from marts.dashboard_cube "
+                           "where _cube = ? and metric_time__month = ?", [name, asof])
+    for card, value in zip(page["cards"], stored[0]):
+        assert card["value"] == (None if value is None else pytest.approx(value)), card["metric"]

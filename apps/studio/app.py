@@ -427,11 +427,18 @@ def dashboards():
 
 
 @app.get("/api/dashboards/{name}")
-def dashboard(name: str, metric: str | None = None, period: str = "ytd", dim: str | None = None):
-    if name not in {p["id"] for p in data.pages()} or period not in ("month", "ytd", "12m"):
+def dashboard(name: str, metric: str | None = None, period: str = "month", asof: str | None = None,
+              filters: str | None = None, dim: str | None = None):
+    """`filters` is a JSON object of dimension -> value, the page's slicers."""
+    if name not in {p["id"] for p in data.pages()} or period not in data.PERIODS:
         raise HTTPException(404, "No such page.")
+    try:
+        month = dt.date.fromisoformat(asof) if asof else None
+        chosen = json.loads(filters) if filters else {}
+    except ValueError:
+        raise HTTPException(400, "Bad as-of month or filters.") from None
     _readable()
-    return data.page(name, metric, period, _today(), dim)
+    return data.page(name, metric, period, _today(), month, chosen if isinstance(chosen, dict) else {}, dim)
 
 
 @app.get("/api/query/schema")

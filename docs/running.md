@@ -59,7 +59,7 @@ the delivered product:
 
 | Screen | Reads | Through |
 |---|---|---|
-| **Dashboards** | one page per saved query: cards, a monthly trend, a breakdown | `marts.dashboard_cube` and the Power BI measure templates' SQL (C7) - the numbers the Power BI model shows |
+| **Dashboards** | one report page per saved query: period and as-of pickers, slicers, KPI cards against the prior period and prior year, a trend with last year's line, breakdown bars that cross-filter, a member-by-month heatmap, a sortable scorecard table with CSV export, and each metric's definition and Power BI measure | `marts.dashboard_cube` and the Power BI measure templates' SQL (C7) - the numbers the Power BI model shows |
 | **Query → Metrics** | any metrics by any valid dimensions, with the SQL MetricFlow wrote | the semantic service (C5, C6); invalid cuts are refused with the reason |
 | **Query → SQL** | gold and the marts, read-only: one statement, 1,000 rows, 15 seconds, no file access | DuckDB |
 | **Ask** | questions in plain English, each tool call shown | `apps/examples/ask_metrics` - Claude with the four governed MCP tools (C6); needs `ANTHROPIC_API_KEY`, and sends questions and results to the Claude API |
