@@ -11,7 +11,9 @@ then apps/studio/probe.py reads what happened and runs the boundary checks.
 Three preview screens read what the pipeline produced, each through an
 existing route: dashboards over the Power BI cube (contract C7), SQL over gold
 and the marts plus metric queries through the semantic layer (C5, C6), and a
-chat that can only call the governed metric tools (the MCP tools, C6).
+chat that can only call the governed metric tools (the MCP tools, C6). The
+Governance screen shows each metric's definition, ownership, lifecycle and the
+golden answers that prove it.
 
 It runs commands on this machine, so it listens on localhost only. On a VM it
 belongs behind Entra ID sign-in, like the data service.
@@ -35,7 +37,7 @@ from pydantic import BaseModel
 from core import lock
 from core.settings import ROOT, settings
 
-from . import contracts, data, pipeline
+from . import contracts, data, governance, pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPONENTS = os.path.join(ROOT, "evaluation", "components.yml")
@@ -43,6 +45,15 @@ TARGET = os.path.join(ROOT, "transform", "target")
 
 app = FastAPI(title="Control Tower Studio", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
+
+
+@app.middleware("http")
+async def revalidate_static(request, call_next):
+    """The page and its scripts change together: never let a browser run yesterday's script."""
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # ------------------------------------------------------------------ state --
@@ -481,6 +492,12 @@ def _svc():
         svc.as_of_date = locked(svc.as_of_date)
         _SVC = svc
     return _SVC
+
+
+@app.get("/api/governance")
+def governance_snapshot():
+    """Every metric's definition, ownership, lifecycle and proof."""
+    return {**governance.snapshot(_svc()), **_content()["governance"]}
 
 
 @app.get("/api/metrics")

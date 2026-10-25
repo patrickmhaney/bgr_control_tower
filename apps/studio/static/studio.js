@@ -127,8 +127,23 @@ function drawWires() {
 function renderKeeps() {
   const n = S.map.counts;
   const labels = { contracts: "Contracts", metrics: "Metric definitions", golden: "Golden answers", star: "Star schema tables" };
-  $("#keeps").innerHTML = S.map.keeps.map((k) =>
-    `<div class="tile"><div class="n">${n[k.id] ?? "–"}</div><div class="l">${esc(labels[k.id] || k.label)}</div></div>`).join("");
+  $("#keeps").innerHTML = S.map.keeps.map((k) => {
+    const body = `<div class="n">${n[k.id] ?? "–"}</div><div class="l">${esc(labels[k.id] || k.label)}</div>${k.note ? `<div class="tn">${esc(k.note)}</div>` : ""}`;
+    return k.opens ? `<button class="tile golink" data-open-view="${esc(k.opens)}" title="Open ${esc(k.opens === "gov" ? "Governance" : k.opens)}">${body}<span class="go">→</span></button>`
+      : `<div class="tile">${body}</div>`;
+  }).join("");
+  renderKeepsGov();
+}
+
+// The governance the metric definitions carry, summarised from the Governance screen's own data.
+async function renderKeepsGov() {
+  const s = await window.Gov?.summary().catch(() => null);
+  if (!s) { $("#keeps-gov").innerHTML = ""; return; }
+  $("#keeps-gov").innerHTML = `<button class="govstrip" data-open-view="gov">
+    <div class="gs-h"><b>Governance comes with the definitions</b><span>Owner, status and caveats are fields beside each formula. The lint enforces them on every build and every route serves them with the number.</span></div>
+    <div class="gs-n"><span><b>${s.agreed}</b> of ${s.kpis} KPIs agreed</span><span class="${s.owned < s.business ? "warn" : ""}"><b>${s.owned}</b> of ${s.business} owners confirmed</span>
+      <span class="${s.errors ? "bad" : "ok"}"><b>${s.errors}</b> lint violations</span><span><b>${s.refused}</b> refused with a reason</span></div>
+    <span class="go">Governance →</span></button>`;
 }
 
 function renderSwaps() {
@@ -192,12 +207,14 @@ function openNode(id) {
   const other = n.detail.other?.length ? `<h4>Other options</h4><p>${n.detail.other.map(esc).join(", ")}</p>` : "";
   const note = n.swap_note || n.detail.note ? `<h4>Notes</h4><div class="note">${esc(n.swap_note || n.detail.note)}</div>` : "";
   const test = n.detail.test ? `<div class="proof"><span class="mono">${esc(n.detail.test)}</span></div>` : "";
+  const opens = n.opens ? `<h4>Governance</h4><p>Each definition carries its owner, status and caveats, enforced on every build and served with every number.</p>
+    <button class="btn" data-open-view="${esc(n.opens.view)}">${esc(n.opens.label)} →</button>` : "";
   const step = n.step && S.state?.clock?.initialised ? `<h4>Pipeline step</h4><button class="btn" data-goto-step="${n.step}">Go to ${esc(stepById(n.step).title)}</button>` : "";
   openDrawer(`<div class="eyebrow">${esc(n.role)}${n.kind === "source" ? " · source system" : ""}</div>
     <h2>${esc(t.tool)}</h2><p>${esc(n.what)}</p>
     ${contracts ? `<h4>Contracts</h4>${contracts}` : ""}
     ${proofs ? `<h4>Verification</h4>${proofs}${test}` : ""}
-    ${stacks}${note}${other}${step}`);
+    ${opens}${stacks}${note}${other}${step}`);
 }
 
 function openDrawer2(html, wide) {
@@ -515,6 +532,7 @@ document.addEventListener("click", (e) => {
   if (t.dataset.view) return showView(t.dataset.view);
   if (t.dataset.stack) return setStack(t.dataset.stack);
   if (t.dataset.node) return openNode(t.dataset.node);
+  if (t.dataset.openView) { closeDrawer(); return showView(t.dataset.openView); }
   if (t.dataset.contract) return openContract(t.dataset.contract);
   if (t.dataset.file) { S.contract.file = +t.dataset.file; return renderContract(); }
   if (t.dataset.gotoStep) { closeDrawer(); S.selected = t.dataset.gotoStep; showView("run"); return; }

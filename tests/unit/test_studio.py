@@ -149,3 +149,14 @@ def test_dashboard_cards_are_the_cube_rows_metricflow_wrote():
                            "where _cube = ? and metric_time__month = ?", [name, asof])
     for card, value in zip(page["cards"], stored[0]):
         assert card["value"] == (None if value is None else pytest.approx(value)), card["metric"]
+
+
+def test_governance_shows_every_metric_from_its_own_source_lines():
+    body = TestClient(app).get("/api/governance").json()
+    stages = {s["id"] for s in body["stages"]}
+    assert stages == {"blocked", "placeholder", "provisional", "active"}
+    for m in body["metrics"]:
+        assert m["yaml"]["text"].splitlines()[0].lstrip(" -{").startswith(f"name: {m['name']}"), m["name"]
+        if m["role"] == "kpi":
+            assert m["status"] in stages, m["name"]
+    assert body["golden_total"]

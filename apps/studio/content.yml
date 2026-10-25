@@ -106,6 +106,7 @@ nodes:
     tool: MetricFlow
     what: Metric definitions in YAML, with owner, status and caveats. Dashboards, marts, the API and AI tools all compute from these definitions.
     step: metrics
+    opens: {view: gov, label: See the governance it drives}
 
   - id: powerbi
     column: use
@@ -243,6 +244,28 @@ contracts:
 
 keeps:
   - {id: contracts, label: Contracts between components}
-  - {id: metrics, label: Metric definitions}
-  - {id: golden, label: Golden answers}
+  - {id: metrics, label: Metric definitions, note: "with owner, status and caveats", opens: gov}
+  - {id: golden, label: Golden answers, note: "prove every KPI's numbers", opens: gov}
   - {id: star, label: Star schema tables}
+
+# The Governance screen: what each lifecycle stage means. The live parts (the
+# catalog, ownership, golden answers, the audit log) are read from the
+# repository, not from here.
+governance:
+  stages:
+    - id: blocked
+      label: Blocked
+      means: The data does not exist in any source system.
+      next: A source is brought into scope.
+    - id: placeholder
+      label: Placeholder
+      means: The data exists; the business has not defined the metric.
+      next: The owner agrees a working definition.
+    - id: provisional
+      label: Provisional
+      means: A working definition with an open question.
+      next: The open question is answered and the owner signs off.
+    - id: active
+      label: Active
+      means: Agreed. Shown without a warning.
+      next: A change is a reviewed change to metrics.yml and a re-frozen golden answer.

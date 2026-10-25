@@ -356,7 +356,8 @@ const Dash = (() => {
       ${m.caveats.map((c) => `<div class="caveat">${esc(c)}</div>`).join("")}
       <h4 class="mini">Power BI measure</h4><pre class="code">${esc(m.dax)}</pre>
       <h4 class="mini">The same template in SQL</h4><pre class="code">${esc(m.sql)}</pre>
-      <p class="faint small-note">Defined once in transform/models/semantic/metrics.yml. Every route - this page, Power BI, the API, the MCP tools - reads this definition.</p></div>`;
+      <p class="faint small-note">Defined once in transform/models/semantic/metrics.yml. Every route - this page, Power BI, the API, the MCP tools - reads this definition.</p>
+      <button class="btn sm" data-gopen="${esc(m.id)}">Full governance record →</button></div>`;
   }
 
   function allDefs() {
@@ -394,6 +395,8 @@ const Dash = (() => {
 
   document.addEventListener("click", (e) => {
     if (!root().contains(e.target) && !$("#drawer").contains(e.target)) return;
+    const gopen = e.target.closest("[data-gopen]");
+    if (gopen) return Gov.open(gopen.dataset.gopen);
     const def = e.target.closest("[data-ddef]");
     if (def) { e.stopPropagation(); return openDrawer(defHTML(metaOf(def.dataset.ddef))); }
     const t = e.target.closest("[data-dpage], [data-dmetric], [data-dperiod], [data-dsplit], [data-dsort], [data-xfilter], button");

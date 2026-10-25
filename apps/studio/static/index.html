@@ -16,6 +16,7 @@
     <nav class="tabs">
       <button class="tab active" data-view="map">Architecture</button>
       <button class="tab" data-view="run">Run the pipeline</button>
+      <button class="tab" data-view="gov">Governance</button>
       <span class="tabsep"></span>
       <button class="tab" data-view="dash">Dashboards</button>
       <button class="tab" data-view="query">Query</button>
@@ -51,6 +52,7 @@
           <h3>Platform assets</h3>
           <p class="sub">Unchanged when a component is replaced.</p>
           <div class="tiles" id="keeps"></div>
+          <div id="keeps-gov"></div>
         </div>
         <div class="panel">
           <h3 id="swaptitle">This stack</h3>
@@ -115,6 +117,18 @@
         </div>
       </div>
     </section>
+    <!-- ==================================================== governance -->
+    <section class="view" id="view-gov">
+      <div class="preview-head">
+        <div>
+          <h1>Governance</h1>
+          <p>Every metric the platform serves, with its definition, owners, lifecycle and proof - read live from the semantic
+            layer (<span class="mono">transform/models/semantic/</span>) and the golden answers.</p>
+        </div>
+      </div>
+      <div id="gov-main"></div>
+    </section>
+
     <!-- ==================================================== dashboards -->
     <section class="view" id="view-dash">
       <div class="preview-head">
@@ -168,6 +182,7 @@
   <script src="/static/studio.js"></script>
   <script src="/static/charts.js"></script>
   <script src="/static/dash.js"></script>
+  <script src="/static/gov.js"></script>
   <script src="/static/views.js"></script>
 </body>
 </html>
