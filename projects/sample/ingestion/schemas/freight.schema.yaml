@@ -1,0 +1,210 @@
+version: 2
+version_hash: lUU91XNAkzB/txQVGQhy99lLm+Iredz7sJoGSD1jgy8=
+engine_version: 11
+name: freight
+tables:
+  _dlt_version:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: false
+      schema:
+        data_type: text
+        nullable: false
+    write_disposition: skip
+    resource: _dlt_version
+    description: Created by DLT. Tracks schema updates
+  _dlt_loads:
+    columns:
+      load_id:
+        data_type: text
+        nullable: false
+        precision: 64
+      schema_name:
+        data_type: text
+        nullable: true
+      status:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_version_hash:
+        data_type: text
+        nullable: true
+    write_disposition: skip
+    resource: _dlt_loads
+    description: Created by DLT. Tracks completed loads
+  carrier:
+    columns:
+      carrier_code:
+        data_type: text
+        nullable: true
+      carrier_name:
+        data_type: text
+        nullable: true
+      mode:
+        data_type: text
+        nullable: true
+      updated_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: carrier
+  shipment:
+    columns:
+      shipment_id:
+        data_type: text
+        nullable: true
+      reference:
+        data_type: text
+        nullable: true
+      carrier_code:
+        data_type: text
+        nullable: true
+      origin_location:
+        data_type: text
+        nullable: true
+      ship_date:
+        data_type: date
+        nullable: true
+      delivered_date:
+        data_type: date
+        nullable: true
+      status:
+        data_type: text
+        nullable: true
+      weight_kg:
+        data_type: double
+        nullable: true
+      updated_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: shipment
+  freight_invoice:
+    columns:
+      invoice_id:
+        data_type: text
+        nullable: true
+      shipment_id:
+        data_type: text
+        nullable: true
+      carrier_code:
+        data_type: text
+        nullable: true
+      invoice_date:
+        data_type: date
+        nullable: true
+      currency:
+        data_type: text
+        nullable: true
+      line_haul:
+        data_type: double
+        nullable: true
+      fuel_surcharge:
+        data_type: double
+        nullable: true
+      accessorial:
+        data_type: double
+        nullable: true
+      updated_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: freight_invoice
+settings:
+  detections:
+  - iso_timestamp
+  default_hints:
+    not_null:
+    - _dlt_id
+    - _dlt_root_id
+    - _dlt_parent_id
+    - _dlt_list_idx
+    - _dlt_load_id
+    parent_key:
+    - _dlt_parent_id
+    root_key:
+    - _dlt_root_id
+    unique:
+    - _dlt_id
+    row_key:
+    - _dlt_id
+  schema_contract: evolve
+normalizers:
+  names: direct
+  json:
+    module: dlt.common.normalizers.json.relational
+previous_hashes:
+- da/sik+azfTnF9KbZad1S0wSfCQmp2T6Ty/QsSbsKc4=
+- fbD3wmujNGs5aBpeZCASOmiN/W/QPoN+/KSGwuRrqgc=

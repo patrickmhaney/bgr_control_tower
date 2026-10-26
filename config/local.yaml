@@ -1,12 +1,13 @@
-# A laptop. Everything lives under .data/, which is gitignored and disposable.
+# A laptop. Everything lives under .data/<project>/, which is gitignored and
+# disposable; each project pack gets its own (core/project.py).
 env: local
-data_dir: .data
-mock_db: .data/mock_sources.duckdb
-bronze_root: .data/bronze
-warehouse_path: .data/warehouse.duckdb
-exports_root: .data/exports
+data_dir: .data/{project}
+mock_db: .data/{project}/mock_sources.duckdb
+bronze_root: .data/{project}/bronze
+warehouse_path: .data/{project}/warehouse.duckdb
+exports_root: .data/{project}/exports
 serving_destination: duckdb
-serving_url: .data/serving.duckdb
+serving_url: .data/{project}/serving.duckdb
 mdm_provider: splink
 source_mode: mock
 dbt_target: local

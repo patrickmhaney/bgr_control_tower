@@ -1,7 +1,7 @@
 """The Governance screen: every metric with its definition, ownership, lifecycle and proof.
 
 Nothing here is written down twice. The catalog is semantic.catalog's (the
-one the data service, the MCP tools and docs/metric_catalog.md read); the
+one the data service, the MCP tools and the pack's docs/metric_catalog.md read); the
 measures and their tables come from the compiled manifests; the proof is the
 governance lint run live and the golden answers that name each metric; usage
 is the data service's audit log.
@@ -16,22 +16,20 @@ from collections import Counter
 
 import yaml
 
+from core import project
 from core.settings import ROOT, settings
-
-TARGET = os.path.join(ROOT, "transform", "target")
-SEEDS = os.path.join(ROOT, "transform", "seeds")
 
 
 def _seed(name: str) -> list[dict]:
-    with open(os.path.join(SEEDS, name)) as fh:
+    with open(os.path.join(project.current().seeds, name)) as fh:
         return list(csv.DictReader(fh))
 
 
 def _measures() -> tuple[dict, dict]:
     """{measure: {agg, column, model, table, owner}}, and {metric: [measure, ...]}."""
-    with open(os.path.join(TARGET, "semantic_manifest.json")) as fh:
+    with open(project.current().semantic_manifest) as fh:
         sm = json.load(fh)
-    with open(os.path.join(TARGET, "manifest.json")) as fh:
+    with open(project.current().manifest) as fh:
         nodes = json.load(fh)["nodes"].values()
     owners = {n["name"]: (n["config"].get("meta") or {}).get("owner")
               for n in nodes if n["resource_type"] == "model"}
@@ -47,9 +45,7 @@ def _measures() -> tuple[dict, dict]:
 
 
 def _golden() -> dict[str, list[dict]]:
-    from evaluation.golden import GOLDEN
-
-    with open(GOLDEN) as fh:
+    with open(project.current().golden) as fh:
         queries = yaml.safe_load(fh)["queries"]
     out: dict[str, list[dict]] = {}
     for q in queries:
@@ -79,15 +75,13 @@ def _usage() -> dict[str, dict]:
     return {m: {**u, "routes": dict(u["routes"])} for m, u in out.items()}
 
 
-SOURCES = {"metricflow": os.path.join("transform", "models", "semantic", "metrics.yml"),
-           "backlog": os.path.join("semantic", "backlog.yml")}
-
-
 def _source(name: str, source: str) -> dict | None:
     """The metric's own lines in the file that defines it, exactly as written."""
-    path = SOURCES.get(source)
-    if not path:
+    pack = project.current()
+    full = {"metricflow": os.path.join(pack.semantic_dir, "metrics.yml"), "backlog": pack.backlog}.get(source)
+    if not full:
         return None
+    path = os.path.relpath(full, ROOT)
     with open(os.path.join(ROOT, path)) as fh:
         lines = fh.read().splitlines()
     start = next((i for i, line in enumerate(lines)

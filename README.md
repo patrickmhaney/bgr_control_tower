@@ -35,8 +35,8 @@ make studio    # architecture, live pipeline walk-through, preview dashboards, q
 | Master data | Splink, with a rules matcher for comparison | `mdm/` |
 | Transformation | dbt Core | `transform/` |
 | Warehouse, compute | DuckDB | `transform/profiles.yml` |
-| Semantic layer | MetricFlow YAML + governance + the process × department matrix | `transform/models/semantic/`, `semantic/` |
-| Dashboards | Power BI importing one cube MetricFlow computed; generated model, templated measures | `serving/powerbi.py`, `powerbi/` |
+| Semantic layer | MetricFlow YAML + governance + the process × department matrix | `projects/<slug>/models/semantic/`, `semantic/` |
+| Dashboards | Power BI importing one cube MetricFlow computed; generated model, templated measures | `serving/powerbi.py`, `projects/<slug>/powerbi/` |
 | Cubes, marts, apps | Saved queries → cubes → Postgres; REST API | `serving/`, `apps/data_service/` |
 | Applied AI | MCP server for Claude Code; embedded example on the Claude API | `apps/` |
 | Orchestration | Dagster | `orchestration/` |
@@ -67,7 +67,7 @@ measure templates, rollups included.
 
 Plus Pipeline Value, Sales Cycle Days, Revenue, Trailing 90-day Revenue and
 Platform Cloud Cost, and four backlog metrics that return reasons instead of
-numbers. Full list: [docs/metric_catalog.md](docs/metric_catalog.md).
+numbers. Full list: [projects/sample_v2/docs/metric_catalog.md](projects/sample_v2/docs/metric_catalog.md).
 
 Not yet verified: the generated Power BI model opened in Desktop (needs
 Windows), the Azure deployment, and the T-SQL path's execution (CI runs it
@@ -81,7 +81,7 @@ against SQL Server; this repo's machine has no Docker).
 | [docs/components.md](docs/components.md) | Each component, its contract, and how to swap it |
 | [docs/running.md](docs/running.md) | Commands, the Studio, incremental refresh, the data service, Dagster, environments |
 | [docs/adding_a_metric.md](docs/adding_a_metric.md) | From SQL to a governed metric on every route |
-| [docs/sources.md](docs/sources.md) | The synthetic sources, the clock, the landmines |
+| [projects/sample_v2/docs/sources.md](projects/sample_v2/docs/sources.md) | The synthetic sources, the clock, the landmines |
 | [docs/powerbi.md](docs/powerbi.md) | The cube, the generated model and the pages to build |
 | [docs/evaluation.md](docs/evaluation.md) | How the baseline evaluates other tools |
-| [docs/open_questions.md](docs/open_questions.md) | What is assumed, and what it costs to reverse |
+| [projects/sample_v2/docs/open_questions.md](projects/sample_v2/docs/open_questions.md) | What is assumed, and what it costs to reverse |

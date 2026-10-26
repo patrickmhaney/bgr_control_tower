@@ -138,8 +138,9 @@ def test_dashboard_cards_are_the_cube_rows_metricflow_wrote():
     if not os.path.exists(settings.warehouse_path):
         pytest.skip("no warehouse")
     name = "mart_company_monthly"
+    first = data._cube().cubes[name]["metrics"][0]
     _, rows = data._read("select max(metric_time__month) from marts.dashboard_cube "
-                         "where _cube = ? and revenue is not null", [name])
+                         f'where _cube = ? and "{first}" is not null', [name])
     latest = dt.date.fromisoformat(rows[0][0])
     asof = data._shift(latest, -1)
     page = data.page(name, None, "month", dt.date(latest.year, latest.month, 2), asof)
@@ -160,3 +161,17 @@ def test_governance_shows_every_metric_from_its_own_source_lines():
         if m["role"] == "kpi":
             assert m["status"] in stages, m["name"]
     assert body["golden_total"]
+
+
+def test_project_switcher_lists_every_pack_and_keeps_the_map():
+    from apps.studio.app import app
+    from core import project
+
+    client = TestClient(app)
+    body = client.get("/api/projects").json()
+    assert {p["slug"] for p in body["projects"]} == set(project.available())
+    assert body["current"] == project.slug()
+    before = client.get("/api/map").json()["nodes"]
+    assert client.post("/api/project", json={"slug": "no_such_pack"}).status_code == 404
+    assert client.post("/api/project", json={"slug": body["current"]}).json()["current"] == body["current"]
+    assert client.get("/api/map").json()["nodes"] == before

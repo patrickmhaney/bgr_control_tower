@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: stg_freight__carrier
+    description: "Grain: one row per carrier."
+    columns:
+      - name: carrier_code
+        tests: [unique, not_null]
+
+  - name: stg_freight__shipment
+    description: >
+      Grain: one row per shipment, booked against one ERP delivery. delivery_number
+      is the carrier's reference with its case and SDH prefix put back.
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: delivery_number
+        tests: [not_null]
+      - name: carrier_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_freight__carrier')
+                field: carrier_code
+
+  - name: stg_freight__freight_invoice
+    description: "Grain: one row per carrier invoice. Invoices arrive days to weeks after the shipment."
+    columns:
+      - name: invoice_id
+        tests: [unique, not_null]
+      - name: shipment_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_freight__shipment')
+                field: shipment_id

@@ -356,7 +356,7 @@ const Dash = (() => {
       ${m.caveats.map((c) => `<div class="caveat">${esc(c)}</div>`).join("")}
       <h4 class="mini">Power BI measure</h4><pre class="code">${esc(m.dax)}</pre>
       <h4 class="mini">The same template in SQL</h4><pre class="code">${esc(m.sql)}</pre>
-      <p class="faint small-note">Defined once in transform/models/semantic/metrics.yml. Every route - this page, Power BI, the API, the MCP tools - reads this definition.</p>
+      <p class="faint small-note">Defined once in the project's models/semantic/metrics.yml. Every route - this page, Power BI, the API, the MCP tools - reads this definition.</p>
       <button class="btn sm" data-gopen="${esc(m.id)}">Full governance record →</button></div>`;
   }
 

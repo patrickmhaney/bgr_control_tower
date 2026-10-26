@@ -9,7 +9,7 @@ container and loads gold into it.
 import pytest
 import yaml
 
-from evaluation.golden import GOLDEN
+from core import project
 from serving.semantic_service import SemanticService
 
 pytestmark = pytest.mark.pipeline
@@ -17,7 +17,7 @@ pytestmark = pytest.mark.pipeline
 
 def test_every_golden_query_compiles_to_tsql():
     svc = SemanticService(backend="tsql", tsql_url="mssql://reader:unused@localhost:1433/warehouse")
-    with open(GOLDEN) as fh:
+    with open(project.current().golden) as fh:
         queries = [q for q in yaml.safe_load(fh)["queries"] if "expect_refusal" not in q]
     failures = []
     for q in queries:

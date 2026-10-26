@@ -14,10 +14,8 @@ import re
 
 import yaml
 
+from core import project
 from core.settings import ROOT
-
-TARGET = os.path.join(ROOT, "transform", "target")
-
 
 ACRONYMS = {"dso": "DSO", "mdm": "MDM", "api": "API", "mcp": "MCP", "x3": "X3", "sql": "SQL",
             "tsql": "T-SQL", "openapi": "OpenAPI", "crm": "CRM", "erp": "ERP", "otd": "OTD"}
@@ -34,15 +32,16 @@ def _needs_sql_server(fn: ast.FunctionDef) -> bool:
 
 
 def excerpt(spec: dict) -> dict:
-    """The lines of a definition file the Studio shows."""
-    path = os.path.join(ROOT, spec["path"])
+    """The lines of a definition file the Studio shows. `{project}` is the pack in use."""
+    rel = spec["path"].replace("{project}", os.path.relpath(project.current().root, ROOT))
+    path = os.path.join(ROOT, rel)
     with open(path) as fh:
         lines = fh.read().splitlines()
     start = 0
     if spec.get("from"):
         start = next((i for i, ln in enumerate(lines) if ln.startswith(spec["from"])), 0)
     count = spec.get("lines", 80)
-    return {"path": spec["path"], "start": start + 1, "total": len(lines),
+    return {"path": rel, "start": start + 1, "total": len(lines),
             "text": "\n".join(lines[start:start + count])}
 
 
@@ -77,18 +76,14 @@ def cases(suite: dict) -> list[dict]:
                 if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")
                 and n.name not in skip and not _needs_sql_server(n)]
     if kind == "golden":
-        from evaluation.golden import GOLDEN
-
-        with open(GOLDEN) as fh:
+        with open(project.current().golden) as fh:
             return [{"name": q["id"], "label": _label(q["id"])} for q in yaml.safe_load(fh)["queries"]]
     if kind == "parity":
-        from serving.powerbi_parity import OUT
-
-        with open(OUT) as fh:
+        with open(project.current().parity_queries) as fh:
             return [{"name": q["id"], "label": _label(q["id"]), "detail": q["cube"]} for q in json.load(fh)]
     if kind == "dbt":
         try:
-            with open(os.path.join(TARGET, "manifest.json")) as fh:
+            with open(project.current().manifest) as fh:
                 nodes = json.load(fh)["nodes"]
         except OSError:
             return []

@@ -1,0 +1,7 @@
+department_code,department_name,display_order
+SALES,Sales,1
+CUSTSVC,Customer Service,2
+OPS,Operations,3
+PURCH,Procurement,4
+FIN,Finance,5
+UNASSIGNED,Unassigned,99

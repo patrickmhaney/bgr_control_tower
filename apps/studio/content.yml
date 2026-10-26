@@ -179,9 +179,9 @@ contracts:
     promise: Tables, keys and extraction method for each source.
     proof: Ingestion is generated from the specification files.
     files:
-      - {path: ingestion/specs/sage_x3.yml, lines: 60}
-      - {path: ingestion/specs/hubspot.yml, lines: 60}
-      - {path: ingestion/specs/netstock.yml, lines: 60}
+      - {path: "{project}/ingestion/specs/sage_x3.yml", lines: 60}
+      - {path: "{project}/ingestion/specs/hubspot.yml", lines: 60}
+      - {path: "{project}/ingestion/specs/netstock.yml", lines: 60}
     enforced: No separate test. The extraction code reads these files directly, so it cannot drift from them.
     suites: []
   C2:
@@ -189,8 +189,8 @@ contracts:
     promise: Append-only change log per source table, deletes included, with source column names. A schema change fails the load.
     proof: Each source table rebuilt from raw history is compared with the source, row by row.
     files:
-      - {path: ingestion/schemas/sage_x3.schema.yaml, from: "  COMPANY:", lines: 70}
-      - {path: transform/macros/bronze_current.sql, lines: 70}
+      - {path: "{project}/ingestion/schemas/sage_x3.schema.yaml", from: "  COMPANY:", lines: 70}
+      - {path: transform/platform/macros/bronze_current.sql, lines: 70}
     suites:
       - {kind: verify, title: Source tables against raw history}
       - {kind: pytest, title: "Full simulation: CDC, a retention gap and hard deletes",
@@ -209,7 +209,7 @@ contracts:
     promise: Fixed columns and types for every fact and dimension table.
     proof: dbt enforced contracts and relationship tests.
     files:
-      - {path: transform/models/gold/_gold__models.yml, from: "- name: fct_sales_order_line", lines: 80}
+      - {path: "{project}/models/gold/_gold__models.yml", from: "- name: fct_sales_order_line", lines: 80}
     suites:
       - {kind: dbt, title: dbt tests on the gold tables, select: "path:models/gold"}
   C5:
@@ -217,8 +217,8 @@ contracts:
     promise: One definition per metric, with owner, status and caveats.
     proof: "Golden answers: each query runs through the semantic layer and through reference SQL, and both are compared with the frozen result."
     files:
-      - {path: transform/models/semantic/metrics.yml, from: "  - name: on_time_delivery_rate", lines: 60}
-      - {path: evaluation/golden_answers.yml, from: "queries:", lines: 60}
+      - {path: "{project}/models/semantic/metrics.yml", from: "  - name: on_time_delivery_rate", lines: 60}
+      - {path: "{project}/golden_answers.yml", from: "queries:", lines: 60}
     suites:
       - {kind: golden, title: Golden answers}
       - {kind: pytest, title: Governance lint and SQL portability, path: tests/conformance/test_governance.py}
@@ -235,8 +235,8 @@ contracts:
     promise: One table per saved query, plus the combined table Power BI imports.
     proof: Golden answers recomputed with the Power BI measure templates.
     files:
-      - {path: powerbi/ControlTower.SemanticModel/definition/tables/dashboard_cube.tmdl, lines: 60}
-      - {path: transform/models/semantic/saved_queries.yml, lines: 85}
+      - {path: "{project}/powerbi/ControlTower.SemanticModel/definition/tables/dashboard_cube.tmdl", lines: 60}
+      - {path: "{project}/models/semantic/saved_queries.yml", lines: 85}
     suites:
       - {kind: parity, title: Golden answers through the Power BI measure templates}
       - {kind: pytest, title: Dashboard table structure, path: tests/conformance/test_dashboard_cube.py,

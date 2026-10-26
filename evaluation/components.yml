@@ -84,7 +84,7 @@ components:
                  mix_2: Snowflake Semantic Views,
                  other: [dbt Cloud Semantic Layer, Cube, AtScale, Boring Semantic Layer]}
     swap_cost: rebuild of definitions plus a semantic_service backend; consumers unchanged
-    test: evaluation/golden_answers.yml
+    test: projects/<slug>/golden_answers.yml
 
   visualization:
     contract: C7 - marts.dashboard_cube, one table of saved-query results; LoadMart is the model's only source reference

@@ -1,6 +1,8 @@
 # Azure dev. Storage URLs use the environment's storage account; the container
 # app's managed identity reaches them, so no keys appear here. Secrets (the
 # Postgres password, source credentials) come from Key Vault as CT_* variables.
+# One deployment serves one project (CT_PROJECT): each client gets its own
+# database and storage account, never a schema in a shared one.
 env: dev
 data_dir: /tmp/ct
 mock_db: /tmp/ct/mock_sources.duckdb

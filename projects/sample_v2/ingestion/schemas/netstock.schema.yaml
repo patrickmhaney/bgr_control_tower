@@ -1,0 +1,322 @@
+version: 2
+version_hash: cw/ly+WxSX9qxXgcwbARfLaADJjIIig3JY6eCqHOJ0o=
+engine_version: 11
+name: netstock
+tables:
+  _dlt_version:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: false
+      schema:
+        data_type: text
+        nullable: false
+    write_disposition: skip
+    resource: _dlt_version
+    description: Created by DLT. Tracks schema updates
+  _dlt_loads:
+    columns:
+      load_id:
+        data_type: text
+        nullable: false
+        precision: 64
+      schema_name:
+        data_type: text
+        nullable: true
+      status:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_version_hash:
+        data_type: text
+        nullable: true
+    write_disposition: skip
+    resource: _dlt_loads
+    description: Created by DLT. Tracks completed loads
+  item_location:
+    columns:
+      item_code:
+        data_type: text
+        nullable: true
+      location_code:
+        data_type: text
+        nullable: true
+      description:
+        data_type: text
+        nullable: true
+      abc_class:
+        data_type: text
+        nullable: true
+      xyz_class:
+        data_type: text
+        nullable: true
+      policy:
+        data_type: text
+        nullable: true
+      lead_time_days:
+        data_type: bigint
+        nullable: true
+      safety_stock_qty:
+        data_type: double
+        nullable: true
+      reorder_point_qty:
+        data_type: double
+        nullable: true
+      min_order_qty:
+        data_type: double
+        nullable: true
+      supplier_code:
+        data_type: text
+        nullable: true
+      on_hand_qty:
+        data_type: double
+        nullable: true
+      on_order_qty:
+        data_type: double
+        nullable: true
+      excess_value:
+        data_type: double
+        nullable: true
+      stockout_risk:
+        data_type: text
+        nullable: true
+      last_sync_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: item_location
+  forecast:
+    columns:
+      item_code:
+        data_type: text
+        nullable: true
+      location_code:
+        data_type: text
+        nullable: true
+      period_start:
+        data_type: date
+        nullable: true
+      period_type:
+        data_type: text
+        nullable: true
+      forecast_qty:
+        data_type: double
+        nullable: true
+      forecast_method:
+        data_type: text
+        nullable: true
+      generated_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: forecast
+  forecast_accuracy:
+    columns:
+      item_code:
+        data_type: text
+        nullable: true
+      location_code:
+        data_type: text
+        nullable: true
+      period_start:
+        data_type: date
+        nullable: true
+      forecast_qty:
+        data_type: double
+        nullable: true
+      actual_qty:
+        data_type: double
+        nullable: true
+      abs_pct_error:
+        data_type: double
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: forecast_accuracy
+  replenishment_recommendation:
+    columns:
+      recommendation_id:
+        data_type: text
+        nullable: true
+      item_code:
+        data_type: text
+        nullable: true
+      location_code:
+        data_type: text
+        nullable: true
+      recommended_qty:
+        data_type: double
+        nullable: true
+      recommended_order_date:
+        data_type: date
+        nullable: true
+      required_date:
+        data_type: date
+        nullable: true
+      supplier_code:
+        data_type: text
+        nullable: true
+      status:
+        data_type: text
+        nullable: true
+      generated_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+      erp_po_number:
+        data_type: text
+        nullable: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: replenishment_recommendation
+  supplier:
+    columns:
+      supplier_code:
+        data_type: text
+        nullable: true
+      supplier_name:
+        data_type: text
+        nullable: true
+      lead_time_days:
+        data_type: bigint
+        nullable: true
+      min_order_value:
+        data_type: double
+        nullable: true
+      source_system:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: supplier
+settings:
+  detections:
+  - iso_timestamp
+  default_hints:
+    not_null:
+    - _dlt_id
+    - _dlt_root_id
+    - _dlt_parent_id
+    - _dlt_list_idx
+    - _dlt_load_id
+    parent_key:
+    - _dlt_parent_id
+    root_key:
+    - _dlt_root_id
+    unique:
+    - _dlt_id
+    row_key:
+    - _dlt_id
+  schema_contract: evolve
+normalizers:
+  names: direct
+  json:
+    module: dlt.common.normalizers.json.relational
+previous_hashes:
+- fpmlvfExr67erYqmcfD2mMGj+vg6sAEAzcD2s1CQlD4=
+- g+Nkeg/MRBn4W1nti3bxxGUSI+vdbuggDVhIdysiQ58=

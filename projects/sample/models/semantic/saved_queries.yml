@@ -1,0 +1,37 @@
+# The semantic layer, part 3: saved queries - the cubes. Compiled from the
+# requirements tool's cube bindings (contract C8). Each is a fixed set of
+# metrics at a fixed grain; the materializer writes each one to the `marts`
+# schema and stacks them into marts.dashboard_cube for Power BI. A saved
+# query's dimensions must be valid for every metric in it.
+
+saved_queries:
+
+  - name: mart_company_monthly
+    description: Every Sample Project KPI company-wide by month - headline cards and trend lines.
+    query_params:
+      metrics: [on_time_delivery_rate, cost_per_shipment, inventory_accuracy, return_rate, three_way_match_rate]
+      group_by: ["TimeDimension('metric_time', 'month')"]
+
+  - name: mart_o2c
+    description: O2C process cube by site and month.
+    query_params:
+      metrics: [return_rate]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')"]
+
+  - name: mart_p2p
+    description: P2P process cube by site, supplier and month.
+    query_params:
+      metrics: [three_way_match_rate]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')", "Dimension('supplier__supplier_name')"]
+
+  - name: mart_i2d
+    description: I2D process cube by site and month.
+    query_params:
+      metrics: [on_time_delivery_rate, cost_per_shipment, inventory_accuracy]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('site__site_name')"]
+
+  - name: mart_carrier_scorecard
+    description: 'Carriers by month: on-time delivery and cost per shipment.'
+    query_params:
+      metrics: [on_time_delivery_rate, cost_per_shipment]
+      group_by: ["TimeDimension('metric_time', 'month')", "Dimension('carrier__carrier_name')"]

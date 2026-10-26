@@ -14,8 +14,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Every standard runs on every pack (PLAN.md §6): the same checks, one
+  # matrix entry per folder under projects/.
+  packs:
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: echo "list=$(ls projects | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+
   checks:
     runs-on: ubuntu-latest
+    needs: packs
+    strategy:
+      matrix:
+        project: ${{ fromJson(needs.packs.outputs.list) }}
+    env: {CT_PROJECT: "${{ matrix.project }}"}
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
@@ -26,8 +42,9 @@ jobs:
         run: uv run python -m checks.blocked_words --commits
       - run: uv run ruff check .
       - run: uv run pytest -q tests/unit
-      - name: dbt parse, MetricFlow validation, governance lint, SQL portability
+      - name: Pack layout, dbt parse, MetricFlow validation, governance lint, SQL portability
         run: |
+          uv run python -m ctl check-pack
           uv run python -m ctl dbt deps --quiet
           uv run python -m ctl dbt compile --quiet
           uv run python -m semantic.lint
@@ -37,13 +54,17 @@ jobs:
 
   pipeline:
     runs-on: ubuntu-latest
-    needs: checks
+    needs: [packs, checks]
+    strategy:
+      matrix:
+        project: ${{ fromJson(needs.packs.outputs.list) }}
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
         env: {ACCEPT_EULA: "Y", MSSQL_SA_PASSWORD: "Ct-Passw0rd!"}
         ports: ["1433:1433"]
     env:
+      CT_PROJECT: ${{ matrix.project }}
       TSQL_URL: mssql://sa:Ct-Passw0rd!@localhost:1433/warehouse
     steps:
       - uses: actions/checkout@v4
@@ -51,13 +72,13 @@ jobs:
       - run: uv sync --all-extras
       - name: The daily pipeline on synthetic sources
         run: make mock run
-      - name: Golden answers (DuckDB)
+      - name: Golden answers (DuckDB) on a fresh day-0 build
         run: uv run python -m evaluation.golden check
       - name: Generated files are current (Power BI model, catalog, parity queries)
         run: |
           uv run python -m semantic.catalog
           uv run python -m ctl powerbi
-          git diff --exit-code -- powerbi docs/metric_catalog.md
+          git diff --exit-code -- projects/$CT_PROJECT/powerbi projects/$CT_PROJECT/docs/metric_catalog.md
       - name: The T-SQL path - gold in SQL Server, golden answers through sqlglot
         run: |
           uv run python -m evaluation.load_tsql

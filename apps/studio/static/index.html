@@ -3,26 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Control Tower Studio</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233e5bd8'/%3E%3Cstop offset='1' stop-color='%236d4ae0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Crect x='9' y='10' width='14' height='2.5' rx='1' fill='white'/%3E%3Crect x='9' y='15' width='14' height='2.5' rx='1' fill='white'/%3E%3Crect x='9' y='20' width='14' height='2.5' rx='1' fill='white'/%3E%3C/svg%3E">
+  <title>Dry Fit</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233e5bd8'/%3E%3Cstop offset='1' stop-color='%236d4ae0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url%28%23g%29'/%3E%3Cpath d='M6 11H14.5A6.5 6.5 0 0 1 21 17.5V20' fill='none' stroke='white' stroke-width='5'/%3E%3Crect x='4.5' y='6.5' width='3.5' height='9' rx='1.2' fill='white'/%3E%3Crect x='16.5' y='19' width='9' height='3.5' rx='1.2' fill='white'/%3E%3Cpath d='M21 24.2C21 24.2 19 26.4 19 27.6A2 2 0 0 0 23 27.6C23 26.4 21 24.2 21 24.2Z' fill='white' fill-opacity='.75'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/studio.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark"><div><span></span><span></span><span></span></div></div>
-      Control Tower <small>Studio</small>
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="brand-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3e5bd8"/><stop offset="1" stop-color="#6d4ae0"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#brand-g)"/><path d="M6 11H14.5A6.5 6.5 0 0 1 21 17.5V20" fill="none" stroke="#fff" stroke-width="5"/><rect x="4.5" y="6.5" width="3.5" height="9" rx="1.2" fill="#fff"/><rect x="16.5" y="19" width="9" height="3.5" rx="1.2" fill="#fff"/><path d="M21 24.2C21 24.2 19 26.4 19 27.6A2 2 0 0 0 23 27.6C23 26.4 21 24.2 21 24.2Z" fill="#fff" fill-opacity=".75"/></svg>
+      <span class="brand-name">Dry Fit</span>
     </div>
     <nav class="tabs">
       <button class="tab active" data-view="map">Architecture</button>
       <button class="tab" data-view="run">Run the pipeline</button>
-      <button class="tab" data-view="gov">Governance</button>
       <span class="tabsep"></span>
+      <button class="tab" data-view="gov">Governance</button>
       <button class="tab" data-view="dash">Dashboards</button>
       <button class="tab" data-view="query">Query</button>
       <button class="tab" data-view="ask">Ask</button>
     </nav>
-    <div class="daypill" id="daypill"><span class="dot" id="daydot"></span><span id="daytext">Loading…</span></div>
+    <div class="topbar-end">
+      <label class="projectpick" title="The project pack: its data, definitions and numbers. The architecture is the same for every project.">
+        <span>Project</span><select id="project"></select>
+      </label>
+      <div class="daypill" id="daypill"><span class="dot" id="daydot"></span><span id="daytext">Loading…</span></div>
+    </div>
   </header>
 
   <main>
@@ -123,7 +128,7 @@
         <div>
           <h1>Governance</h1>
           <p>Every metric the platform serves, with its definition, owners, lifecycle and proof - read live from the semantic
-            layer (<span class="mono">transform/models/semantic/</span>) and the golden answers.</p>
+            layer (the project's <span class="mono">models/semantic/</span>) and the golden answers.</p>
         </div>
       </div>
       <div id="gov-main"></div>

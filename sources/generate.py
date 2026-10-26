@@ -10,6 +10,11 @@ Three systems are generated:
     hubspot    CRM, shaped like its REST API: string properties, archived flags
     netstock   Demand planning, regenerated wholesale on every sync
 
+and, when a project's scenario has a `freight` section, a freight platform
+(`freight`): one shipment per X3 delivery, and carrier invoices that arrive
+days to weeks later. It is derived from the deliveries in `state_as_of`, so it
+adds nothing to the timeline.
+
 plus a synthetic Azure cost export (`azure_cost`) so the platform can track its
 own cost, and `truth`: the real identity behind every customer and employee
 record, which is the answer key MDM providers are scored against. Nothing in
@@ -22,7 +27,7 @@ consistently across the documents that reference it. That is what lets
 `sources/clock.py` replay day after day and turn the differences into change
 data capture rows.
 
-Deliberate data-quality landmines are documented in docs/sources.md.
+Deliberate data-quality landmines are documented in the pack's docs/sources.md.
 """
 from __future__ import annotations
 
@@ -33,28 +38,74 @@ import random
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-SEED = 20260905
-
-START = date(2024, 7, 1)
-#: The day the platform is first loaded. The clock starts here.
-INITIAL_DATE = date(2026, 9, 5)
-#: The last day the clock can advance to.
-TIMELINE_END = date(2026, 10, 31)
-#: Business activity is generated up to here; later days only resolve events.
-END = TIMELINE_END
+import yaml
 
 NULL_DATE = date(1753, 1, 1)  # X3-on-SQL-Server sentinel for "no date"
 
-N_CUSTOMERS = 220
-N_ITEMS = 420
-N_SUPPLIERS = 45
-N_SALES_REPS = 28
-N_ORDERS = 4400
-N_HS_COMPANIES = 260
-N_HS_CONTACTS = 900
-N_HS_DEALS = 850
+#: The scenario: everything about the data that is a project's choice rather
+#: than a system's mechanics - seed, dates, volumes, companies, sites, name
+#: pools - comes from the project pack's scenario.yml. `_apply` binds it to
+#: the module names below; build_timeline applies the project in use again,
+#: so one process can switch projects.
+SCENARIO_KEYS = {"seed", "start", "initial_date", "timeline_end", "volumes", "email_domain",
+                 "companies", "sites", "item_categories", "names", "cities",
+                 "function_profiles", "department_of_profile", "hubspot_teams", "freight"}
+#: Sections a scenario may leave out: the systems not every project uses.
+OPTIONAL_SCENARIO_KEYS = {"freight"}
 
-EMAIL_DOMAIN = "globexdist.com"
+
+def load_scenario(path: str | None = None) -> dict:
+    from core import project
+
+    with open(path or project.current().scenario) as fh:
+        return yaml.safe_load(fh)
+
+
+def _apply(sc: dict) -> None:
+    global SEED, START, INITIAL_DATE, TIMELINE_END, END, EMAIL_DOMAIN
+    global N_CUSTOMERS, N_ITEMS, N_SUPPLIERS, N_SALES_REPS, N_ORDERS
+    global N_HS_COMPANIES, N_HS_CONTACTS, N_HS_DEALS
+    global COMPANIES, SITES, SITE_CODES, COMPANY_OF_SITE, SITES_BY_COUNTRY, ITEM_CATS, CAT_WEIGHTS
+    global PROD_NOUNS, PROD_ADJ, PROD_SIZE, CUST_A, CUST_B, CUST_C, FIRST, LAST, US_CITIES, CA_CITIES
+    global FUNCTION_PROFILES, DEPARTMENT_OF_PROFILE, HUBSPOT_TEAMS, FREIGHT
+    SEED = sc["seed"]
+    START = sc["start"]
+    #: The day the platform is first loaded. The clock starts here.
+    INITIAL_DATE = sc["initial_date"]
+    #: The last day the clock can advance to.
+    TIMELINE_END = sc["timeline_end"]
+    #: Business activity is generated up to here; later days only resolve events.
+    END = TIMELINE_END
+    v = sc["volumes"]
+    N_CUSTOMERS, N_ITEMS, N_SUPPLIERS, N_SALES_REPS = v["customers"], v["items"], v["suppliers"], v["sales_reps"]
+    N_ORDERS, N_HS_COMPANIES = v["orders"], v["hs_companies"]
+    N_HS_CONTACTS, N_HS_DEALS = v["hs_contacts"], v["hs_deals"]
+    EMAIL_DOMAIN = sc["email_domain"]
+    COMPANIES = [tuple(c) for c in sc["companies"]]   # code, name, country, legislation
+    SITES = [tuple(x) for x in sc["sites"]]           # FCY_0, name, company, short, country, city, state
+    SITE_CODES = [x[0] for x in SITES]
+    COMPANY_OF_SITE = {x[0]: x[2] for x in SITES}
+    country_of = {c[0]: c[2] for c in COMPANIES}
+    SITES_BY_COUNTRY = {}
+    for x in SITES:
+        SITES_BY_COUNTRY.setdefault(country_of[x[2]], []).append(x[0])
+    ITEM_CATS, CAT_WEIGHTS = list(sc["item_categories"]), list(sc["item_categories"].values())
+    n = sc["names"]
+    PROD_NOUNS, PROD_ADJ, PROD_SIZE = n["product_nouns"], n["product_adjectives"], n["product_sizes"]
+    CUST_A, CUST_B, CUST_C = n["customer_prefixes"], n["customer_words"], n["customer_suffixes"]
+    FIRST, LAST = n["first_names"], n["last_names"]
+    US_CITIES = [tuple(c) for c in sc["cities"]["US"]]
+    CA_CITIES = [tuple(c) for c in sc["cities"]["CA"]]
+    #: X3 function profiles (AUTILIS.PRFFCT_0) and how many users each gets beyond
+    #: the sales reps. seeds/function_profile_department.csv maps them to departments.
+    FUNCTION_PROFILES = dict(sc["function_profiles"])
+    DEPARTMENT_OF_PROFILE = dict(sc["department_of_profile"])
+    HUBSPOT_TEAMS = dict(sc["hubspot_teams"])
+    #: Carriers, rates and the freight platform's habits; empty when the project has none.
+    FREIGHT = dict(sc.get("freight") or {})
+
+
+_apply(load_scenario())
 
 
 def _stable_rng(*parts) -> random.Random:
@@ -77,56 +128,6 @@ class Timeline:
 # ---------------------------------------------------------------------------
 # Reference data shared by every system
 # ---------------------------------------------------------------------------
-COMPANIES = [
-    ("GLBUS", "Globex Distribution Inc", "US", "USA"),
-    ("GLBCA", "Globex Distribution Canada ULC", "CA", "CAN"),
-]
-
-SITES = [
-    # FCY_0, name, company, short, country, city, state
-    ("US001", "Dallas TX Distribution Center", "GLBUS", "DALLAS", "USA", "Dallas", "TX"),
-    ("US002", "Reno NV Distribution Center", "GLBUS", "RENO", "USA", "Reno", "NV"),
-    ("CA001", "Toronto ON Distribution Center", "GLBCA", "TORONTO", "CAN", "Toronto", "ON"),
-]
-SITE_CODES = [s[0] for s in SITES]
-
-ITEM_CATS = ["FG", "RM", "CMP", "PKG"]
-CAT_WEIGHTS = [0.45, 0.25, 0.22, 0.08]
-
-PROD_NOUNS = ["Valve", "Bearing", "Coupling", "Gasket", "Flange", "Actuator", "Bracket",
-              "Manifold", "Seal Kit", "Impeller", "Housing", "Spindle", "Bushing",
-              "Regulator", "Filter Element", "Drive Shaft", "Pump Head", "Sensor Mount"]
-PROD_ADJ = ["Stainless", "Carbon Steel", "Brass", "Aluminum", "Composite", "Hardened",
-            "Zinc-Plated", "Nitrile", "PTFE-Lined", "Cast Iron"]
-PROD_SIZE = ['1/4"', '1/2"', '3/4"', '1"', '1-1/2"', '2"', '3"', '4"', "6mm", "12mm", "25mm"]
-
-CUST_A = ["Northwind", "Vertex", "Ironclad", "Bluepeak", "Summit", "Cardinal", "Longview",
-          "Redstone", "Halcyon", "Kestrel", "Meridian", "Ashford", "Brightwater", "Copperline",
-          "Dovetail", "Eastgate", "Fairmount", "Granite", "Harborview", "Ivyridge", "Juniper",
-          "Keystone", "Lakeshore", "Millbrook", "Northgate", "Oakhurst", "Pinehurst", "Quarry",
-          "Riverbend", "Stonebridge", "Thornton", "Union", "Vanguard", "Westfield", "Yorkville"]
-CUST_B = ["Industrial", "Manufacturing", "Supply", "Fluid Systems", "Engineering", "Machine Works",
-          "Process Equipment", "Hydraulics", "Fabrication", "Controls", "Components", "Technologies"]
-CUST_C = ["LLC", "Inc", "Corp", "Group", "Co", "Ltd"]
-
-FIRST = ["James", "Maria", "Robert", "Priya", "Michael", "Linda", "David", "Aisha", "John", "Sofia",
-         "Daniel", "Emily", "Carlos", "Hannah", "Kevin", "Rachel", "Brian", "Nina", "Thomas", "Grace",
-         "Andrew", "Chloe", "Marcus", "Elena", "Steven", "Fatima", "Paul", "Olivia", "Eric", "Naomi",
-         "Victor", "Diane", "Samuel", "Leah", "Peter", "Jasmine", "Alan", "Ruth", "Tyler", "Monica"]
-LAST = ["Alvarez", "Bennett", "Chowdhury", "Delgado", "Ellison", "Fontaine", "Garrison", "Huang",
-        "Ibrahim", "Jankowski", "Kaminski", "Laurent", "Mbeki", "Novak", "Okafor", "Petrov",
-        "Quintero", "Rasmussen", "Sandoval", "Takahashi", "Ueda", "Vasquez", "Whitfield", "Xu",
-        "Yamamoto", "Zielinski", "Brennan", "Castellano", "Dubois", "Emerson", "Farrow", "Gallagher"]
-
-US_CITIES = [("Dallas", "TX", "75201"), ("Houston", "TX", "77002"), ("Phoenix", "AZ", "85004"),
-             ("Denver", "CO", "80202"), ("Chicago", "IL", "60601"), ("Atlanta", "GA", "30303"),
-             ("Columbus", "OH", "43215"), ("Charlotte", "NC", "28202"), ("Seattle", "WA", "98104"),
-             ("Reno", "NV", "89501"), ("Kansas City", "MO", "64106"), ("Nashville", "TN", "37201"),
-             ("Portland", "OR", "97204"), ("Tampa", "FL", "33602"), ("Salt Lake City", "UT", "84101")]
-CA_CITIES = [("Toronto", "ON", "M5H 2N2"), ("Mississauga", "ON", "L5B 3C2"),
-             ("Calgary", "AB", "T2P 1J9"), ("Montreal", "QC", "H3B 2Y3"),
-             ("Vancouver", "BC", "V6C 2T4"), ("Winnipeg", "MB", "R3C 0V8")]
-
 # Local menus: integer enums resolved through a menu table. Verify the real
 # table name against the client's folder; the mechanism is right.
 LOCAL_MENUS = {
@@ -144,21 +145,6 @@ LOCAL_MENUS = {
     (861, 1): "Reorder point", (861, 2): "MRP", (861, 3): "Manual",  # REOMODE_0
 }
 
-#: X3 function profiles (AUTILIS.PRFFCT_0). seeds/function_profile_department.csv
-#: maps them to departments; the departments themselves are placeholders.
-FUNCTION_PROFILES = {
-    "SALES": 0, "CSR": 3, "BUYER": 3, "WHSE": 5, "PLANNER": 2, "AR": 2,
-}
-
-DEPARTMENT_OF_PROFILE = {
-    "SALES": "SALES", "CSR": "CUSTSVC", "BUYER": "PURCH", "WHSE": "WHSE",
-    "PLANNER": "PLAN", "AR": "FIN",
-}
-
-HUBSPOT_TEAMS = {"SALES": ["Field Sales - US", "Field Sales - Canada", "Inside Sales"],
-                 "CSR": ["Customer Success"]}
-
-
 def pad(s, n):
     """Mimic the CHAR(n) padding X3 returns from SQL Server."""
     return str(s).ljust(n)
@@ -170,6 +156,7 @@ def money(x):
 
 def build_timeline() -> Timeline:
     """Generate every event from START to TIMELINE_END. Deterministic."""
+    _apply(load_scenario())
     random.seed(SEED)
     meta: dict = {"order": {}, "item": {}, "customer": {}, "hs_company": {},
                   "hs_contact": {}, "deal": {}, "stock_moves": {}}
@@ -216,13 +203,13 @@ def build_timeline() -> Timeline:
     for i in range(N_SALES_REPS):
         f, last = person(i)
         people.append({"entity": f"EMP{i + 1:03d}", "first": f, "last": last,
-                       "profile": "SALES", "fcy": SITE_CODES[i % 3], "rep": f"REP{i + 1:03d}"})
+                       "profile": "SALES", "fcy": SITE_CODES[i % len(SITE_CODES)], "rep": f"REP{i + 1:03d}"})
     k = N_SALES_REPS
     for profile, n in FUNCTION_PROFILES.items():
         for _ in range(n):
             f, last = person(k)
             people.append({"entity": f"EMP{k + 1:03d}", "first": f, "last": last,
-                           "profile": profile, "fcy": SITE_CODES[k % 3], "rep": None})
+                           "profile": profile, "fcy": SITE_CODES[k % len(SITE_CODES)], "rep": None})
             k += 1
     for p in people:
         p["user"] = (p["first"][0] + p["last"]).upper()[:10]
@@ -402,7 +389,8 @@ def build_timeline() -> Timeline:
     for i in range(N_ORDERS):
         d = random.choices(order_dates, weights=date_weights, k=1)[0]
         cust = random.choice(customers)
-        fcy = "CA001" if cust["cry"] == "CA" else random.choice(["US001", "US002"])
+        local = SITES_BY_COUNTRY[cust["cry"]]
+        fcy = local[0] if len(local) == 1 else random.choice(local)
         soh = f"SO{fcy[:2]}{d.year % 100:02d}{i:06d}"
         fate = choice_w(["ship", "cancel", "backorder"], [.93, .04, .03])
         shidat = d + timedelta(days=random.randint(1, 21)) if fate == "ship" else NULL_DATE
@@ -612,7 +600,7 @@ def build_timeline() -> Timeline:
         nonlocal gnum
         gnum += 1
         gl = f"GL{gnum:08d}"
-        cpy = "GLBCA" if fcy == "CA001" else "GLBUS"
+        cpy = COMPANY_OF_SITE[fcy]
         x3["GACCENTRY"].append({
             "NUM_0": gl, "TYP_0": typ, "JOU_0": jou, "CPY_0": cpy, "FCY_0": fcy,
             "ACCDAT_0": accdat, "CUR_0": cur, "DES_0": des, "VCRNUM_0": num_src,
@@ -1343,12 +1331,59 @@ def state_as_of(tl: Timeline, as_of: date) -> dict[str, dict[str, list[dict]]]:
     _keep(hs["engagement"], lambda r: r["created_at"] <= as_of
           and r["associated_deal_id"] in live_deals)
 
-    return {
+    out = {
         "sage_x3": x3,
         "hubspot": hs,
         "netstock": _netstock_as_of(tl.ns_static, as_of),
         "azure_cost": _costs_as_of(tl.cost_static, as_of),
     }
+    if FREIGHT:
+        out["freight"] = _freight_as_of(x3, as_of)
+    return out
+
+
+def _freight_as_of(x3: dict, as_of: date) -> dict[str, list[dict]]:
+    """A freight platform as of `as_of`: carriers, one shipment per X3 delivery, carrier invoices.
+
+    Each shipment and charge is a function of its delivery alone, so the same
+    day always gives the same state. Invoices arrive `invoice_lag_days` after
+    the shipment - the late invoices that restate a month's cost per shipment -
+    and some never arrive. A few shipments carry the delivery number the way a
+    clerk keyed it: lower case, or without its SDH prefix.
+    """
+    f = FREIGHT
+    carriers = [tuple(c) for c in f["carriers"]]          # code, name, mode, base rate, share
+    lag_lo, lag_hi = f.get("invoice_lag_days", [3, 35])
+    lines: dict[str, int] = {}
+    for d in x3["SDELIVERYD"]:
+        lines[d["SDHNUM_0"]] = lines.get(d["SDHNUM_0"], 0) + 1
+    shipments, invoices = [], []
+    for d in x3["SDELIVERY"]:
+        sdh, ship_on = d["SDHNUM_0"], d["SHIDAT_0"]
+        r = _stable_rng("freight", SEED, sdh)
+        code, _, _, rate, _ = r.choices(carriers, weights=[c[4] for c in carriers], k=1)[0]
+        ref = sdh
+        if r.random() < f.get("mangled_reference_rate", 0.04):
+            ref = sdh.lower() if r.random() < 0.5 else sdh[3:]
+        weight = round(r.uniform(15, 60) * max(1, lines.get(sdh, 1)), 1)
+        delivered = d["DLVDAT_0"] if d["DLVDAT_0"] != NULL_DATE and d["DLVDAT_0"] <= as_of else None
+        shipments.append({"shipment_id": f"FS{sdh[3:]}", "reference": ref, "carrier_code": code,
+                          "origin_location": d["STOFCY_0"], "ship_date": ship_on, "delivered_date": delivered,
+                          "status": "delivered" if delivered else "in_transit", "weight_kg": weight,
+                          "updated_at": delivered or ship_on})
+        invoice_on = ship_on + timedelta(days=r.randint(lag_lo, lag_hi))
+        missing = r.random() < f.get("uninvoiced_rate", 0.03)
+        if missing or invoice_on > as_of:
+            continue
+        line_haul = round(rate * (1 + weight / 400) * r.uniform(0.9, 1.15), 2)
+        accessorial = float(r.choices([0, 35, 75, 120], [0.8, 0.1, 0.06, 0.04], k=1)[0])
+        invoices.append({"invoice_id": f"FI{sdh[3:]}", "shipment_id": f"FS{sdh[3:]}", "carrier_code": code,
+                         "invoice_date": invoice_on, "currency": "USD", "line_haul": line_haul,
+                         "fuel_surcharge": round(line_haul * f.get("fuel_surcharge_pct", 0.18), 2),
+                         "accessorial": accessorial, "updated_at": invoice_on})
+    return {"carrier": [{"carrier_code": c[0], "carrier_name": c[1], "mode": c[2], "updated_at": START}
+                        for c in carriers],
+            "shipment": shipments, "freight_invoice": invoices}
 
 
 def _netstock_as_of(st: dict, as_of: date) -> dict[str, list[dict]]:

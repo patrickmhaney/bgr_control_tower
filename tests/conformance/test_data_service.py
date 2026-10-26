@@ -29,27 +29,47 @@ def test_openapi_exposes_the_contract(client):
     assert EXPECTED_ROUTES <= paths
 
 
+def _catalog():
+    from semantic.catalog import build_catalog
+    from serving.semantic_service import SemanticService
+
+    return build_catalog(SemanticService())
+
+
 def test_query_carries_governance(client):
-    r = client.post("/query", json={"metrics": ["return_rate"], "group_by": ["site__site_name"]})
+    import duckdb
+
+    from core.settings import settings
+
+    provisional = next(e for e in _catalog() if e["status"] == "provisional"
+                       and "site__site_name" in e["valid_dimensions"])
+    r = client.post("/query", json={"metrics": [provisional["name"]], "group_by": ["site__site_name"]})
     assert r.status_code == 200
     body = r.json()
     assert body["metrics"][0]["status"] == "provisional"
     assert body["metrics"][0]["provisional_reason"]
-    assert len(body["rows"]) == 3
+    with duckdb.connect(settings.warehouse_path, read_only=True) as con:
+        sites = con.execute("select count(distinct site_name) from gold.dim_site").fetchone()[0]
+    assert len(body["rows"]) <= sites
 
 
 def test_invalid_requests_are_refused_with_reasons(client):
-    r = client.post("/query", json={"metrics": ["dso_days_to_pay_proxy"],
-                                    "group_by": ["employee__department_name"]})
+    catalog = _catalog()
+    narrow = next(e for e in catalog if e["source"] == "metricflow" and e["role"] == "kpi"
+                  and "employee__department_name" not in e["valid_dimensions"])
+    r = client.post("/query", json={"metrics": [narrow["name"]], "group_by": ["employee__department_name"]})
     assert r.status_code == 422 and "Valid dimensions" in r.json()["detail"]
-    r = client.post("/query", json={"metrics": ["cost_per_shipment"]})
-    assert r.status_code == 422 and "blocked" in r.json()["detail"]
+    waiting = next(e for e in catalog if e["source"] == "backlog")
+    r = client.post("/query", json={"metrics": [waiting["name"]]})
+    assert r.status_code == 422 and waiting["status"] in r.json()["detail"]
 
 
 def test_datasets_are_served(client):
+    import re
+
     names = client.get("/datasets").json()
-    assert "mart_o2c" in names
-    page = client.get("/datasets/mart_o2c?limit=5").json()
+    cube = next(n for n in names if re.fullmatch(r"mart_[a-z]2[a-z]", n))
+    page = client.get(f"/datasets/{cube}?limit=5").json()
     assert page["columns"][0] == "metric_time__month" and len(page["rows"]) == 5
 
 

@@ -1,0 +1,49 @@
+# The dbt_project.yml every project pack uses. Copy it to
+# projects/<slug>/dbt_project.yml, set `name` to the slug and fill in `vars`;
+# nothing else may differ (python -m ctl check-pack compares the two).
+name: __project__
+version: 3.0.0
+config-version: 2
+profile: control_tower
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+flags:
+  # Staging adapters (in the platform package) read the pack's bronze models.
+  require_ref_searches_node_package_before_root: true
+
+# The platform package's default__generate_schema_name names schemas by layer.
+dispatch:
+  - macro_namespace: dbt
+    search_order: ["platform", "dbt"]
+
+vars: {}
+
+models:
+  __project__:
+    +materialized: view
+    bronze:
+      +schema: bronze
+      +materialized: table
+      +tags: ["bronze"]
+    silver:
+      +schema: silver
+      intermediate:
+        +tags: ["intermediate"]
+      conformed:
+        +materialized: table
+        +tags: ["conformed"]
+    gold:
+      +schema: gold
+      +materialized: table
+      +tags: ["gold"]
+      +contract:
+        enforced: true
+
+seeds:
+  __project__:
+    +schema: seed

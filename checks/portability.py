@@ -2,7 +2,8 @@
 
     python -m checks.portability
 
-Compiles the dbt project, then for every silver and gold model:
+Reads the compiled dbt project, then for every silver and gold model - the
+pack's and the platform package's staging adapters:
 
 1. rejects constructs that lock the SQL to DuckDB (QUALIFY, EXCLUDE,
    GROUP BY ALL, :: casts, positional GROUP BY, USING joins, ...) in the SQL
@@ -24,10 +25,8 @@ import sys
 
 import sqlglot
 
-from core.settings import ROOT
+from core import project
 
-COMPILED = os.path.join(ROOT, "transform", "target", "compiled", "control_tower", "models")
-SOURCE = os.path.join(ROOT, "transform", "models")
 LAYERS = ("silver", "gold")
 TARGETS = ("tsql", "snowflake")
 
@@ -48,16 +47,29 @@ def _strip_comments(sql: str) -> str:
     return re.sub(r"--[^\n]*", " ", sql)
 
 
+def _models() -> list[tuple[str, str, str]]:
+    """(name shown, SQL as written, SQL as compiled) for every silver and gold model."""
+    pack = project.current()
+    compiled = os.path.join(pack.target, "compiled")
+    roots = {pack.dbt_name: pack.models, "platform": os.path.join(project.PLATFORM, "models")}
+    out = []
+    for package, source in roots.items():
+        base = os.path.join(compiled, package, "models")
+        for layer in LAYERS:
+            for f in glob.glob(os.path.join(base, layer, "**", "*.sql"), recursive=True):
+                rel = os.path.relpath(f, base)
+                if os.path.isfile(os.path.join(source, rel)):
+                    out.append((rel, os.path.join(source, rel), f))
+    return sorted(out)
+
+
 def check() -> list[str]:
     problems = []
-    files = [f for layer in LAYERS
-             for f in glob.glob(os.path.join(COMPILED, layer, "**", "*.sql"), recursive=True)
-             if os.path.isfile(os.path.join(SOURCE, os.path.relpath(f, COMPILED)))]
+    files = _models()
     if not files:
         return ["no compiled SQL found - run `python -m ctl dbt compile` first"]
-    for path in sorted(files):
-        rel = os.path.relpath(path, COMPILED)
-        written = _strip_comments(open(os.path.join(SOURCE, rel)).read())
+    for rel, source, path in files:
+        written = _strip_comments(open(source).read())
         for pattern, why in BANNED.items():
             if re.search(pattern, written, flags=re.I):
                 problems.append(f"{rel}: {why}")

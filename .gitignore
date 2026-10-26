@@ -31,9 +31,9 @@ logs/
 .data/
 *.duckdb
 *.duckdb.wal
-transform/target/
-transform/dbt_packages/
-transform/logs/
+projects/*/target/
+projects/*/dbt_packages/
+projects/*/logs/
 .blocked_words
 
 # --- Dagster ---------------------------------------------------------------

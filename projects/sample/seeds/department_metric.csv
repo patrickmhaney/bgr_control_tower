@@ -1,0 +1,11 @@
+department_code,process_code,metric_name,influence
+OPS,I2D,on_time_delivery_rate,owns
+OPS,I2D,cost_per_shipment,owns
+OPS,I2D,inventory_accuracy,owns
+CUSTSVC,O2C,return_rate,owns
+SALES,O2C,return_rate,contributes
+FIN,O2C,days_sales_outstanding,owns
+OPS,O2C,cost_per_order,contributes
+PURCH,P2P,three_way_match_rate,owns
+FIN,P2P,three_way_match_rate,contributes
+OPS,P2P,supplier_on_time_rate,owns

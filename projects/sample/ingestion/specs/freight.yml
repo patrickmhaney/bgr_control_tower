@@ -1,0 +1,20 @@
+# Contract C1: what is extracted from the freight platform, and how.
+#
+# A TMS with carrier invoices behind a REST API. Shipments change once (in
+# transit to delivered) and invoices arrive late, so both are read by
+# updated_at with a day of lookback; bronze_current keeps the latest row per
+# key. Carriers are a small list, read in full.
+version: 1
+source: freight
+system: Freight platform (TMS and carrier invoices)
+access: REST API with an updated-since filter.
+auth: Assumed API key.
+strategy: api_cursor
+lookback_days: 1
+tables:
+  carrier:          {keys: [carrier_code], strategy: full_refresh}
+  shipment:         {keys: [shipment_id], cursor: updated_at, note: "reference is the X3 delivery number as the carrier keyed it."}
+  freight_invoice:  {keys: [invoice_id], cursor: updated_at, note: "Arrives days to weeks after the shipment; a few never do."}
+pitfalls:
+  - Late invoices restate a month's freight cost; recent months read low on cost and high on uninvoiced shipments.
+  - About 4% of references are lower case or lack the SDH prefix. Staging puts them back before any join.

@@ -1,0 +1,111 @@
+# Sample Project: the synthetic sources' settings (sources/generate.py reads them).
+# A fictional distributor, smaller than Sample Project v2, with a freight platform.
+# The generator draws from one seeded random generator, so changing any value here
+# changes the data: re-freeze the golden answers and explain the diff.
+# Unknown keys fail `python -m ctl check-pack`.
+
+seed: 20261001
+# Business activity starts here; the clock starts on initial_date and can advance to timeline_end.
+start: 2024-07-01
+initial_date: 2026-09-05
+timeline_end: 2026-10-31
+
+volumes:
+  customers: 150
+  items: 300
+  suppliers: 30
+  sales_reps: 18
+  orders: 3000
+  hs_companies: 180
+  hs_contacts: 600
+  hs_deals: 500
+
+email_domain: bluepeak-supply.example
+
+# Legal entities: X3 COMPANY (code, name, country, legislation).
+companies:
+  - ["BPSUS", "Bluepeak Supply Inc", "US", "USA"]
+  - ["BPSCA", "Bluepeak Supply Canada Ltd", "CA", "CAN"]
+# Sites: X3 FACILITY (code, name, company, short name, country, city, state).
+sites:
+  - ["US001", "Columbus OH Distribution Center", "BPSUS", "COLUMBUS", "USA", "Columbus", "OH"]
+  - ["US002", "Phoenix AZ Distribution Center", "BPSUS", "PHOENIX", "USA", "Phoenix", "AZ"]
+  - ["CA001", "Calgary AB Distribution Center", "BPSCA", "CALGARY", "CAN", "Calgary", "AB"]
+
+# Item categories and the share of items in each.
+item_categories:
+  FG: 0.45
+  RM: 0.25
+  CMP: 0.22
+  PKG: 0.08
+
+# Name pools the generator draws from, in order.
+names:
+  product_nouns: ["Valve", "Bearing", "Coupling", "Gasket", "Flange", "Actuator", "Bracket", "Manifold", "Seal Kit", "Impeller", "Housing", "Spindle", "Bushing", "Regulator", "Filter Element", "Drive Shaft", "Pump Head", "Sensor Mount"]
+  product_adjectives: ["Stainless", "Carbon Steel", "Brass", "Aluminum", "Composite", "Hardened", "Zinc-Plated", "Nitrile", "PTFE-Lined", "Cast Iron"]
+  product_sizes: ["1/4\"", "1/2\"", "3/4\"", "1\"", "1-1/2\"", "2\"", "3\"", "4\"", "6mm", "12mm", "25mm"]
+  customer_prefixes: ["Northwind", "Vertex", "Ironclad", "Bluepeak", "Summit", "Cardinal", "Longview", "Redstone", "Halcyon", "Kestrel", "Meridian", "Ashford", "Brightwater", "Copperline", "Dovetail", "Eastgate", "Fairmount", "Granite", "Harborview", "Ivyridge", "Juniper", "Keystone", "Lakeshore", "Millbrook", "Northgate", "Oakhurst", "Pinehurst", "Quarry", "Riverbend", "Stonebridge", "Thornton", "Union", "Vanguard", "Westfield", "Yorkville"]
+  customer_words: ["Industrial", "Manufacturing", "Supply", "Fluid Systems", "Engineering", "Machine Works", "Process Equipment", "Hydraulics", "Fabrication", "Controls", "Components", "Technologies"]
+  customer_suffixes: ["LLC", "Inc", "Corp", "Group", "Co", "Ltd"]
+  first_names: ["James", "Maria", "Robert", "Priya", "Michael", "Linda", "David", "Aisha", "John", "Sofia", "Daniel", "Emily", "Carlos", "Hannah", "Kevin", "Rachel", "Brian", "Nina", "Thomas", "Grace", "Andrew", "Chloe", "Marcus", "Elena", "Steven", "Fatima", "Paul", "Olivia", "Eric", "Naomi", "Victor", "Diane", "Samuel", "Leah", "Peter", "Jasmine", "Alan", "Ruth", "Tyler", "Monica"]
+  last_names: ["Alvarez", "Bennett", "Chowdhury", "Delgado", "Ellison", "Fontaine", "Garrison", "Huang", "Ibrahim", "Jankowski", "Kaminski", "Laurent", "Mbeki", "Novak", "Okafor", "Petrov", "Quintero", "Rasmussen", "Sandoval", "Takahashi", "Ueda", "Vasquez", "Whitfield", "Xu", "Yamamoto", "Zielinski", "Brennan", "Castellano", "Dubois", "Emerson", "Farrow", "Gallagher"]
+
+# Customer cities by country: (city, state or province, postal code).
+cities:
+  US:
+    - ["Dallas", "TX", "75201"]
+    - ["Houston", "TX", "77002"]
+    - ["Phoenix", "AZ", "85004"]
+    - ["Denver", "CO", "80202"]
+    - ["Chicago", "IL", "60601"]
+    - ["Atlanta", "GA", "30303"]
+    - ["Columbus", "OH", "43215"]
+    - ["Charlotte", "NC", "28202"]
+    - ["Seattle", "WA", "98104"]
+    - ["Reno", "NV", "89501"]
+    - ["Kansas City", "MO", "64106"]
+    - ["Nashville", "TN", "37201"]
+    - ["Portland", "OR", "97204"]
+    - ["Tampa", "FL", "33602"]
+    - ["Salt Lake City", "UT", "84101"]
+  CA:
+    - ["Toronto", "ON", "M5H 2N2"]
+    - ["Mississauga", "ON", "L5B 3C2"]
+    - ["Calgary", "AB", "T2P 1J9"]
+    - ["Montreal", "QC", "H3B 2Y3"]
+    - ["Vancouver", "BC", "V6C 2T4"]
+    - ["Winnipeg", "MB", "R3C 0V8"]
+
+# X3 function profiles (AUTILIS.PRFFCT_0) and how many extra users each gets.
+# seeds/function_profile_department.csv maps them to departments.
+function_profiles:
+  SALES: 0
+  CSR: 3
+  BUYER: 3
+  WHSE: 5
+  PLANNER: 2
+  AR: 2
+department_of_profile:
+  SALES: SALES
+  CSR: CUSTSVC
+  BUYER: PURCH
+  WHSE: OPS
+  PLANNER: OPS
+  AR: FIN
+# HubSpot teams per function profile.
+hubspot_teams:
+  SALES: ["Field Sales - US", "Field Sales - Canada", "Inside Sales"]
+  CSR: ["Customer Success"]
+
+# The freight platform: carriers (code, name, mode, base rate per shipment in
+# USD, share of shipments), how late invoices arrive, and its habits.
+freight:
+  carriers:
+    - ["RDXP", "Ridgeline Express", "ltl", 185.0, 0.40]
+    - ["NWFR", "Northway Freight", "ltl", 160.0, 0.30]
+    - ["PCRG", "Pacific Cargo", "ftl", 640.0, 0.10]
+    - ["SWCR", "Swift Courier", "parcel", 38.0, 0.20]
+  invoice_lag_days: [3, 35]
+  fuel_surcharge_pct: 0.18
+  uninvoiced_rate: 0.03
+  mangled_reference_rate: 0.04

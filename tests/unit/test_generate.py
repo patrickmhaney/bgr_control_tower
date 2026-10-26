@@ -1,6 +1,8 @@
 """The synthetic sources: deterministic, and consistent on every day."""
 import datetime as dt
 
+import pytest
+
 from sources import generate as g
 
 
@@ -47,3 +49,35 @@ def test_truth_covers_every_hubspot_company():
     hs = {c["id"] for c in tl.hs["company"]}
     truth = {t["source_key"] for t in tl.truth["customer_identity"] if t["source_system"] == "hubspot"}
     assert hs == truth
+
+
+def _canon(o) -> str:
+    """A stable text form of any timeline value (dict keys may be tuples)."""
+    if isinstance(o, dict):
+        return "{" + ",".join(sorted(repr(k) + ":" + _canon(v) for k, v in o.items())) + "}"
+    if isinstance(o, (list, tuple)):
+        return "[" + ",".join(_canon(v) for v in o) + "]"
+    if isinstance(o, set):
+        return "{" + ",".join(sorted(_canon(v) for v in o)) + "}"
+    return repr(o)
+
+
+#: The timeline and its day-0 state, hashed, per project. Moving the scenario
+#: into a pack, or refactoring the generator, must not change a single draw.
+FINGERPRINTS = {"sample_v2": ("43ea0006c7e441b2", "1d72de8b0cfa3157")}
+
+
+def test_timeline_fingerprint_is_unchanged():
+    import dataclasses
+    import hashlib
+
+    from core import project
+
+    def h(o):
+        return hashlib.sha256(_canon(o).encode()).hexdigest()[:16]
+
+    expected = FINGERPRINTS.get(project.slug())
+    if expected is None:
+        pytest.skip(f"no fingerprint pinned for {project.slug()}")
+    tl = g.build_timeline()
+    assert (h(dataclasses.asdict(tl)), h(g.state_as_of(tl, g.INITIAL_DATE))) == expected

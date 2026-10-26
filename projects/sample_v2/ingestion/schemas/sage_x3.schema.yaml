@@ -1,0 +1,1785 @@
+version: 2
+version_hash: 9veKxDK1YVh5NV0DVM8yF+sa4syBXiKUivcickIW3XU=
+engine_version: 11
+name: sage_x3
+tables:
+  _dlt_version:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: false
+      schema:
+        data_type: text
+        nullable: false
+    write_disposition: skip
+    resource: _dlt_version
+    description: Created by DLT. Tracks schema updates
+  _dlt_loads:
+    columns:
+      load_id:
+        data_type: text
+        nullable: false
+        precision: 64
+      schema_name:
+        data_type: text
+        nullable: true
+      status:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_version_hash:
+        data_type: text
+        nullable: true
+    write_disposition: skip
+    resource: _dlt_loads
+    description: Created by DLT. Tracks completed loads
+  COMPANY:
+    columns:
+      CPY_0:
+        data_type: text
+        nullable: true
+      CPYNAM_0:
+        data_type: text
+        nullable: true
+      CRY_0:
+        data_type: text
+        nullable: true
+      LEG_0:
+        data_type: text
+        nullable: true
+      CPYLOG_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: COMPANY
+  FACILITY:
+    columns:
+      FCY_0:
+        data_type: text
+        nullable: true
+      FCYSHO_0:
+        data_type: text
+        nullable: true
+      FCYNAM_0:
+        data_type: text
+        nullable: true
+      LEGCPY_0:
+        data_type: text
+        nullable: true
+      CRY_0:
+        data_type: text
+        nullable: true
+      CTY_0:
+        data_type: text
+        nullable: true
+      SAT_0:
+        data_type: text
+        nullable: true
+      FCYSTO_0:
+        data_type: bigint
+        nullable: true
+      FCYSAL_0:
+        data_type: bigint
+        nullable: true
+      FCYPUR_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: FACILITY
+  APLSTD:
+    columns:
+      CHAPTER_0:
+        data_type: bigint
+        nullable: true
+      CODE_0:
+        data_type: bigint
+        nullable: true
+      LANNUM_0:
+        data_type: text
+        nullable: true
+      TEXTE_0:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: APLSTD
+  ATEXTRA:
+    columns:
+      CODFIC_0:
+        data_type: text
+        nullable: true
+      ZONE_0:
+        data_type: text
+        nullable: true
+      LANNUM_0:
+        data_type: text
+        nullable: true
+      IDENT1_0:
+        data_type: text
+        nullable: true
+      IDENT2_0:
+        data_type: text
+        nullable: true
+      TEXTE_0:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: ATEXTRA
+  AUTILIS:
+    columns:
+      USR_0:
+        data_type: text
+        nullable: true
+      NOMUSR_0:
+        data_type: text
+        nullable: true
+      ADDEML_0:
+        data_type: text
+        nullable: true
+      PRFFCT_0:
+        data_type: text
+        nullable: true
+      FCY_0:
+        data_type: text
+        nullable: true
+      ENAFLG_0:
+        data_type: bigint
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: AUTILIS
+  REPRESENT:
+    columns:
+      REPNUM_0:
+        data_type: text
+        nullable: true
+      REPNAM_0:
+        data_type: text
+        nullable: true
+      FCY_0:
+        data_type: text
+        nullable: true
+      REPTYP_0:
+        data_type: bigint
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: REPRESENT
+  BPARTNER:
+    columns:
+      BPRNUM_0:
+        data_type: text
+        nullable: true
+      BPRNAM_0:
+        data_type: text
+        nullable: true
+      BPRNAM_1:
+        data_type: text
+        nullable: true
+      BPCFLG_0:
+        data_type: bigint
+        nullable: true
+      BPSFLG_0:
+        data_type: bigint
+        nullable: true
+      CRY_0:
+        data_type: text
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      BPRLOG_0:
+        data_type: bigint
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: BPARTNER
+  BPCUSTOMER:
+    columns:
+      BPCNUM_0:
+        data_type: text
+        nullable: true
+      BPCNAM_0:
+        data_type: text
+        nullable: true
+      BPCGRU_0:
+        data_type: text
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      PTE_0:
+        data_type: text
+        nullable: true
+      BPCSNC_0:
+        data_type: double
+        nullable: true
+      OSTCTL_0:
+        data_type: bigint
+        nullable: true
+      ACCCOD_0:
+        data_type: text
+        nullable: true
+      REP_0:
+        data_type: text
+        nullable: true
+      REP_1:
+        data_type: text
+        nullable: true
+      CREDAT_0:
+        data_type: date
+        nullable: true
+      UPDDAT_0:
+        data_type: date
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: BPCUSTOMER
+  BPSUPPLIER:
+    columns:
+      BPSNUM_0:
+        data_type: text
+        nullable: true
+      BPSNAM_0:
+        data_type: text
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      PTE_0:
+        data_type: text
+        nullable: true
+      LTI_0:
+        data_type: bigint
+        nullable: true
+      ACCCOD_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: BPSUPPLIER
+  BPADDRESS:
+    columns:
+      BPATYP_0:
+        data_type: bigint
+        nullable: true
+      BPANUM_0:
+        data_type: text
+        nullable: true
+      BPAADD_0:
+        data_type: text
+        nullable: true
+      BPADES_0:
+        data_type: text
+        nullable: true
+      ADDLIG_0:
+        data_type: text
+        nullable: true
+      ADDLIG_1:
+        data_type: text
+        nullable: true
+      CTY_0:
+        data_type: text
+        nullable: true
+      SAT_0:
+        data_type: text
+        nullable: true
+      POSCOD_0:
+        data_type: text
+        nullable: true
+      CRY_0:
+        data_type: text
+        nullable: true
+      TEL_0:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: BPADDRESS
+  ITMMASTER:
+    columns:
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      ITMDES1_0:
+        data_type: text
+        nullable: true
+      ITMDES2_0:
+        data_type: text
+        nullable: true
+      TCLCOD_0:
+        data_type: text
+        nullable: true
+      TSICOD_0:
+        data_type: text
+        nullable: true
+      TSICOD_1:
+        data_type: text
+        nullable: true
+      TSICOD_2:
+        data_type: text
+        nullable: true
+      STU_0:
+        data_type: text
+        nullable: true
+      ITMSTA_0:
+        data_type: bigint
+        nullable: true
+      BASPRI_0:
+        data_type: double
+        nullable: true
+      PURBASPRI_0:
+        data_type: double
+        nullable: true
+      EANCOD_0:
+        data_type: text
+        nullable: true
+      ITMWEI_0:
+        data_type: double
+        nullable: true
+      CREDAT_0:
+        data_type: date
+        nullable: true
+      UPDDAT_0:
+        data_type: date
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: ITMMASTER
+  ITMFACILIT:
+    columns:
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      REOMODE_0:
+        data_type: bigint
+        nullable: true
+      SAFSTO_0:
+        data_type: double
+        nullable: true
+      REOMINQTY_0:
+        data_type: double
+        nullable: true
+      REOMAXQTY_0:
+        data_type: double
+        nullable: true
+      LTISUP_0:
+        data_type: bigint
+        nullable: true
+      ABCCLS_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: ITMFACILIT
+  STOCK:
+    columns:
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      LOT_0:
+        data_type: text
+        nullable: true
+      LOC_0:
+        data_type: text
+        nullable: true
+      QTYSTU_0:
+        data_type: double
+        nullable: true
+      STA_0:
+        data_type: text
+        nullable: true
+      OWNER_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: STOCK
+  STOJOU:
+    columns:
+      ROWID:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      IPTDAT_0:
+        data_type: date
+        nullable: true
+      TRSTYP_0:
+        data_type: bigint
+        nullable: true
+      QTYSTU_0:
+        data_type: double
+        nullable: true
+      VCRNUM_0:
+        data_type: text
+        nullable: true
+      VCRTYP_0:
+        data_type: text
+        nullable: true
+      LOT_0:
+        data_type: text
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: STOJOU
+  SORDER:
+    columns:
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SALFCY_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      BPCORD_0:
+        data_type: text
+        nullable: true
+      BPCINV_0:
+        data_type: text
+        nullable: true
+      ORDDAT_0:
+        data_type: date
+        nullable: true
+      SHIDAT_0:
+        data_type: date
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      ORDSTA_0:
+        data_type: bigint
+        nullable: true
+      REP_0:
+        data_type: text
+        nullable: true
+      REP_1:
+        data_type: text
+        nullable: true
+      TOTLINAMT_0:
+        data_type: double
+        nullable: true
+      ORDINVSTA_0:
+        data_type: bigint
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      CREDAT_0:
+        data_type: date
+        nullable: true
+      UPDDAT_0:
+        data_type: date
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SORDER
+  SORDERQ:
+    columns:
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SOPLIN_0:
+        data_type: bigint
+        nullable: true
+      SOQSEQ_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      QTY_0:
+        data_type: double
+        nullable: true
+      DEMDLVDAT_0:
+        data_type: date
+        nullable: true
+      SHTQTY_0:
+        data_type: double
+        nullable: true
+      UOM_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SORDERQ
+  SORDERP:
+    columns:
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SOPLIN_0:
+        data_type: bigint
+        nullable: true
+      SOPSEQ_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      ITMDES1_0:
+        data_type: text
+        nullable: true
+      GROPRI_0:
+        data_type: double
+        nullable: true
+      NETPRI_0:
+        data_type: double
+        nullable: true
+      DISCRGVAL1_0:
+        data_type: double
+        nullable: true
+      AMTNOTLIN_0:
+        data_type: double
+        nullable: true
+      VAT1_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SORDERP
+  SDELIVERY:
+    columns:
+      SDHNUM_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      SALFCY_0:
+        data_type: text
+        nullable: true
+      BPCORD_0:
+        data_type: text
+        nullable: true
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SHIDAT_0:
+        data_type: date
+        nullable: true
+      DLVDAT_0:
+        data_type: date
+        nullable: true
+      CFMFLG_0:
+        data_type: bigint
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SDELIVERY
+  SDELIVERYD:
+    columns:
+      SDHNUM_0:
+        data_type: text
+        nullable: true
+      SDDLIN_0:
+        data_type: bigint
+        nullable: true
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SOPLIN_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      QTY_0:
+        data_type: double
+        nullable: true
+      NETPRI_0:
+        data_type: double
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SDELIVERYD
+  SINVOICEV:
+    columns:
+      NUM_0:
+        data_type: text
+        nullable: true
+      SIVTYP_0:
+        data_type: text
+        nullable: true
+      INVDAT_0:
+        data_type: date
+        nullable: true
+      BPR_0:
+        data_type: text
+        nullable: true
+      SALFCY_0:
+        data_type: text
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      AMTNOTLIN_0:
+        data_type: double
+        nullable: true
+      AMTTAXLIN_0:
+        data_type: double
+        nullable: true
+      AMTATILIN_0:
+        data_type: double
+        nullable: true
+      INVSTA_0:
+        data_type: bigint
+        nullable: true
+      PAYDAT_0:
+        data_type: date
+        nullable: true
+      ACCDAT_0:
+        data_type: date
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SINVOICEV
+  SINVOICED:
+    columns:
+      NUM_0:
+        data_type: text
+        nullable: true
+      SIDLIN_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      ITMDES1_0:
+        data_type: text
+        nullable: true
+      QTY_0:
+        data_type: double
+        nullable: true
+      NETPRI_0:
+        data_type: double
+        nullable: true
+      AMTNOTLIN_0:
+        data_type: double
+        nullable: true
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SOPLIN_0:
+        data_type: bigint
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SINVOICED
+  SRETURN:
+    columns:
+      SRHNUM_0:
+        data_type: text
+        nullable: true
+      SRHFCY_0:
+        data_type: text
+        nullable: true
+      BPCNUM_0:
+        data_type: text
+        nullable: true
+      RTNDAT_0:
+        data_type: date
+        nullable: true
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SIVNUM_0:
+        data_type: text
+        nullable: true
+      RTNSTA_0:
+        data_type: bigint
+        nullable: true
+      RTNREN_0:
+        data_type: bigint
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SRETURN
+  SRETURND:
+    columns:
+      SRHNUM_0:
+        data_type: text
+        nullable: true
+      SRDLIN_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      QTY_0:
+        data_type: double
+        nullable: true
+      NETPRI_0:
+        data_type: double
+        nullable: true
+      AMTNOTLIN_0:
+        data_type: double
+        nullable: true
+      SOHNUM_0:
+        data_type: text
+        nullable: true
+      SOPLIN_0:
+        data_type: bigint
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      RTNREN_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: SRETURND
+  PORDER:
+    columns:
+      POHNUM_0:
+        data_type: text
+        nullable: true
+      POHFCY_0:
+        data_type: text
+        nullable: true
+      BPSNUM_0:
+        data_type: text
+        nullable: true
+      ORDDAT_0:
+        data_type: date
+        nullable: true
+      ORDSTA_0:
+        data_type: bigint
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: PORDER
+  PORDERQ:
+    columns:
+      POHNUM_0:
+        data_type: text
+        nullable: true
+      POPLIN_0:
+        data_type: bigint
+        nullable: true
+      POQSEQ_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      POHFCY_0:
+        data_type: text
+        nullable: true
+      QTYUOM_0:
+        data_type: double
+        nullable: true
+      EXTRCPDAT_0:
+        data_type: date
+        nullable: true
+      RCPQTY_0:
+        data_type: double
+        nullable: true
+      RCPDAT_0:
+        data_type: date
+        nullable: true
+      NETPRI_0:
+        data_type: double
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: PORDERQ
+  PRECEIPT:
+    columns:
+      PTHNUM_0:
+        data_type: text
+        nullable: true
+      PTHFCY_0:
+        data_type: text
+        nullable: true
+      BPSNUM_0:
+        data_type: text
+        nullable: true
+      POHNUM_0:
+        data_type: text
+        nullable: true
+      RCPDAT_0:
+        data_type: date
+        nullable: true
+      PTHTYP_0:
+        data_type: bigint
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: PRECEIPT
+  PRECEIPTD:
+    columns:
+      PTHNUM_0:
+        data_type: text
+        nullable: true
+      PTDLIN_0:
+        data_type: bigint
+        nullable: true
+      POHNUM_0:
+        data_type: text
+        nullable: true
+      POPLIN_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      PTHFCY_0:
+        data_type: text
+        nullable: true
+      QTYUOM_0:
+        data_type: double
+        nullable: true
+      RCPDAT_0:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: PRECEIPTD
+  PINVOICE:
+    columns:
+      NUM_0:
+        data_type: text
+        nullable: true
+      PIVTYP_0:
+        data_type: text
+        nullable: true
+      BPSNUM_0:
+        data_type: text
+        nullable: true
+      BPSINV_0:
+        data_type: text
+        nullable: true
+      INVDAT_0:
+        data_type: date
+        nullable: true
+      ACCDAT_0:
+        data_type: date
+        nullable: true
+      PIHFCY_0:
+        data_type: text
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      AMTNOTLIN_0:
+        data_type: double
+        nullable: true
+      AMTTAXLIN_0:
+        data_type: double
+        nullable: true
+      AMTATILIN_0:
+        data_type: double
+        nullable: true
+      INVSTA_0:
+        data_type: bigint
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: PINVOICE
+  PINVOICED:
+    columns:
+      NUM_0:
+        data_type: text
+        nullable: true
+      PIDLIN_0:
+        data_type: bigint
+        nullable: true
+      POHNUM_0:
+        data_type: text
+        nullable: true
+      POPLIN_0:
+        data_type: bigint
+        nullable: true
+      PTHNUM_0:
+        data_type: text
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      QTY_0:
+        data_type: double
+        nullable: true
+      NETPRI_0:
+        data_type: double
+        nullable: true
+      AMTNOTLIN_0:
+        data_type: double
+        nullable: true
+      PIHFCY_0:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: PINVOICED
+  GACCENTRY:
+    columns:
+      NUM_0:
+        data_type: text
+        nullable: true
+      TYP_0:
+        data_type: text
+        nullable: true
+      JOU_0:
+        data_type: text
+        nullable: true
+      CPY_0:
+        data_type: text
+        nullable: true
+      FCY_0:
+        data_type: text
+        nullable: true
+      ACCDAT_0:
+        data_type: date
+        nullable: true
+      CUR_0:
+        data_type: text
+        nullable: true
+      DES_0:
+        data_type: text
+        nullable: true
+      VCRNUM_0:
+        data_type: text
+        nullable: true
+      STA_0:
+        data_type: bigint
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: GACCENTRY
+  GACCENTRYD:
+    columns:
+      NUM_0:
+        data_type: text
+        nullable: true
+      LIN_0:
+        data_type: bigint
+        nullable: true
+      ACC_0:
+        data_type: text
+        nullable: true
+      SNS_0:
+        data_type: bigint
+        nullable: true
+      AMTCUR_0:
+        data_type: double
+        nullable: true
+      AMTLOC_0:
+        data_type: double
+        nullable: true
+      BPR_0:
+        data_type: text
+        nullable: true
+      CPY_0:
+        data_type: text
+        nullable: true
+      FCY_0:
+        data_type: text
+        nullable: true
+      DSP_0:
+        data_type: text
+        nullable: true
+      ACCDAT_0:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: GACCENTRYD
+  STOCOUNT:
+    columns:
+      SESNUM_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      CNTDAT_0:
+        data_type: date
+        nullable: true
+      CNTTYP_0:
+        data_type: bigint
+        nullable: true
+      SESSTA_0:
+        data_type: bigint
+        nullable: true
+      CREUSR_0:
+        data_type: text
+        nullable: true
+      UPDTICK_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: STOCOUNT
+  STOCOUNTD:
+    columns:
+      SESNUM_0:
+        data_type: text
+        nullable: true
+      CNTLIN_0:
+        data_type: bigint
+        nullable: true
+      ITMREF_0:
+        data_type: text
+        nullable: true
+      STOFCY_0:
+        data_type: text
+        nullable: true
+      LOC_0:
+        data_type: text
+        nullable: true
+      LOT_0:
+        data_type: text
+        nullable: true
+      QTYTHEO_0:
+        data_type: double
+        nullable: true
+      QTYCNT_0:
+        data_type: double
+        nullable: true
+      CNTSTA_0:
+        data_type: bigint
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: text
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: STOCOUNTD
+settings:
+  detections:
+  - iso_timestamp
+  default_hints:
+    not_null:
+    - _dlt_id
+    - _dlt_root_id
+    - _dlt_parent_id
+    - _dlt_list_idx
+    - _dlt_load_id
+    parent_key:
+    - _dlt_parent_id
+    root_key:
+    - _dlt_root_id
+    unique:
+    - _dlt_id
+    row_key:
+    - _dlt_id
+  schema_contract: evolve
+normalizers:
+  names: direct
+  json:
+    module: dlt.common.normalizers.json.relational
+previous_hashes:
+- lid+UWy1NFoA0TrgmgohZ8GWmu0rKgG5idejp6/ku4g=
+- DAI6tCYpsS/OocRRF3tgLJfwf7B52uEr646BUtTLsNA=

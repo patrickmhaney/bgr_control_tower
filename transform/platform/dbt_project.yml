@@ -1,0 +1,41 @@
+# The platform package: what every project pack shares. Each pack's dbt
+# project depends on it (projects/<slug>/packages.yml, a local package).
+#
+#   macros/                    bronze_current, cleaning, lookups, schema naming
+#   models/silver/staging/     one staging adapter per source system - a library;
+#                              a pack switches on the systems it uses
+#                              (`systems` in project.yml, passed as CT_SYSTEMS)
+#   project_template.yml       the dbt_project.yml every pack must match: only
+#                              `name` and `vars` may differ (python -m ctl check-pack)
+#
+# Layer settings - materialisations, schemas, contracts, tags - live here and
+# in the template, never in a pack, so no pack can make gold a view or turn
+# contracts off.
+name: platform
+version: 3.0.0
+config-version: 2
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+vars:
+  # X3's sentinel date meaning "no date" - a system mechanic, not a project choice.
+  x3_null_date: '1753-01-01'
+
+models:
+  platform:
+    +materialized: view
+    silver:
+      +schema: silver
+      staging:
+        +tags: ["staging"]
+        sage_x3:
+          +enabled: "{{ 'sage_x3' in env_var('CT_SYSTEMS', '').split(',') }}"
+        hubspot:
+          +enabled: "{{ 'hubspot' in env_var('CT_SYSTEMS', '').split(',') }}"
+        netstock:
+          +enabled: "{{ 'netstock' in env_var('CT_SYSTEMS', '').split(',') }}"
+        azure_cost:
+          +enabled: "{{ 'azure_cost' in env_var('CT_SYSTEMS', '').split(',') }}"
+        freight:
+          +enabled: "{{ 'freight' in env_var('CT_SYSTEMS', '').split(',') }}"

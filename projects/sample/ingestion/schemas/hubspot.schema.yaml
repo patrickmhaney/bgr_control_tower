@@ -1,0 +1,472 @@
+version: 2
+version_hash: Q1dClA1CmCKti5ej04hxkt7H18B+YYKycdJJsVJT0A0=
+engine_version: 11
+name: hubspot
+tables:
+  _dlt_version:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: false
+      schema:
+        data_type: text
+        nullable: false
+    write_disposition: skip
+    resource: _dlt_version
+    description: Created by DLT. Tracks schema updates
+  _dlt_loads:
+    columns:
+      load_id:
+        data_type: text
+        nullable: false
+        precision: 64
+      schema_name:
+        data_type: text
+        nullable: true
+      status:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_version_hash:
+        data_type: text
+        nullable: true
+    write_disposition: skip
+    resource: _dlt_loads
+    description: Created by DLT. Tracks completed loads
+  company:
+    columns:
+      id:
+        data_type: text
+        nullable: true
+      name:
+        data_type: text
+        nullable: true
+      industry:
+        data_type: text
+        nullable: true
+      country:
+        data_type: text
+        nullable: true
+      numberofemployees:
+        data_type: text
+        nullable: true
+      annualrevenue:
+        data_type: text
+        nullable: true
+      hubspot_owner_id:
+        data_type: text
+        nullable: true
+      createdate:
+        data_type: date
+        nullable: true
+      hs_lastmodifieddate:
+        data_type: date
+        nullable: true
+      archived:
+        data_type: bool
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+      domain:
+        data_type: text
+        nullable: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: company
+  contact:
+    columns:
+      id:
+        data_type: text
+        nullable: true
+      email:
+        data_type: text
+        nullable: true
+      firstname:
+        data_type: text
+        nullable: true
+      lastname:
+        data_type: text
+        nullable: true
+      jobtitle:
+        data_type: text
+        nullable: true
+      phone:
+        data_type: text
+        nullable: true
+      lifecyclestage:
+        data_type: text
+        nullable: true
+      hs_lead_status:
+        data_type: text
+        nullable: true
+      hubspot_owner_id:
+        data_type: text
+        nullable: true
+      associatedcompanyid:
+        data_type: text
+        nullable: true
+      createdate:
+        data_type: date
+        nullable: true
+      lastmodifieddate:
+        data_type: date
+        nullable: true
+      archived:
+        data_type: bool
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: contact
+  deal:
+    columns:
+      id:
+        data_type: text
+        nullable: true
+      dealname:
+        data_type: text
+        nullable: true
+      amount:
+        data_type: text
+        nullable: true
+      dealstage:
+        data_type: text
+        nullable: true
+      pipeline:
+        data_type: text
+        nullable: true
+      closedate:
+        data_type: date
+        nullable: true
+      createdate:
+        data_type: date
+        nullable: true
+      hs_lastmodifieddate:
+        data_type: date
+        nullable: true
+      hubspot_owner_id:
+        data_type: text
+        nullable: true
+      dealtype:
+        data_type: text
+        nullable: true
+      hs_is_closed_won:
+        data_type: bool
+        nullable: true
+      hs_deal_stage_probability:
+        data_type: text
+        nullable: true
+      erp_order_number:
+        data_type: text
+        nullable: true
+      associated_company_id:
+        data_type: text
+        nullable: true
+      archived:
+        data_type: bool
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: deal
+  engagement:
+    columns:
+      id:
+        data_type: text
+        nullable: true
+      type:
+        data_type: text
+        nullable: true
+      created_at:
+        data_type: date
+        nullable: true
+      owner_id:
+        data_type: text
+        nullable: true
+      associated_deal_id:
+        data_type: text
+        nullable: true
+      associated_company_id:
+        data_type: text
+        nullable: true
+      body_preview:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: engagement
+  deal_stage_history:
+    columns:
+      deal_id:
+        data_type: text
+        nullable: true
+      stage:
+        data_type: text
+        nullable: true
+      changed_at:
+        data_type: date
+        nullable: true
+      changed_by_owner_id:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: deal_stage_history
+  association:
+    columns:
+      from_object_type:
+        data_type: text
+        nullable: true
+      from_id:
+        data_type: text
+        nullable: true
+      to_object_type:
+        data_type: text
+        nullable: true
+      to_id:
+        data_type: text
+        nullable: true
+      association_type:
+        data_type: text
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: association
+  owner:
+    columns:
+      id:
+        data_type: text
+        nullable: true
+      email:
+        data_type: text
+        nullable: true
+      first_name:
+        data_type: text
+        nullable: true
+      last_name:
+        data_type: text
+        nullable: true
+      user_id:
+        data_type: text
+        nullable: true
+      team_name:
+        data_type: text
+        nullable: true
+      archived:
+        data_type: bool
+        nullable: true
+      created_at:
+        data_type: date
+        nullable: true
+      updated_at:
+        data_type: date
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: owner
+  pipeline_stage:
+    columns:
+      pipeline_id:
+        data_type: text
+        nullable: true
+      pipeline_label:
+        data_type: text
+        nullable: true
+      stage_id:
+        data_type: text
+        nullable: true
+      stage_label:
+        data_type: text
+        nullable: true
+      display_order:
+        data_type: bigint
+        nullable: true
+      is_closed:
+        data_type: bool
+        nullable: true
+      is_closed_won:
+        data_type: bool
+        nullable: true
+      _op:
+        data_type: text
+        nullable: true
+      _change_seq:
+        data_type: timestamp
+        nullable: true
+      _extracted_at:
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    table_format: delta
+    schema_contract: evolve
+    resource: pipeline_stage
+settings:
+  detections:
+  - iso_timestamp
+  default_hints:
+    not_null:
+    - _dlt_id
+    - _dlt_root_id
+    - _dlt_parent_id
+    - _dlt_list_idx
+    - _dlt_load_id
+    parent_key:
+    - _dlt_parent_id
+    root_key:
+    - _dlt_root_id
+    unique:
+    - _dlt_id
+    row_key:
+    - _dlt_id
+  schema_contract: evolve
+normalizers:
+  names: direct
+  json:
+    module: dlt.common.normalizers.json.relational
+previous_hashes:
+- 0Szp5DAotuFiKFYtWIBR+Hxc7jj0uL0/u9TR7c4Z7Dc=
+- 7qHDDgBCFxygZVbaDTIJrXdBgIppM1daXXZ9kr3jVCE=

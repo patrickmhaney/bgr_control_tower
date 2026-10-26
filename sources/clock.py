@@ -8,6 +8,7 @@ The mock database (`.data/mock_sources.duckdb` locally) holds what each source
 system shows today:
 
     sage_x3, hubspot, netstock, azure_cost   the systems' current tables
+    freight                                  when the project's scenario has one
     cdc                                      SQL Server-style change tables for
                                              every X3 table, written by advance
     truth                                    the answer key for MDM; nothing in
@@ -101,6 +102,7 @@ def load_timeline() -> tuple[g.Timeline, dict]:
     empty on some particular day keeps its type and the CDC diff compares like
     with like.
     """
+    g._apply(g.load_scenario())                  # the project in use, even from the cache
     path = _cache_path()
     if os.path.exists(path):
         with open(path, "rb") as fh:
@@ -113,8 +115,9 @@ def load_timeline() -> tuple[g.Timeline, dict]:
     for schema in ("sage_x3", "hubspot"):
         tables = getattr(timeline, "x3" if schema == "sage_x3" else "hs")
         schemas[schema] = {t: _infer_schema(rows) for t, rows in tables.items()}
-    for schema in ("netstock", "azure_cost"):
-        schemas[schema] = {t: _infer_schema(rows) for t, rows in full[schema].items()}
+    for schema in full:
+        if schema not in ("sage_x3", "hubspot"):
+            schemas[schema] = {t: _infer_schema(rows) for t, rows in full[schema].items()}
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as fh:
         pickle.dump({"version": _source_version(), "timeline": timeline, "schemas": schemas}, fh)
@@ -122,9 +125,14 @@ def load_timeline() -> tuple[g.Timeline, dict]:
 
 
 def _source_version() -> str:
-    """Invalidate the cache whenever the generator changes."""
-    with open(g.__file__, "rb") as fh:
-        return hashlib.sha256(fh.read()).hexdigest()
+    """Invalidate the cache whenever the generator or the project's scenario changes."""
+    from core import project
+
+    digest = hashlib.sha256()
+    for path in (g.__file__, project.current().scenario):
+        with open(path, "rb") as fh:
+            digest.update(fh.read())
+    return digest.hexdigest()
 
 
 def _infer_schema(rows: list[dict]) -> pa.Schema:
@@ -180,9 +188,11 @@ def _clock(con) -> dict:
     return {"today": row[0], "next_lsn": row[1], "low_water_lsn": row[2]}
 
 
-def init(as_of: dt.date = g.INITIAL_DATE) -> None:
-    """Rebuild the mock database as of `as_of`, with CDC enabled and empty."""
+def init(as_of: dt.date | None = None) -> None:
+    """Rebuild the mock database as of `as_of` (default the scenario's initial date),
+    with CDC enabled and empty."""
     timeline, schemas = load_timeline()
+    as_of = as_of or g.INITIAL_DATE
     state = g.state_as_of(timeline, as_of)
     os.makedirs(os.path.dirname(settings.mock_db), exist_ok=True)
     if os.path.exists(settings.mock_db):
@@ -234,7 +244,9 @@ def advance(days: int = 1) -> list[tuple[dt.date, int]]:
                     next_lsn += 1
                     n_changes += n
                 _write_table(con, "sage_x3", table, data)
-            for schema in ("hubspot", "netstock", "azure_cost"):
+            for schema in state:
+                if schema == "sage_x3":
+                    continue
                 for table, rows in state[schema].items():
                     _write_table(con, schema, table, _arrow(rows, schemas[schema][table]))
             low_water = _cleanup(con, day, clk["low_water_lsn"])
@@ -319,14 +331,14 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="python -m sources.clock", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     pi = sub.add_parser("init", help="rebuild the sources as of a day (default INITIAL_DATE)")
-    pi.add_argument("--as-of", type=dt.date.fromisoformat, default=g.INITIAL_DATE)
+    pi.add_argument("--as-of", type=dt.date.fromisoformat)
     pa_ = sub.add_parser("advance", help="move the sources forward")
     pa_.add_argument("--days", type=int, default=1)
     sub.add_parser("status")
     args = p.parse_args()
     if args.cmd == "init":
         init(args.as_of)
-        print(f"Sources initialised as of {args.as_of} in {settings.mock_db}")
+        print(f"Sources initialised as of {status()['today']} in {settings.mock_db}")
     elif args.cmd == "advance":
         for day, n in advance(args.days):
             print(f"{day}: {n:,} change rows captured")

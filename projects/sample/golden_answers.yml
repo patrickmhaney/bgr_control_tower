@@ -1,0 +1,320 @@
+# Golden answers: the acceptance test every semantic engine and BI tool must pass.
+#
+# Each query names metrics and dimensions the way the semantic layer does,
+# carries an independent reference query written by hand against gold, and a
+# frozen expected answer. `python -m evaluation.golden check` runs each query
+# through the semantic service and through its reference SQL and requires all
+# three to agree.
+#
+# Expected values hold for the sources as of `as_of` - the state after
+# `make mock run PROJECT=sample`. Freeze new answers with
+# `python -m evaluation.golden freeze` (CT_PROJECT=sample) and review the diff:
+# a changed number in this file is a changed number on a dashboard.
+
+version: 1
+as_of: '2026-09-05'
+tolerance: 1.0e-06
+queries:
+- id: on_time_delivery_total
+  metrics:
+  - on_time_delivery_rate
+  reference_sql: select sum(is_on_time) * 1.0 / sum(is_delivered) from gold.fct_delivery_line
+  expected:
+  - - ''
+    - 0.6941382091960204
+- id: on_time_delivery_by_site
+  metrics:
+  - on_time_delivery_rate
+  group_by:
+  - site__site_name
+  reference_sql: 'select s.site_name, sum(f.is_on_time) * 1.0 / nullif(sum(f.is_delivered), 0) from gold.fct_delivery_line
+    f join gold.dim_site s on s.site_code = f.site_code group by 1
+
+    '
+  expected:
+  - - Calgary AB Distribution Center
+    - 0.697198275862069
+  - - Columbus OH Distribution Center
+    - 0.665742024965326
+  - - Phoenix AZ Distribution Center
+    - 0.7223869532987398
+- id: on_time_delivery_by_carrier
+  metrics:
+  - on_time_delivery_rate
+  group_by:
+  - carrier__carrier_name
+  reference_sql: 'select c.carrier_name, sum(f.is_on_time) * 1.0 / nullif(sum(f.is_delivered), 0) from
+    gold.fct_delivery_line f join gold.dim_carrier c on c.carrier_code = f.carrier_code group by 1
+
+    '
+  expected:
+  - - Northway Freight
+    - 0.7031451960361913
+  - - Pacific Cargo
+    - 0.7082228116710876
+  - - Ridgeline Express
+    - 0.6863885088919288
+  - - Swift Courier
+    - 0.6879777623349548
+- id: on_time_delivery_by_quarter
+  metrics:
+  - on_time_delivery_rate
+  group_by:
+  - metric_time__quarter
+  reference_sql: 'select date_trunc(''quarter'', ship_date), sum(is_on_time) * 1.0 / nullif(sum(is_delivered),
+    0) from gold.fct_delivery_line group by 1
+
+    '
+  expected:
+  - - '2024-07-01'
+    - 0.7202216066481995
+  - - '2024-10-01'
+    - 0.7259786476868327
+  - - '2025-01-01'
+    - 0.670906200317965
+  - - '2025-04-01'
+    - 0.6941431670281996
+  - - '2025-07-01'
+    - 0.6691983122362869
+  - - '2025-10-01'
+    - 0.6881443298969072
+  - - '2026-01-01'
+    - 0.6808236808236808
+  - - '2026-04-01'
+    - 0.6901408450704225
+  - - '2026-07-01'
+    - 0.7311385459533608
+- id: inventory_accuracy_total
+  metrics:
+  - inventory_accuracy
+  reference_sql: select sum(is_accurate_position) * 1.0 / sum(count_line_count) from gold.fct_inventory_count_line
+  expected:
+  - - ''
+    - 0.9317241379310345
+- id: inventory_accuracy_by_site
+  metrics:
+  - inventory_accuracy
+  group_by:
+  - site__site_name
+  reference_sql: 'select s.site_name, sum(f.is_accurate_position) * 1.0 / nullif(sum(f.count_line_count),
+    0) from gold.fct_inventory_count_line f join gold.dim_site s on s.site_code = f.site_code group by
+    1
+
+    '
+  expected:
+  - - Calgary AB Distribution Center
+    - 0.9335476956055734
+  - - Columbus OH Distribution Center
+    - 0.924924924924925
+  - - Phoenix AZ Distribution Center
+    - 0.9369834710743802
+- id: return_rate_total
+  metrics:
+  - return_rate
+  reference_sql: select sum(returned_amount_usd) * 1.0 / sum(invoiced_amount_usd) from gold.fct_sales_order_line
+  expected:
+  - - ''
+    - 0.007167968597141591
+- id: return_rate_by_site
+  metrics:
+  - return_rate
+  group_by:
+  - site__site_name
+  reference_sql: 'select s.site_name, sum(f.returned_amount_usd) * 1.0 / nullif(sum(f.invoiced_amount_usd),
+    0) from gold.fct_sales_order_line f join gold.dim_site s on s.site_code = f.site_code group by 1
+
+    '
+  expected:
+  - - Calgary AB Distribution Center
+    - 0.004499829451556204
+  - - Columbus OH Distribution Center
+    - 0.011197171875134486
+  - - Phoenix AZ Distribution Center
+    - 0.004254292236922655
+- id: three_way_match_rate_total
+  metrics:
+  - three_way_match_rate
+  reference_sql: select sum(is_three_way_matched) * 1.0 / sum(invoice_line_count) from gold.fct_supplier_invoice_line
+  expected:
+  - - ''
+    - 0.7085641244141457
+- id: three_way_match_rate_by_supplier
+  metrics:
+  - three_way_match_rate
+  group_by:
+  - supplier__supplier_name
+  reference_sql: 'select s.supplier_name, sum(f.is_three_way_matched) * 1.0 / nullif(sum(f.invoice_line_count),
+    0) from gold.fct_supplier_invoice_line f join gold.dim_supplier s on s.supplier_code = f.supplier_code
+    group by 1
+
+    '
+  expected:
+  - - Bluepeak Import Corp
+    - 0.7169811320754716
+  - - Bluepeak Polymers Corp
+    - 0.8035714285714286
+  - - Copperline Castings Inc
+    - 0.7590361445783133
+  - - Eastgate Import Group
+    - 0.6666666666666666
+  - - Granite Forge LLC
+    - 0.5909090909090909
+  - - Halcyon Castings LLC
+    - 0.7361111111111112
+  - - Halcyon Metals Co
+    - 0.7857142857142857
+  - - Harborview Metals Inc
+    - 0.6349206349206349
+  - - Ironclad Polymers Corp
+    - 0.6363636363636364
+  - - Ivyridge Metals Group
+    - 0.7413793103448276
+  - - Juniper Forge Group
+    - 0.6944444444444444
+  - - Juniper Metals LLC
+    - 0.8045977011494253
+  - - Kestrel Castings Ltd
+    - 0.7377049180327869
+  - - Lakeshore Import Co
+    - 0.7246376811594203
+  - - Lakeshore Polymers Group
+    - 0.7090909090909091
+  - - Longview Castings Ltd
+    - 0.5945945945945946
+  - - Meridian Forge Ltd
+    - 0.6375
+  - - Northgate Import Corp
+    - 0.6842105263157895
+  - - Northgate Trading Inc
+    - 0.7362637362637363
+  - - Pinehurst Trading Ltd
+    - 0.7878787878787878
+  - - Quarry Metals Ltd
+    - 0.6666666666666666
+  - - Quarry Trading Group
+    - 0.6825396825396826
+  - - Riverbend Trading Group
+    - 0.7469879518072289
+  - - Thornton Forge Ltd
+    - 0.72
+  - - Thornton Import LLC
+    - 0.6483516483516484
+  - - Thornton Polymers LLC
+    - 0.6265060240963856
+  - - Vanguard Forge Group
+    - 0.6976744186046512
+  - - Vertex Trading Inc
+    - 0.7619047619047619
+  - - Westfield Trading LLC
+    - 0.7368421052631579
+  - - Yorkville Import LLC
+    - 0.7301587301587301
+- id: refuse_return_rate_by_carrier
+  metrics:
+  - return_rate
+  group_by:
+  - carrier__carrier_name
+  expect_refusal: cannot be grouped by
+- id: cost_per_shipment_total
+  metrics:
+  - cost_per_shipment
+  reference_sql: select sum(freight_cost_usd) * 1.0 / sum(is_invoiced) from gold.fct_shipment
+  expected:
+  - - ''
+    - 305.9528010878011
+- id: cost_per_shipment_by_carrier
+  metrics:
+  - cost_per_shipment
+  group_by:
+  - carrier__carrier_name
+  reference_sql: 'select c.carrier_name, sum(f.freight_cost_usd) * 1.0 / nullif(sum(f.is_invoiced), 0)
+    from gold.fct_shipment f join gold.dim_carrier c on c.carrier_code = f.carrier_code group by 1
+
+    '
+  expected:
+  - - Northway Freight
+    - 255.87240948813982
+  - - Pacific Cargo
+    - 981.2038671875
+  - - Ridgeline Express
+    - 292.92928994082837
+  - - Swift Courier
+    - 68.29069582504971
+- id: cost_per_shipment_by_month
+  metrics:
+  - cost_per_shipment
+  group_by:
+  - metric_time__month
+  reference_sql: 'select date_trunc(''month'', ship_date), sum(freight_cost_usd) * 1.0 / nullif(sum(is_invoiced),
+    0) from gold.fct_shipment group by 1
+
+    '
+  expected:
+  - - '2024-07-01'
+    - 293.1271794871795
+  - - '2024-08-01'
+    - 294.8419512195122
+  - - '2024-09-01'
+    - 307.19597826086954
+  - - '2024-10-01'
+    - 358.89859154929576
+  - - '2024-11-01'
+    - 291.1233898305085
+  - - '2024-12-01'
+    - 290.89469696969695
+  - - '2025-01-01'
+    - 304.91692307692307
+  - - '2025-02-01'
+    - 296.03445945945947
+  - - '2025-03-01'
+    - 310.70593406593406
+  - - '2025-04-01'
+    - 302.85130000000004
+  - - '2025-05-01'
+    - 284.4321649484536
+  - - '2025-06-01'
+    - 356.55578125
+  - - '2025-07-01'
+    - 305.1272916666667
+  - - '2025-08-01'
+    - 283.5818320610687
+  - - '2025-09-01'
+    - 311.88774193548386
+  - - '2025-10-01'
+    - 311.71019047619046
+  - - '2025-11-01'
+    - 307.7908641975309
+  - - '2025-12-01'
+    - 252.09637362637363
+  - - '2026-01-01'
+    - 362.5467857142857
+  - - '2026-02-01'
+    - 276.28844444444445
+  - - '2026-03-01'
+    - 281.48602040816326
+  - - '2026-04-01'
+    - 338.5343609022556
+  - - '2026-05-01'
+    - 301.48528000000005
+  - - '2026-06-01'
+    - 322.9057342657342
+  - - '2026-07-01'
+    - 299.82681818181817
+  - - '2026-08-01'
+    - 272.9816417910448
+  - - '2026-09-01'
+    - 229.91
+- id: refuse_cost_per_shipment_by_supplier
+  metrics:
+  - cost_per_shipment
+  group_by:
+  - supplier__supplier_name
+  expect_refusal: cannot be grouped by
+- id: refuse_placeholder_metric
+  metrics:
+  - cost_per_order
+  expect_refusal: has no number
+- id: refuse_unknown_metric
+  metrics:
+  - gross_margin
+  expect_refusal: Unknown metric

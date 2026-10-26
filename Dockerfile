@@ -10,9 +10,11 @@ RUN uv sync --frozen --no-dev --extra tsql --no-install-project
 
 COPY . .
 RUN uv sync --frozen --no-dev --extra tsql
-ENV PATH="/app/.venv/bin:$PATH" DBT_PROFILES_DIR=/app/transform
+# One image serves one project pack (each client gets its own deployment).
+ARG CT_PROJECT=sample_v2
+ENV PATH="/app/.venv/bin:$PATH" DBT_PROFILES_DIR=/app/transform CT_PROJECT=${CT_PROJECT}
 # Resolve dbt packages and compile the manifest Dagster and MetricFlow read.
-RUN cd transform && dbt deps --quiet && CT_DBT_TARGET=local dbt parse --quiet
+RUN python -m ctl dbt deps --quiet && CT_DBT_TARGET=local python -m ctl dbt parse --quiet
 
 # Default: the data service. The Dagster app overrides the command with
 # orchestration/entrypoint.sh.

@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: int_sales_order_line
+    description: One row per sales order line, quantity and price sides of X3's split line rejoined.
+    columns:
+      - name: item_code_disagrees
+        description: 1 when SORDERQ and SORDERP name different items. Asserted to be 0.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sales_order_number, sales_order_line_number]
+
+  - name: int_sales_return_line
+    description: One row per customer return line, resolved to the order line it reverses where possible.
+    columns:
+      - name: order_match_method
+        description: exact, normalised, or null for an orphan return.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [return_number, return_line_number]
+
+  - name: int_fx_rate
+    description: Monthly rates to the reporting currency, derived from the X3 GL. See open question 10.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [currency_code, rate_month]
+
+  - name: int_supplier_invoice_match
+    description: One row per supplier invoice line with its three-way match outcome and the reason a line failed.
+    columns:
+      - name: match_result
+        tests:
+          - accepted_values:
+              arguments:
+                values: [matched, quantity_variance, price_variance, not_received,
+                         po_line_not_found, no_purchase_order]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [supplier_invoice_number, supplier_invoice_line_number]

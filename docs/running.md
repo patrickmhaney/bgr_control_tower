@@ -12,8 +12,25 @@ make golden       # 37 golden answers: semantic layer == reference SQL == frozen
 make test         # unit and conformance tests
 ```
 
-Everything the pipeline writes lives under `.data/` (gitignored). `make reset`
-deletes it.
+Everything the pipeline writes lives under `.data/<project>/` (gitignored).
+`make reset` deletes it.
+
+## Projects
+
+Every command works on one project pack under `projects/` (see
+[architecture.md](architecture.md#architecture-and-projects)). The default is
+`sample_v2`, so the commands above need no flag. For another pack:
+
+```bash
+make setup mock run golden PROJECT=sample      # or: export CT_PROJECT=sample
+python -m ctl --project sample run             # the step commands take --project
+python -m ctl check-pack sample                # the pack fills the fixed slots only
+python -m apps.studio --port 8801 --project sample   # switchable in the Studio header
+```
+
+Each pack has its own data directory (`.data/<slug>/`) and dbt target
+(`projects/<slug>/target/`), so packs run side by side and never share a
+manifest or a row.
 
 ## The step commands
 
@@ -33,6 +50,9 @@ orchestrator could call:
 | `python -m ctl publish` | Copy the warehouse file to raw storage |
 | `python -m ctl run` | The daily pipeline |
 | `python -m ctl powerbi` | Regenerate the Power BI model and parity queries (files in git; only when the semantic layer changes) |
+| `python -m ctl check-pack [slug]` | The pack fills the fixed slots only: no Python, the template `dbt_project.yml`, known keys, one bronze model per spec table |
+| `python -m ctl preview [--changed PATH ...]` | Rebuild what compiled requirements changed: the changed seeds and their dependents, the semantic manifest, the lint, the cubes (the whole pipeline for a pack never built) |
+| `python -m ctl kpis` | Each KPI's latest full month and the month before, as JSON (what the requirements tool's preview shows) |
 
 ## The Studio
 
@@ -74,7 +94,7 @@ VM it belongs behind Entra ID sign-in.
 ## One run at a time
 
 The warehouse is one DuckDB file and dbt has one target folder, so two runs at
-once collide. Every step command that writes takes `.data/pipeline.lock` for
+once collide. Every step command that writes takes `.data/<project>/pipeline.lock` for
 as long as it runs (`core/lock.py`); a second one stops at once and names the
 first. The Studio checks the lock too: while a run started elsewhere holds it,
 its buttons wait and its screens say why. A lock left by a process that died is
@@ -111,7 +131,7 @@ svc = SemanticService()
 svc.query(["return_rate"], group_by=["employee__department_name", "metric_time__quarter"])
 ```
 
-Or with MetricFlow directly, from `transform/` with the environment set:
+Or with MetricFlow directly, from `projects/<slug>/` with the environment set:
 `python -m ctl dbt parse` first, then `mf query --metrics win_rate --group-by employee__department_name`.
 
 **Claude Code** picks up the MCP server from `.mcp.json` - ask "which site has
@@ -138,7 +158,7 @@ python -m ctl build --provider rules
 ```
 
 Nothing downstream changes - silver reads only contract C3. The match quality
-changes, and `.data/mdm_quality.json` says by how much. The golden answers
+changes, and `.data/<project>/mdm_quality.json` says by how much. The golden answers
 that depend on matching are marked `mdm_sensitive` and keep one answer per
 provider.
 

@@ -1,5 +1,6 @@
 """Step commands: every step of the platform, runnable on its own.
 
+    python -m ctl [--project SLUG] <step> ...   project pack (default sample_v2, or CT_PROJECT)
     python -m ctl sources init | advance [--days N] | status
     python -m ctl ingest [--source S] [--full-refresh] [--reconcile]
     python -m ctl dbt <any dbt arguments>
@@ -11,6 +12,9 @@
     python -m ctl run              the daily pipeline: ingest, build, materialize, serve-load
     python -m ctl powerbi          regenerate the Power BI model and parity queries (files in git)
     python -m ctl reset            delete everything under the data directory
+    python -m ctl check-pack       the pack fills the fixed slots only (core/pack.py)
+    python -m ctl preview [--changed PATH ...]   rebuild what compiled requirements changed
+    python -m ctl kpis             each KPI's latest full month and the one before, as JSON
 
 Dagster calls these same functions; nothing in orchestration/ holds logic of
 its own (rule 1 in PLAN.md §9.3). Any other orchestrator - ADF, a Boomi Logic
@@ -20,21 +24,22 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import datetime as dt
 import os
 import shutil
 import subprocess
 import sys
 
-from core.settings import ROOT, settings
-
-TRANSFORM = os.path.join(ROOT, "transform")
+from core import project
+from core.settings import settings
 
 #: Commands that write the warehouse, raw storage or dbt's target folder. They
 #: hold the pipeline lock (core/lock.py), so two runs never overlap.
-WRITES = {"sources", "ingest", "dbt", "mdm", "build", "materialize", "serve-load", "run", "reset"}
+WRITES = {"sources", "ingest", "dbt", "mdm", "build", "materialize", "serve-load", "run", "reset", "preview"}
 
-#: Everything dbt must build before MDM can run: bronze, staging, seeds.
-BEFORE_MDM = {"raw": "path:models/bronze", "clean": "path:models/silver/staging path:seeds"}
+#: Everything dbt must build before MDM can run: bronze, staging, seeds. Tags
+#: come from the layer config, so they select the platform's staging adapters too.
+BEFORE_MDM = {"raw": "tag:bronze", "clean": "tag:staging resource_type:seed"}
 PRE_MDM = " ".join(BEFORE_MDM.values())
 #: The build in order; `--stage` runs one of them.
 STAGES = ("raw", "clean", "mdm", "model")
@@ -45,9 +50,10 @@ def dbt(*args: str, check: bool = True) -> int:
     exe = os.path.join(os.path.dirname(sys.executable), "dbt")
     if not os.path.exists(exe):
         exe = shutil.which("dbt") or "dbt"
-    if not os.path.isdir(os.path.join(TRANSFORM, "dbt_packages")):
-        subprocess.run([exe, "deps", "--quiet"], cwd=TRANSFORM, env=env, check=True)
-    result = subprocess.run([exe, *args], cwd=TRANSFORM, env=env)
+    cwd = project.current().dbt_dir
+    if not os.path.isdir(os.path.join(cwd, "dbt_packages")) and args[:1] != ("deps",):
+        subprocess.run([exe, "deps", "--quiet"], cwd=cwd, env=env, check=True)
+    result = subprocess.run([exe, *args], cwd=cwd, env=env)
     if check and result.returncode:
         raise SystemExit(result.returncode)
     return result.returncode
@@ -73,7 +79,7 @@ def run_all(reconcile: bool = False) -> None:
     from serving.materialize import materialize
     from serving.reverse_load import load_serving
 
-    for source in ("sage_x3", "hubspot", "netstock", "azure_cost"):
+    for source in project.current().systems:
         counts = extract(source, reconcile=reconcile)
         print(f"ingest {source:<11} {sum(counts.values()):>8,} rows")
     build()
@@ -81,8 +87,72 @@ def run_all(reconcile: bool = False) -> None:
     load_serving()
 
 
+def preview(changed: list[str]) -> None:
+    """Rebuild after the requirements tool compiled new "what" files into the pack.
+
+    A pack never built gets the whole pipeline. Otherwise only what the files
+    touch: the changed seeds and everything downstream of them, then the
+    semantic manifest, the governance lint and the cubes. Gold is never
+    rebuilt for a requirements change, because requirements never change SQL.
+    """
+    from semantic.lint import lint
+    from serving.materialize import materialize
+    from serving.reverse_load import load_serving
+    from sources import clock
+
+    if not os.path.exists(settings.warehouse_path):
+        if not os.path.exists(settings.mock_db):
+            clock.init()
+        run_all()
+        return
+    seeds = sorted({os.path.splitext(os.path.basename(c))[0] for c in changed
+                    if c.startswith("seeds/") and c.endswith(".csv")})
+    if seeds:
+        dbt("build", "--select", *[f"{s}+" for s in seeds], "--indirect-selection", "buildable")
+    # A full parse: partial parsing reorders the manifest, and the generated files follow its order.
+    dbt("parse", "--quiet", "--no-partial-parse")
+    problems = lint()
+    for p in problems:
+        print(f"lint: {p}")
+    if problems:
+        raise SystemExit(f"lint: {len(problems)} problem(s) - the preview stops here")
+    materialize()
+    load_serving()
+
+
+def kpis() -> list[dict]:
+    """Each KPI in the company cube: its latest full month and the month before."""
+    import duckdb
+
+    from serving.powerbi import Cube, measure_sql
+    from sources import clock
+
+    cube = Cube()
+    company = cube.cubes.get("mart_company_monthly", {}).get("metrics", [])
+    today = clock.status()["today"]
+    month = (today.replace(day=1) - dt.timedelta(days=1)).replace(day=1)
+    out = []
+    con = duckdb.connect(settings.warehouse_path, read_only=True)
+    try:
+        for m in company:
+            sql = (f"select metric_time__month, {measure_sql(m, cube.rollups[m])} from marts.dashboard_cube "
+                   "where _cube = 'mart_company_monthly' and metric_time__month <= ? "
+                   "group by 1 order by 1 desc limit 2")
+            rows = con.execute(sql, [month]).fetchall()
+            meta = cube.meta(m)
+            out.append({"metric": m, "label": cube.label(m), "status": meta.get("status"),
+                        "format": meta.get("format"), "direction": meta.get("direction"),
+                        "month": rows[0][0].isoformat()[:10] if rows else None,
+                        "value": float(rows[0][1]) if rows and rows[0][1] is not None else None,
+                        "previous": float(rows[1][1]) if len(rows) > 1 and rows[1][1] is not None else None})
+    finally:
+        con.close()
+    return out
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="python -m ctl", description="Platform step commands.")
+    p.add_argument("--project", help=f"project pack under projects/ (default {project.DEFAULT}, or CT_PROJECT)")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("sources")
     s.add_argument("action", choices=["init", "advance", "status"])
@@ -106,7 +176,14 @@ def main() -> None:
     r = sub.add_parser("run")
     r.add_argument("--reconcile", action="store_true")
     sub.add_parser("reset")
+    c = sub.add_parser("check-pack")
+    c.add_argument("slug", nargs="?", help="default: the project in use")
+    pv = sub.add_parser("preview")
+    pv.add_argument("--changed", nargs="*", default=[], help="pack files the compiler changed")
+    sub.add_parser("kpis")
     a = p.parse_args()
+    if a.project:
+        project.use(a.project)
 
     from core.lock import PipelineBusy, held
 
@@ -134,7 +211,7 @@ def _dispatch(a: argparse.Namespace) -> None:
     elif a.cmd == "ingest":
         from ingestion.run import BUILDERS, extract
 
-        for source in a.source or list(BUILDERS):
+        for source in a.source or [s for s in BUILDERS if s in project.current().systems]:
             counts = extract(source, a.full_refresh, a.reconcile, a.freeze_schemas)
             print(f"{source:<12} {sum(counts.values()):>8,} rows")
     elif a.cmd == "dbt":
@@ -153,6 +230,8 @@ def _dispatch(a: argparse.Namespace) -> None:
         from serving import powerbi_parity
         from serving.powerbi import generate_model
 
+        # From a full parse: partial parsing reorders the manifest, and the files follow its order.
+        dbt("parse", "--quiet", "--no-partial-parse")
         generate_model()
         powerbi_parity.write()
     elif a.cmd == "serve-load":
@@ -165,6 +244,16 @@ def _dispatch(a: argparse.Namespace) -> None:
         publish_warehouse()
     elif a.cmd == "run":
         run_all(a.reconcile)
+    elif a.cmd == "preview":
+        preview(a.changed)
+    elif a.cmd == "kpis":
+        import json
+
+        print(json.dumps(kpis(), default=str))
+    elif a.cmd == "check-pack":
+        from core.pack import main as check_pack
+
+        check_pack(a.slug or project.slug())
     elif a.cmd == "reset":
         if os.path.isdir(settings.data_dir):
             shutil.rmtree(settings.data_dir)

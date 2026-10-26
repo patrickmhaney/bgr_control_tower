@@ -1,9 +1,9 @@
 .venv
 .data
 .git
-transform/target
-transform/dbt_packages
-transform/logs
+projects/*/target
+projects/*/dbt_packages
+projects/*/logs
 **/__pycache__
 .pytest_cache
 .ruff_cache

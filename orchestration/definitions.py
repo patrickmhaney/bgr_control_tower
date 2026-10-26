@@ -23,13 +23,14 @@ import urllib.request
 import dagster as dg
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource, DbtProject, dbt_assets
 
-from core.settings import ROOT, settings
+from core import project
+from core.settings import settings
 
 os.environ.update(settings.dbt_env())
 
-PROJECT = DbtProject(project_dir=os.path.join(ROOT, "transform"))
-PRE_MDM = "path:models/bronze path:models/silver/staging path:seeds"
-SOURCES = ("sage_x3", "hubspot", "netstock", "azure_cost")
+PROJECT = DbtProject(project_dir=project.current().dbt_dir)
+PRE_MDM = "tag:bronze tag:staging resource_type:seed"
+SOURCES = tuple(project.current().systems)
 MDM_TABLES = ("mdm_xref", "mdm_golden_customer", "mdm_golden_employee")
 MDM_INPUTS = [["silver", m] for m in ("stg_sage_x3__bpcustomer", "stg_hubspot__company",
                                        "stg_sage_x3__autilis", "stg_hubspot__owner",
@@ -107,10 +108,15 @@ def dbt_after_mdm(context: dg.AssetExecutionContext, dbt: DbtCliResource):
     yield from dbt.cli(["build"], context=context).stream()
 
 
-GOLD = [dg.AssetKey(["gold", m]) for m in ("fct_sales_order_line", "fct_delivery_line", "fct_invoice_line",
-                                 "fct_supplier_invoice_line", "fct_inventory_count_line",
-                                 "fct_deal", "fct_forecast_accuracy", "fct_cloud_cost",
-                                 "dim_customer", "dim_employee")]
+def _gold() -> list[dg.AssetKey]:
+    """Every gold model in the pack: the cubes read from them."""
+    with open(PROJECT.manifest_path) as fh:
+        nodes = json.load(fh)["nodes"].values()
+    return [dg.AssetKey(["gold", n["name"]]) for n in nodes
+            if n["resource_type"] == "model" and n["config"].get("schema") == "gold"]
+
+
+GOLD = _gold()
 
 
 # --------------------------------------------------------------- serving --
@@ -140,14 +146,19 @@ def warehouse_publish() -> dg.MaterializeResult:
 
 # ---------------------------------------------------------- jobs, alerts --
 daily = dg.define_asset_job("daily", selection=dg.AssetSelection.all())
-weekly_reconcile = dg.define_asset_job(
-    "weekly_reconcile", selection=dg.AssetSelection.groups("ingestion") & dg.AssetSelection.key_prefixes("hubspot"),
-    config={"ops": {"extract_hubspot": {"config": {"reconcile": True}}}},
-    description="Diff HubSpot keys against the source to catch hard deletes.")
-cdc_resnapshot = dg.define_asset_job(
-    "cdc_resnapshot", selection=dg.AssetSelection.groups("ingestion") & dg.AssetSelection.key_prefixes("sage_x3"),
-    config={"ops": {"extract_sage_x3": {"config": {"full_refresh": True}}}},
-    description="Snapshot X3 again. Runs by itself when CDC retention was exceeded.")
+jobs, schedules = [daily], [dg.ScheduleDefinition(job=daily, cron_schedule="0 6 * * *")]
+if "hubspot" in SOURCES:
+    weekly_reconcile = dg.define_asset_job(
+        "weekly_reconcile", selection=dg.AssetSelection.groups("ingestion") & dg.AssetSelection.key_prefixes("hubspot"),
+        config={"ops": {"extract_hubspot": {"config": {"reconcile": True}}}},
+        description="Diff HubSpot keys against the source to catch hard deletes.")
+    jobs.append(weekly_reconcile)
+    schedules.append(dg.ScheduleDefinition(job=weekly_reconcile, cron_schedule="0 5 * * 0"))
+if "sage_x3" in SOURCES:
+    jobs.append(dg.define_asset_job(
+        "cdc_resnapshot", selection=dg.AssetSelection.groups("ingestion") & dg.AssetSelection.key_prefixes("sage_x3"),
+        config={"ops": {"extract_sage_x3": {"config": {"full_refresh": True}}}},
+        description="Snapshot X3 again. Runs by itself when CDC retention was exceeded."))
 
 
 @dg.run_failure_sensor(description="Post failed runs to CT_ALERT_WEBHOOK.")
@@ -165,9 +176,8 @@ def alert_on_failure(context: dg.RunFailureSensorContext):
 defs = dg.Definitions(
     assets=[mock_clock, *bronze_assets, dbt_before_mdm, mdm_contract_c3, dbt_after_mdm,
             marts, serving_db, warehouse_publish],
-    jobs=[daily, weekly_reconcile, cdc_resnapshot],
-    schedules=[dg.ScheduleDefinition(job=daily, cron_schedule="0 6 * * *"),
-               dg.ScheduleDefinition(job=weekly_reconcile, cron_schedule="0 5 * * 0")],
+    jobs=jobs,
+    schedules=schedules,
     sensors=[alert_on_failure],
     resources={"dbt": DbtCliResource(
         project_dir=PROJECT,

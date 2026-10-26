@@ -10,6 +10,10 @@ Checks the compiled manifests (run `python -m ctl dbt parse` first):
 * every measure is an aggregation over a bare column - arithmetic goes in the fact
 * every KPI is in at least one saved query, so a dashboard can show it
 * every metric named in the dashboard seeds exists in the catalog
+* metric labels are unique within the project, backlog included (dbt already
+  rejects a duplicate name; nothing else stops two metrics both called "$ Sales")
+* a metric's meta uses only the governance keys; `requirement` traces it to the
+  dashboard slot that asked for it (e.g. O2C-M1, contract C8)
 * every gold model has an enforced contract and an owner
 """
 from __future__ import annotations
@@ -22,23 +26,25 @@ import sys
 
 import yaml
 
-from core.settings import ROOT
+from core import project
 
-TARGET = os.path.join(ROOT, "transform", "target")
-SEEDS = os.path.join(ROOT, "transform", "seeds")
 AGGS = {"sum", "count", "count_distinct", "average", "min", "max"}
 STATUSES = {"active", "provisional"}
 BACKLOG_STATUSES = {"placeholder", "blocked"}
 FORMATS = {"percent", "currency_usd", "days", "count"}
+META_KEYS = {"role", "status", "owner", "owner_proposed", "provisional_reason", "caveats", "format",
+             "direction", "is_data_quality", "requirement"}
+REQUIREMENT = re.compile(r"[A-Z0-9]+-M[1-9][0-9]*")
 
 
 def lint() -> list[str]:
     errors: list[str] = []
-    with open(os.path.join(TARGET, "semantic_manifest.json")) as fh:
+    pack = project.current()
+    with open(pack.semantic_manifest) as fh:
         sm = json.load(fh)
-    with open(os.path.join(TARGET, "manifest.json")) as fh:
+    with open(pack.manifest) as fh:
         manifest = json.load(fh)
-    with open(os.path.join(ROOT, "semantic", "backlog.yml")) as fh:
+    with open(pack.backlog) as fh:
         backlog = yaml.safe_load(fh)["metrics"]
     in_cubes = {m for sq in sm.get("saved_queries", []) for m in sq["query_params"]["metrics"]}
 
@@ -50,10 +56,23 @@ def lint() -> list[str]:
                 errors.append(f"measure {ms['name']}: expr must be a bare column - put arithmetic in the fact")
 
     names = set()
+    labels: dict[str, str] = {}
+
+    def unique_label(name: str, label: str | None) -> None:
+        key = (label or name).strip().lower()
+        if key in labels:
+            errors.append(f"metric {name}: label {label!r} is already used by {labels[key]}")
+        labels.setdefault(key, name)
+
     for m in sm["metrics"]:
         names.add(m["name"])
         meta = (m.get("config") or {}).get("meta") or {}
         where = f"metric {m['name']}"
+        unique_label(m["name"], m.get("label"))
+        for key in sorted(set(meta) - META_KEYS):
+            errors.append(f"{where}: meta key {key!r} is not a governance key")
+        if "requirement" in meta and not REQUIREMENT.fullmatch(str(meta["requirement"])):
+            errors.append(f"{where}: requirement must be <dashboard code>-<slot>, e.g. O2C-M1")
         if not meta.get("owner"):
             errors.append(f"{where}: owner is required (TBD is allowed)")
         if meta.get("role") not in ("kpi", "component"):
@@ -70,7 +89,10 @@ def lint() -> list[str]:
             errors.append(f"{where}: a KPI must be in at least one saved query (a dashboard cube)")
 
     for b in backlog:
+        if b["name"] in names:
+            errors.append(f"backlog {b['name']}: also defined in MetricFlow - a metric exists once")
         names.add(b["name"])
+        unique_label(b["name"], b.get("label"))
         if b.get("status") not in BACKLOG_STATUSES:
             errors.append(f"backlog {b['name']}: status must be placeholder or blocked")
         reason = b.get("blocked_reason") if b.get("status") == "blocked" else b.get("placeholder_reason")
@@ -80,7 +102,7 @@ def lint() -> list[str]:
             errors.append(f"backlog {b['name']}: owner is required (TBD is allowed)")
 
     for seed in ("process_metric.csv", "department_metric.csv"):
-        with open(os.path.join(SEEDS, seed)) as fh:
+        with open(os.path.join(pack.seeds, seed)) as fh:
             for row in csv.DictReader(fh):
                 if row["metric_name"] not in names:
                     errors.append(f"{seed}: {row['metric_name']!r} is not in the metric catalog")

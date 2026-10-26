@@ -8,7 +8,7 @@ tests and numbers.
 |---|---|---|
 | Component registry | `evaluation/components.yml` | For each component: requirements served, contract, baseline, how to swap, candidates from every stack column, swap cost |
 | Conformance tests | `tests/conformance/` | Does a replacement produce the contract? Ingestion convergence (C2), MDM contract and match quality (C3), gold contracts (C4, in dbt), golden answers (C5), API and MCP (C6), governance and portability |
-| Golden answers | `evaluation/golden_answers.yml` | Does a semantic engine or BI tool give the same numbers? 32 queries with frozen answers, 5 that must be refused |
+| Golden answers | `projects/<slug>/golden_answers.yml` | Does a semantic engine or BI tool give the same numbers? 32 queries with frozen answers, 5 that must be refused |
 | Scorecard | `evaluation/scorecard.md` | How does a candidate score on requirements, best practices, cost, portability, maturity? |
 | Cost capture | `gold.fct_cloud_cost`, `seeds/license_cost.csv` | What does each component cost to run, plus licences? |
 | Swap drills | below | Do the modularity claims hold? |
@@ -25,7 +25,7 @@ are marked `mdm_sensitive` and keep one answer per provider.
 
 To test a candidate - Cube, a Power BI or Fabric semantic model, Snowflake
 semantic views - load the same gold into it, define the same metrics, and
-reproduce `expected`. For Power BI, `powerbi/parity/parity_queries.json` is
+reproduce `expected`. For Power BI, `projects/<slug>/powerbi/parity/parity_queries.json` is
 the subset the cubes can serve, as DAX; `python -m serving.powerbi_parity local`
 proves the cube and measure templates reproduce it without Power BI.
 

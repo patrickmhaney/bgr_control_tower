@@ -1,0 +1,7 @@
+packages:
+  - local: ../../transform/platform
+    name: platform
+  - name: dbt_utils
+    package: dbt-labs/dbt_utils
+    version: 1.4.1
+sha1_hash: 1f506f9f5fc61980e6733a20f140aa79a63f6c68

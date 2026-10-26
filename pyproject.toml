@@ -67,7 +67,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["transform/dbt_packages", "transform/target"]
+extend-exclude = ["projects/*/dbt_packages", "projects/*/target"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]

@@ -1,0 +1,464 @@
+[
+  {
+    "id": "on_time_delivery_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "on_time_delivery_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery])",
+    "expected": [
+      [
+        "",
+        0.6941382091960204
+      ]
+    ]
+  },
+  {
+    "id": "on_time_delivery_by_site",
+    "cube": "mart_i2d",
+    "group_by": [
+      "site__site_name"
+    ],
+    "metrics": [
+      "on_time_delivery_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Site Name], TREATAS({\"mart_i2d\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery])",
+    "expected": [
+      [
+        "Calgary AB Distribution Center",
+        0.697198275862069
+      ],
+      [
+        "Columbus OH Distribution Center",
+        0.665742024965326
+      ],
+      [
+        "Phoenix AZ Distribution Center",
+        0.7223869532987398
+      ]
+    ]
+  },
+  {
+    "id": "on_time_delivery_by_carrier",
+    "cube": "mart_carrier_scorecard",
+    "group_by": [
+      "carrier__carrier_name"
+    ],
+    "metrics": [
+      "on_time_delivery_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Carrier Name], TREATAS({\"mart_carrier_scorecard\"}, 'dashboard_cube'[Cube]), \"on_time_delivery_rate\", [On-Time Delivery])",
+    "expected": [
+      [
+        "Northway Freight",
+        0.7031451960361913
+      ],
+      [
+        "Pacific Cargo",
+        0.7082228116710876
+      ],
+      [
+        "Ridgeline Express",
+        0.6863885088919288
+      ],
+      [
+        "Swift Courier",
+        0.6879777623349548
+      ]
+    ]
+  },
+  {
+    "id": "inventory_accuracy_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "inventory_accuracy"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"inventory_accuracy\", [Inventory Accuracy])",
+    "expected": [
+      [
+        "",
+        0.9317241379310345
+      ]
+    ]
+  },
+  {
+    "id": "inventory_accuracy_by_site",
+    "cube": "mart_i2d",
+    "group_by": [
+      "site__site_name"
+    ],
+    "metrics": [
+      "inventory_accuracy"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Site Name], TREATAS({\"mart_i2d\"}, 'dashboard_cube'[Cube]), \"inventory_accuracy\", [Inventory Accuracy])",
+    "expected": [
+      [
+        "Calgary AB Distribution Center",
+        0.9335476956055734
+      ],
+      [
+        "Columbus OH Distribution Center",
+        0.924924924924925
+      ],
+      [
+        "Phoenix AZ Distribution Center",
+        0.9369834710743802
+      ]
+    ]
+  },
+  {
+    "id": "return_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "return_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"return_rate\", [Return Rate])",
+    "expected": [
+      [
+        "",
+        0.007167968597141591
+      ]
+    ]
+  },
+  {
+    "id": "return_rate_by_site",
+    "cube": "mart_o2c",
+    "group_by": [
+      "site__site_name"
+    ],
+    "metrics": [
+      "return_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Site Name], TREATAS({\"mart_o2c\"}, 'dashboard_cube'[Cube]), \"return_rate\", [Return Rate])",
+    "expected": [
+      [
+        "Calgary AB Distribution Center",
+        0.004499829451556204
+      ],
+      [
+        "Columbus OH Distribution Center",
+        0.011197171875134486
+      ],
+      [
+        "Phoenix AZ Distribution Center",
+        0.004254292236922655
+      ]
+    ]
+  },
+  {
+    "id": "three_way_match_rate_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "three_way_match_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"three_way_match_rate\", [Three-Way Match Rate])",
+    "expected": [
+      [
+        "",
+        0.7085641244141457
+      ]
+    ]
+  },
+  {
+    "id": "three_way_match_rate_by_supplier",
+    "cube": "mart_p2p",
+    "group_by": [
+      "supplier__supplier_name"
+    ],
+    "metrics": [
+      "three_way_match_rate"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Supplier Name], TREATAS({\"mart_p2p\"}, 'dashboard_cube'[Cube]), \"three_way_match_rate\", [Three-Way Match Rate])",
+    "expected": [
+      [
+        "Bluepeak Import Corp",
+        0.7169811320754716
+      ],
+      [
+        "Bluepeak Polymers Corp",
+        0.8035714285714286
+      ],
+      [
+        "Copperline Castings Inc",
+        0.7590361445783133
+      ],
+      [
+        "Eastgate Import Group",
+        0.6666666666666666
+      ],
+      [
+        "Granite Forge LLC",
+        0.5909090909090909
+      ],
+      [
+        "Halcyon Castings LLC",
+        0.7361111111111112
+      ],
+      [
+        "Halcyon Metals Co",
+        0.7857142857142857
+      ],
+      [
+        "Harborview Metals Inc",
+        0.6349206349206349
+      ],
+      [
+        "Ironclad Polymers Corp",
+        0.6363636363636364
+      ],
+      [
+        "Ivyridge Metals Group",
+        0.7413793103448276
+      ],
+      [
+        "Juniper Forge Group",
+        0.6944444444444444
+      ],
+      [
+        "Juniper Metals LLC",
+        0.8045977011494253
+      ],
+      [
+        "Kestrel Castings Ltd",
+        0.7377049180327869
+      ],
+      [
+        "Lakeshore Import Co",
+        0.7246376811594203
+      ],
+      [
+        "Lakeshore Polymers Group",
+        0.7090909090909091
+      ],
+      [
+        "Longview Castings Ltd",
+        0.5945945945945946
+      ],
+      [
+        "Meridian Forge Ltd",
+        0.6375
+      ],
+      [
+        "Northgate Import Corp",
+        0.6842105263157895
+      ],
+      [
+        "Northgate Trading Inc",
+        0.7362637362637363
+      ],
+      [
+        "Pinehurst Trading Ltd",
+        0.7878787878787878
+      ],
+      [
+        "Quarry Metals Ltd",
+        0.6666666666666666
+      ],
+      [
+        "Quarry Trading Group",
+        0.6825396825396826
+      ],
+      [
+        "Riverbend Trading Group",
+        0.7469879518072289
+      ],
+      [
+        "Thornton Forge Ltd",
+        0.72
+      ],
+      [
+        "Thornton Import LLC",
+        0.6483516483516484
+      ],
+      [
+        "Thornton Polymers LLC",
+        0.6265060240963856
+      ],
+      [
+        "Vanguard Forge Group",
+        0.6976744186046512
+      ],
+      [
+        "Vertex Trading Inc",
+        0.7619047619047619
+      ],
+      [
+        "Westfield Trading LLC",
+        0.7368421052631579
+      ],
+      [
+        "Yorkville Import LLC",
+        0.7301587301587301
+      ]
+    ]
+  },
+  {
+    "id": "cost_per_shipment_total",
+    "cube": "mart_company_monthly",
+    "group_by": [],
+    "metrics": [
+      "cost_per_shipment"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"cost_per_shipment\", [Cost Per Shipment])",
+    "expected": [
+      [
+        "",
+        305.9528010878011
+      ]
+    ]
+  },
+  {
+    "id": "cost_per_shipment_by_carrier",
+    "cube": "mart_carrier_scorecard",
+    "group_by": [
+      "carrier__carrier_name"
+    ],
+    "metrics": [
+      "cost_per_shipment"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Carrier Name], TREATAS({\"mart_carrier_scorecard\"}, 'dashboard_cube'[Cube]), \"cost_per_shipment\", [Cost Per Shipment])",
+    "expected": [
+      [
+        "Northway Freight",
+        255.87240948813982
+      ],
+      [
+        "Pacific Cargo",
+        981.2038671875
+      ],
+      [
+        "Ridgeline Express",
+        292.92928994082837
+      ],
+      [
+        "Swift Courier",
+        68.29069582504971
+      ]
+    ]
+  },
+  {
+    "id": "cost_per_shipment_by_month",
+    "cube": "mart_company_monthly",
+    "group_by": [
+      "metric_time__month"
+    ],
+    "metrics": [
+      "cost_per_shipment"
+    ],
+    "dax": "EVALUATE SUMMARIZECOLUMNS('dashboard_cube'[Month], TREATAS({\"mart_company_monthly\"}, 'dashboard_cube'[Cube]), \"cost_per_shipment\", [Cost Per Shipment])",
+    "expected": [
+      [
+        "2024-07-01",
+        293.1271794871795
+      ],
+      [
+        "2024-08-01",
+        294.8419512195122
+      ],
+      [
+        "2024-09-01",
+        307.19597826086954
+      ],
+      [
+        "2024-10-01",
+        358.89859154929576
+      ],
+      [
+        "2024-11-01",
+        291.1233898305085
+      ],
+      [
+        "2024-12-01",
+        290.89469696969695
+      ],
+      [
+        "2025-01-01",
+        304.91692307692307
+      ],
+      [
+        "2025-02-01",
+        296.03445945945947
+      ],
+      [
+        "2025-03-01",
+        310.70593406593406
+      ],
+      [
+        "2025-04-01",
+        302.85130000000004
+      ],
+      [
+        "2025-05-01",
+        284.4321649484536
+      ],
+      [
+        "2025-06-01",
+        356.55578125
+      ],
+      [
+        "2025-07-01",
+        305.1272916666667
+      ],
+      [
+        "2025-08-01",
+        283.5818320610687
+      ],
+      [
+        "2025-09-01",
+        311.88774193548386
+      ],
+      [
+        "2025-10-01",
+        311.71019047619046
+      ],
+      [
+        "2025-11-01",
+        307.7908641975309
+      ],
+      [
+        "2025-12-01",
+        252.09637362637363
+      ],
+      [
+        "2026-01-01",
+        362.5467857142857
+      ],
+      [
+        "2026-02-01",
+        276.28844444444445
+      ],
+      [
+        "2026-03-01",
+        281.48602040816326
+      ],
+      [
+        "2026-04-01",
+        338.5343609022556
+      ],
+      [
+        "2026-05-01",
+        301.48528000000005
+      ],
+      [
+        "2026-06-01",
+        322.9057342657342
+      ],
+      [
+        "2026-07-01",
+        299.82681818181817
+      ],
+      [
+        "2026-08-01",
+        272.9816417910448
+      ],
+      [
+        "2026-09-01",
+        229.91
+      ]
+    ]
+  }
+]

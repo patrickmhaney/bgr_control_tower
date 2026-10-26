@@ -1,0 +1,118 @@
+# The semantic layer, part 2: metrics - the one place a measure is defined.
+#
+# The "what" of every KPI (label, description, governance meta) is compiled
+# from the requirements tool's Sample Project workspace (contract C8); the
+# "how" (type, inputs, filters) and the component metrics are written here by
+# engineers. `python -m semantic.lint` enforces the governance:
+#
+#   status     active (agreed) | provisional (a working definition; see provisional_reason)
+#   owner      required; TBD is allowed and stays visible
+#   role       kpi (shown on dashboards) or component (a building block)
+#   requirement  the dashboard slot in the requirements tool that asked for it
+#
+# Which dashboard shows a metric is not here: seeds/process_metric.csv and
+# seeds/department_metric.csv own that. Metrics with no definition yet live in
+# backlog.yml.
+
+metrics:
+
+  # ------------------------------------------------------------ components --
+  - {name: on_time_deliveries, label: On-time delivery lines, type: simple, type_params: {measure: on_time_delivery_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: delivered_lines, label: Delivered lines, type: simple, type_params: {measure: delivered_delivery_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: invoiced_value, label: Invoiced value, type: simple, type_params: {measure: invoiced_value_usd},
+     config: {meta: {role: component, status: active, owner: TBD, format: currency_usd}}}
+  - {name: returned_value, label: Returned value, type: simple, type_params: {measure: returned_value_usd},
+     config: {meta: {role: component, status: active, owner: TBD, format: currency_usd}}}
+  - {name: matched_supplier_invoice_lines, label: Matched supplier invoice lines, type: simple, type_params: {measure: matched_supplier_invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: supplier_invoice_lines, label: Supplier invoice lines, type: simple, type_params: {measure: supplier_invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: accurate_positions, label: Accurate positions, type: simple, type_params: {measure: accurate_positions},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: positions_counted, label: Positions counted, type: simple, type_params: {measure: positions_counted},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  # Freight cost over invoiced shipments only: a shipment enters the ratio when
+  # its carrier invoice arrives, so neither side counts it before then.
+  - {name: invoiced_freight_cost, label: Invoiced freight cost, type: simple, type_params: {measure: freight_cost_usd},
+     config: {meta: {role: component, status: active, owner: TBD, format: currency_usd}}}
+  - {name: invoiced_shipments, label: Invoiced shipments, type: simple, type_params: {measure: invoiced_shipments},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+
+  # ------------------------------------------------------------------ KPIs --
+  - name: on_time_delivery_rate
+    label: On-Time Delivery
+    description: The share of delivered shipments that arrived by the date we promised.
+    type: ratio
+    type_params: {numerator: on_time_deliveries, denominator: delivered_lines}
+    config:
+      meta:
+        role: kpi
+        status: active
+        owner: Operations
+        format: percent
+        direction: higher_is_better
+        requirement: I2D-M1
+
+  - name: inventory_accuracy
+    label: Inventory Accuracy
+    description: How closely counted stock matches what the system says we have.
+    type: ratio
+    type_params: {numerator: accurate_positions, denominator: positions_counted}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        provisional_reason: Still in progress in the requirements tool.
+        caveats:
+          - Not sure whether this is by item or by location. Cycle counts happen monthly.
+        format: percent
+        direction: higher_is_better
+        requirement: I2D-M3
+
+  - name: return_rate
+    label: Return Rate
+    description: The share of sales that come back as returns.
+    type: ratio
+    type_params: {numerator: returned_value, denominator: invoiced_value}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        provisional_reason: Still in progress in the requirements tool.
+        format: percent
+        direction: lower_is_better
+        requirement: O2C-M3
+
+  - name: three_way_match_rate
+    label: Three-Way Match Rate
+    description: >
+      The share of supplier invoices that match the purchase order and the goods receipt.
+    type: ratio
+    type_params: {numerator: matched_supplier_invoice_lines, denominator: supplier_invoice_lines}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: Procurement
+        provisional_reason: Still in progress in the requirements tool.
+        format: percent
+        direction: higher_is_better
+        requirement: P2P-M1
+
+  - name: cost_per_shipment
+    label: Cost Per Shipment
+    description: The average freight cost of moving one shipment.
+    type: ratio
+    type_params: {numerator: invoiced_freight_cost, denominator: invoiced_shipments}
+    config:
+      meta:
+        role: kpi
+        status: active
+        owner: Operations
+        format: currency_usd
+        direction: lower_is_better
+        requirement: I2D-M2

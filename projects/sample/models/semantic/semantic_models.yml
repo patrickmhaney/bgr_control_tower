@@ -1,0 +1,199 @@
+# The semantic layer, part 1: semantic models over gold (contract C5).
+#
+# One semantic model per fact and per dimension. Entities are the join keys
+# MetricFlow is allowed to follow; a fact with no employee entity simply
+# cannot be cut by department, and MetricFlow refuses the request rather than
+# guessing. A measure is an aggregation over a bare column (python -m
+# semantic.lint enforces it). Arithmetic belongs in the fact, where it is tested.
+
+semantic_models:
+
+  # ------------------------------------------------------------ dimensions --
+  - name: customer
+    description: Golden customers from MDM.
+    model: ref('dim_customer')
+    defaults:
+      agg_time_dimension: first_seen_date
+    entities:
+      - {name: customer, type: primary, expr: customer_key}
+    dimensions:
+      - {name: customer_name, type: categorical}
+      - {name: source_scope, type: categorical}
+      - {name: industry, type: categorical}
+      - {name: country_code, type: categorical}
+      - {name: customer_group_code, type: categorical}
+      - {name: payment_term_code, type: categorical}
+      - {name: primary_rep_name, type: categorical}
+      - name: first_seen_date
+        type: time
+        type_params: {time_granularity: day}
+    measures:
+      - {name: crm_companies, agg: sum, expr: crm_company_count}
+      - {name: crm_companies_matched, agg: sum, expr: crm_matched_company_count}
+
+  - name: employee
+    description: Golden employees from MDM, with their department (decision D7).
+    model: ref('dim_employee')
+    entities:
+      - {name: employee, type: primary, expr: employee_key}
+    dimensions:
+      - {name: employee_name, type: categorical}
+      - {name: department_code, type: categorical}
+      - {name: department_name, type: categorical}
+      - {name: function_profile, type: categorical}
+      - {name: crm_team_name, type: categorical}
+
+  - name: item
+    model: ref('dim_item')
+    entities:
+      - {name: item, type: primary, expr: item_code}
+    dimensions:
+      - {name: item_description, type: categorical}
+      - {name: item_category_code, type: categorical}
+      - {name: item_status, type: categorical}
+      - {name: best_abc_class, type: categorical}
+
+  - name: site
+    model: ref('dim_site')
+    entities:
+      - {name: site, type: primary, expr: site_code}
+    dimensions:
+      - {name: site_name, type: categorical}
+      - {name: city, type: categorical}
+      - {name: country_code, type: categorical}
+      - {name: company_name, type: categorical}
+
+  - name: supplier
+    model: ref('dim_supplier')
+    entities:
+      - {name: supplier, type: primary, expr: supplier_code}
+    dimensions:
+      - {name: supplier_name, type: categorical}
+
+  - name: carrier
+    description: Carriers, from the freight platform.
+    model: ref('dim_carrier')
+    entities:
+      - {name: carrier, type: primary, expr: carrier_code}
+    dimensions:
+      - {name: carrier_name, type: categorical}
+      - {name: transport_mode, type: categorical}
+
+  # ----------------------------------------------------------------- facts --
+  - name: delivery_line
+    description: One row per delivery line.
+    model: ref('fct_delivery_line')
+    defaults:
+      agg_time_dimension: ship_date
+    primary_entity: delivery_line
+    entities:
+      - {name: customer, type: foreign, expr: customer_key}
+      - {name: item, type: foreign, expr: item_code}
+      - {name: site, type: foreign, expr: site_code}
+      - {name: employee, type: foreign, expr: employee_key}
+      - {name: carrier, type: foreign, expr: carrier_code}
+    dimensions:
+      - {name: ship_date, type: time, type_params: {time_granularity: day}}
+      - {name: delivered_date, type: time, type_params: {time_granularity: day}}
+    measures:
+      - {name: delivered_delivery_lines, agg: sum, expr: is_delivered}
+      - {name: on_time_delivery_lines, agg: sum, expr: is_on_time}
+      - {name: delivery_lines, agg: sum, expr: delivery_line_count}
+
+  - name: sales_order_line
+    description: One row per sales order line.
+    model: ref('fct_sales_order_line')
+    defaults:
+      agg_time_dimension: order_date
+    primary_entity: sales_order_line
+    entities:
+      - {name: customer, type: foreign, expr: customer_key}
+      - {name: item, type: foreign, expr: item_code}
+      - {name: site, type: foreign, expr: site_code}
+      - {name: employee, type: foreign, expr: employee_key}
+    dimensions:
+      - {name: order_date, type: time, type_params: {time_granularity: day}}
+      - {name: order_status, type: categorical}
+      - {name: is_cancelled, type: categorical}
+    measures:
+      - {name: ordered_quantity, agg: sum, expr: ordered_qty}
+      - {name: delivered_quantity, agg: sum, expr: delivered_qty}
+      - {name: order_value_usd, agg: sum, expr: line_net_amount_usd}
+      - {name: invoiced_value_usd, agg: sum, expr: invoiced_amount_usd}
+      - {name: returned_value_usd, agg: sum, expr: returned_amount_usd}
+      - {name: order_lines, agg: sum, expr: order_line_count}
+
+  - name: invoice_line
+    description: One row per sales invoice or credit memo line. No employee entity - invoices carry no creator.
+    model: ref('fct_invoice_line')
+    defaults:
+      agg_time_dimension: invoice_date
+    primary_entity: invoice_line
+    entities:
+      - {name: customer, type: foreign, expr: customer_key}
+      - {name: item, type: foreign, expr: item_code}
+      - {name: site, type: foreign, expr: site_code}
+    dimensions:
+      - {name: invoice_date, type: time, type_params: {time_granularity: day}}
+      - {name: invoice_type_code, type: categorical}
+      - {name: payment_term_code, type: categorical}
+    measures:
+      - {name: revenue_usd, agg: sum, expr: line_net_amount_usd}
+      - {name: days_to_pay_total, agg: sum, expr: days_to_pay_settled_only}
+      - {name: settled_invoice_lines, agg: sum, expr: is_settled}
+      - {name: unsettled_invoice_lines, agg: sum, expr: is_unsettled}
+      - {name: invoice_lines, agg: sum, expr: invoice_line_count}
+
+  - name: supplier_invoice_line
+    description: One row per supplier invoice line with its three-way match outcome.
+    model: ref('fct_supplier_invoice_line')
+    defaults:
+      agg_time_dimension: invoice_date
+    primary_entity: supplier_invoice_line
+    entities:
+      - {name: item, type: foreign, expr: item_code}
+      - {name: site, type: foreign, expr: site_code}
+      - {name: supplier, type: foreign, expr: supplier_code}
+      - {name: employee, type: foreign, expr: employee_key}
+    dimensions:
+      - {name: invoice_date, type: time, type_params: {time_granularity: day}}
+      - {name: match_result, type: categorical}
+    measures:
+      - {name: matched_supplier_invoice_lines, agg: sum, expr: is_three_way_matched}
+      - {name: supplier_invoice_lines, agg: sum, expr: invoice_line_count}
+      - {name: supplier_spend_usd, agg: sum, expr: line_net_amount_usd}
+
+  - name: inventory_count_line
+    description: One row per counted stock position.
+    model: ref('fct_inventory_count_line')
+    defaults:
+      agg_time_dimension: count_date
+    primary_entity: inventory_count_line
+    entities:
+      - {name: item, type: foreign, expr: item_code}
+      - {name: site, type: foreign, expr: site_code}
+      - {name: employee, type: foreign, expr: employee_key}
+    dimensions:
+      - {name: count_date, type: time, type_params: {time_granularity: day}}
+      - {name: count_type, type: categorical}
+    measures:
+      - {name: accurate_positions, agg: sum, expr: is_accurate_position}
+      - {name: positions_counted, agg: sum, expr: count_line_count}
+
+  - name: shipment
+    description: One row per shipment. Freight cost counts once the carrier invoice arrives.
+    model: ref('fct_shipment')
+    defaults:
+      agg_time_dimension: ship_date
+    primary_entity: shipment
+    entities:
+      - {name: customer, type: foreign, expr: customer_key}
+      - {name: site, type: foreign, expr: site_code}
+      - {name: carrier, type: foreign, expr: carrier_code}
+    dimensions:
+      - {name: ship_date, type: time, type_params: {time_granularity: day}}
+      - {name: is_invoiced, type: categorical}
+    measures:
+      - {name: freight_cost_usd, agg: sum, expr: freight_cost_usd}
+      - {name: invoiced_shipments, agg: sum, expr: is_invoiced}
+      - {name: shipments, agg: sum, expr: shipment_count}

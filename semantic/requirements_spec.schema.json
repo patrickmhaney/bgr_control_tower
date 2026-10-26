@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "requirements_spec.schema.json",
+  "title": "Requirements spec (Contract 8)",
+  "description": "What the requirements tool exports for one project. The compiler turns it into a pack's 'what' files. People appear only as roles; there is never a client name. See docs/requirements_contract.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec_version", "project", "departments", "processes", "dimensions", "bus_matrix", "dashboards", "measures", "cubes"],
+  "properties": {
+    "spec_version": {"const": 1},
+    "exported_at": {"type": "string", "format": "date-time"},
+
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "name", "systems"],
+      "properties": {
+        "slug": {"$ref": "#/$defs/slug"},
+        "name": {"type": "string", "minLength": 1, "description": "The project's display name, never the client's name."},
+        "systems": {"type": "array", "items": {"$ref": "#/$defs/system"}, "uniqueItems": true}
+      }
+    },
+
+    "departments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "name", "display_order"],
+        "properties": {
+          "code": {"$ref": "#/$defs/code"},
+          "name": {"type": "string", "minLength": 1},
+          "display_order": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+
+    "processes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "name", "display_order", "active", "status"],
+        "properties": {
+          "code": {"$ref": "#/$defs/code"},
+          "name": {"type": "string"},
+          "display_order": {"type": "integer", "minimum": 1},
+          "active": {"type": "boolean"},
+          "status": {"$ref": "#/$defs/status"},
+          "followup": {"$ref": "#/$defs/followup"},
+          "owner": {"$ref": "#/$defs/owner"},
+          "owner_department": {"$ref": "#/$defs/code"},
+          "purpose": {"$ref": "#/$defs/text_answer"},
+          "boundaries": {"$ref": "#/$defs/text_answer"},
+          "event": {"$ref": "#/$defs/text_answer"},
+          "systems": {"$ref": "#/$defs/systems_answer"},
+          "volume": {"$ref": "#/$defs/text_answer"},
+          "decisions": {"$ref": "#/$defs/text_answer"},
+          "pain_points": {"oneOf": [{"$ref": "#/$defs/text_answer"}, {"$ref": "#/$defs/none"}]},
+          "priority": {"oneOf": [{"enum": ["now", "next", "later"]}, {"$ref": "#/$defs/unknown"}]},
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": {
+                "name": {"type": "string"},
+                "department": {"$ref": "#/$defs/code"},
+                "role": {"$ref": "#/$defs/role"},
+                "system": {"$ref": "#/$defs/system"}
+              }
+            }
+          },
+          "notes": {"type": "string"}
+        }
+      }
+    },
+
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "name", "status"],
+        "properties": {
+          "code": {"$ref": "#/$defs/name", "description": "The dimension's key in the spec. Binding: the semantic-layer entity it maps to (customer, site, item, ...)."},
+          "name": {"type": "string"},
+          "status": {"$ref": "#/$defs/status"},
+          "followup": {"$ref": "#/$defs/followup"},
+          "owner": {"$ref": "#/$defs/owner"},
+          "owner_department": {"$ref": "#/$defs/code"},
+          "definition": {"$ref": "#/$defs/text_answer"},
+          "identifier": {"$ref": "#/$defs/text_answer"},
+          "attributes": {"$ref": "#/$defs/text_answer"},
+          "hierarchy": {"oneOf": [{"$ref": "#/$defs/text_answer"}, {"$ref": "#/$defs/none"}]},
+          "systems": {"$ref": "#/$defs/systems_answer"},
+          "history": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["choice"],
+                "properties": {"choice": {"enum": ["as_was", "as_is", "both"]}, "note": {"type": "string"}}
+              },
+              {"$ref": "#/$defs/unknown"}
+            ]
+          },
+          "quality": {"oneOf": [{"$ref": "#/$defs/text_answer"}, {"$ref": "#/$defs/none"}]},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+
+    "bus_matrix": {
+      "description": "One entry per ticked cell: this process's facts can be grouped by this dimension.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["process", "dimension"],
+        "properties": {
+          "process": {"$ref": "#/$defs/code"},
+          "dimension": {"$ref": "#/$defs/name"}
+        }
+      }
+    },
+
+    "dashboards": {
+      "description": "A process dashboard row: its measure slots and its sketch.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["process", "slots"],
+        "properties": {
+          "process": {"$ref": "#/$defs/code"},
+          "audience": {"type": "string"},
+          "decisions": {"type": "string"},
+          "cadence": {"type": "string"},
+          "access": {"type": "string"},
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["slot", "measure"],
+              "properties": {
+                "slot": {"type": "string", "pattern": "^M([1-9]|1[0-2])$"},
+                "measure": {"$ref": "#/$defs/name"},
+                "display_order": {"type": "integer", "minimum": 1}
+              }
+            }
+          },
+          "tiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "x", "y", "w", "h"],
+              "properties": {
+                "kind": {"enum": ["kpi", "line", "bar", "table", "filter", "text"]},
+                "x": {"type": "integer", "minimum": 0, "maximum": 11},
+                "y": {"type": "integer", "minimum": 0},
+                "w": {"type": "integer", "minimum": 1, "maximum": 12},
+                "h": {"type": "integer", "minimum": 1},
+                "title": {"type": "string"},
+                "measure": {"$ref": "#/$defs/name"},
+                "dimension": {"$ref": "#/$defs/name"},
+                "note": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "department_metrics": {
+      "description": "Which measures each department's activities own or contribute to, per process.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["department", "process", "measure", "influence"],
+        "properties": {
+          "department": {"$ref": "#/$defs/code"},
+          "process": {"$ref": "#/$defs/code"},
+          "measure": {"$ref": "#/$defs/name"},
+          "influence": {"enum": ["owns", "contributes"]}
+        }
+      }
+    },
+
+    "measures": {
+      "description": "Every measure the business asked for, defined once per project.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "label", "status"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name", "description": "Stable machine name; becomes the metric name. Never derived again once set."},
+          "label": {"type": "string", "minLength": 1},
+          "status": {"$ref": "#/$defs/status"},
+          "followup": {"$ref": "#/$defs/followup"},
+          "definition": {"$ref": "#/$defs/text_answer"},
+          "calculation": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["text"],
+                "properties": {
+                  "text": {"type": "string"},
+                  "numerator": {"type": "string", "description": "Label of the numerator, for a ratio."},
+                  "denominator": {"type": "string", "description": "Label of the denominator, for a ratio."}
+                }
+              },
+              {"$ref": "#/$defs/unknown"}
+            ]
+          },
+          "sources": {"$ref": "#/$defs/systems_answer"},
+          "target": {"oneOf": [{"$ref": "#/$defs/text_answer"}, {"$ref": "#/$defs/none"}]},
+          "trusted_report": {"oneOf": [{"$ref": "#/$defs/text_answer"}, {"$ref": "#/$defs/none"}]},
+          "breakdowns": {
+            "oneOf": [
+              {"type": "array", "items": {"$ref": "#/$defs/name"}, "uniqueItems": true, "description": "Dimension codes."},
+              {"$ref": "#/$defs/unknown"}
+            ]
+          },
+          "time_basis": {"$ref": "#/$defs/text_answer"},
+          "refresh": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["cadence"],
+                "properties": {"cadence": {"enum": ["monthly", "weekly", "daily", "intraday"]}, "why": {"type": "string"}}
+              },
+              {"$ref": "#/$defs/unknown"}
+            ]
+          },
+          "restatement": {"oneOf": [{"$ref": "#/$defs/text_answer"}, {"$ref": "#/$defs/none"}]},
+          "owner": {"$ref": "#/$defs/owner"},
+          "sme": {"$ref": "#/$defs/owner"},
+          "caveats": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "notes": {"type": "string"},
+          "format": {"enum": ["percent", "currency_usd", "days", "count"], "description": "Binding."},
+          "direction": {"enum": ["higher_is_better", "lower_is_better"], "description": "Binding."},
+          "backlog": {
+            "description": "Set when the measure has no number yet: it compiles to backlog.yml, not metrics.yml.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "reason"],
+            "properties": {
+              "status": {"enum": ["placeholder", "blocked"]},
+              "reason": {"type": "string", "minLength": 1},
+              "unblock_requires": {"type": "array", "items": {"type": "string", "minLength": 1}}
+            }
+          }
+        }
+      }
+    },
+
+    "cubes": {
+      "description": "Saved queries: a fixed set of measures at a fixed grain. Binding: group_by uses semantic-layer references.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "description", "measures", "group_by"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "description": {"type": "string", "minLength": 1},
+          "measures": {"type": "array", "items": {"$ref": "#/$defs/name"}, "minItems": 1, "uniqueItems": true},
+          "group_by": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^(TimeDimension\\('metric_time', '(day|week|month|quarter|year)'\\)|Dimension\\('[a-z][a-z0-9_]*__[a-z][a-z0-9_]*'\\))$"},
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "slug": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "role": {"type": "string", "minLength": 1, "description": "A job title or team, never a person's name or email."},
+    "system": {"type": "string", "minLength": 1},
+    "status": {"enum": ["not_started", "in_progress", "complete"]},
+    "followup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["note"],
+      "properties": {"note": {"type": "string"}}
+    },
+    "unknown": {
+      "description": "Answered \"I don't know\".",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown"],
+      "properties": {"unknown": {"const": true}, "who_might_know": {"$ref": "#/$defs/role"}}
+    },
+    "none": {
+      "description": "Answered with the single box, e.g. \"No known problems\" or \"No trusted report\".",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["none"],
+      "properties": {"none": {"const": true}}
+    },
+    "text_answer": {"oneOf": [{"type": "string"}, {"$ref": "#/$defs/unknown"}]},
+    "systems_answer": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["systems"],
+          "properties": {
+            "systems": {"type": "array", "items": {"$ref": "#/$defs/system"}, "uniqueItems": true},
+            "other": {"type": "string"}
+          }
+        },
+        {"$ref": "#/$defs/unknown"}
+      ]
+    },
+    "owner": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role"],
+          "properties": {"role": {"$ref": "#/$defs/role"}, "note": {"type": "string"}}
+        },
+        {"$ref": "#/$defs/unknown"}
+      ]
+    }
+  }
+}

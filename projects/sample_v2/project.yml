@@ -1,0 +1,10 @@
+# Sample Project v2: the content the platform was built with (checkpoint
+# 269ad97), as a pack. Fictional names; the client is never named.
+name: Sample Project v2
+slug: sample_v2
+# Source systems in use. Each needs a simulator (sources/simulators/) and a
+# staging adapter (transform/platform/models/silver/staging/<system>/).
+systems: [sage_x3, hubspot, netstock, azure_cost]
+mdm_provider: splink
+# The architecture version this pack is built and proven against (transform/platform).
+architecture: 3.0.0

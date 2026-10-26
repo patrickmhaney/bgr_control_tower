@@ -13,9 +13,8 @@ import sys
 
 import duckdb
 
+from core import project
 from core.settings import settings
-
-SOURCES = ("sage_x3", "hubspot", "netstock", "azure_cost")
 
 
 def compare(warehouse_path: str | None = None, mock_db: str | None = None) -> list[dict]:
@@ -24,7 +23,7 @@ def compare(warehouse_path: str | None = None, mock_db: str | None = None) -> li
     try:
         con.execute(f"attach '{mock_db or settings.mock_db}' as src (read_only)")
         out = []
-        for schema in SOURCES:
+        for schema in project.current().systems:
             for (table,) in con.execute("select table_name from duckdb_tables() where database_name "
                                         "= 'src' and schema_name = ? order by 1", [schema]).fetchall():
                 cols = ", ".join(f'"{c}"' for (c,) in con.execute(

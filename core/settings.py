@@ -3,7 +3,9 @@
 Every component reads its locations from here, so moving from a laptop to
 Azure is a change of environment, not of code. Any key can be overridden by an
 environment variable named `CT_<KEY>` (upper case), which is how secrets and
-per-run values reach a container without touching the YAML.
+per-run values reach a container without touching the YAML. A `{project}` in
+a path is the project pack in use (core/project.py), so each project gets its
+own data directory.
 """
 from __future__ import annotations
 
@@ -13,11 +15,14 @@ from functools import cached_property
 
 import yaml
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from core import project
+
+ROOT = project.ROOT
 
 
 def _resolve(value: str) -> str:
     """Relative paths are relative to the repo root; URLs pass through."""
+    value = value.replace("{project}", project.slug())
     if "://" in value or os.path.isabs(value):
         return value
     return os.path.join(ROOT, value)
@@ -63,11 +68,12 @@ class Settings:
     @property
     def serving_url(self) -> str:
         url = self.get("serving_url", ".data/serving.duckdb")
-        return url if self.serving_destination != "duckdb" else _resolve(url)
+        return url.replace("{project}", project.slug()) if self.serving_destination != "duckdb" else _resolve(url)
 
     @property
     def mdm_provider(self) -> str:
-        return self.get("mdm_provider", "splink")
+        default = project.current().config.get("mdm_provider") or self.raw.get("mdm_provider", "splink")
+        return os.environ.get("CT_MDM_PROVIDER", default)
 
     @property
     def source_mode(self) -> str:
@@ -81,6 +87,7 @@ class Settings:
         """Environment variables profiles.yml and dbt_project.yml read."""
         return {
             "DBT_PROFILES_DIR": os.path.join(ROOT, "transform"),
+            "CT_SYSTEMS": ",".join(project.current().systems),
             "CT_WAREHOUSE_PATH": self.warehouse_path,
             "CT_BRONZE_ROOT": self.bronze_root,
             "CT_DBT_TARGET": self.dbt_target,

@@ -1,0 +1,47 @@
+# Contract C1: what is extracted from HubSpot, and how.
+version: 1
+source: hubspot
+system: HubSpot (CRM)
+access: REST API v3/v4 over HTTPS.
+auth: Private app token with the relevant object scopes.
+lookback_days: 1        # covers clock skew between HubSpot and the extractor
+tables:
+  company:
+    keys: [id]
+    strategy: api_cursor
+    cursor: hs_lastmodifieddate
+    reconcile_keys: weekly
+    note: Archived records are only returned when asked for. The extractor asks; staging decides what archived means.
+  contact:
+    keys: [id]
+    strategy: api_cursor
+    cursor: lastmodifieddate
+    reconcile_keys: weekly
+    note: Hard deletes (privacy requests) vanish from the API without a trace. Only the key reconciliation sees them.
+  deal:
+    keys: [id]
+    strategy: api_cursor
+    cursor: hs_lastmodifieddate
+    reconcile_keys: weekly
+  engagement:
+    keys: [id]
+    strategy: api_cursor
+    cursor: created_at
+  deal_stage_history:
+    keys: [deal_id, stage, changed_at]
+    strategy: full_refresh
+    note: From the deal property-history endpoint. No cursor of its own.
+  association:
+    keys: [from_id, to_id, association_type]
+    strategy: full_refresh
+    note: The v4 batch API has no modified-since filter, so it is a full crawl - the slowest resource at real volume.
+  owner:
+    keys: [id]
+    strategy: full_refresh
+  pipeline_stage:
+    keys: [pipeline_id, stage_id]
+    strategy: full_refresh
+pitfalls:
+  - Offset pagination over a non-unique sort key silently loses and duplicates rows with an identical row count. Always page by the primary key.
+  - Rate limits are per token. Back off on 429; never fail the run.
+  - Custom properties are absent unless named. Re-read the property schema every run.

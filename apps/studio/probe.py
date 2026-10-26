@@ -19,12 +19,15 @@ import sys
 import duckdb
 import yaml
 
+from core import project
 from core.settings import ROOT, settings
 
-TARGET = os.path.join(ROOT, "transform", "target")
-SEMANTIC_MANIFEST = os.path.join(TARGET, "semantic_manifest.json")
+#: The run screen's headline numbers and fact tables when a pack has them;
+#: otherwise the company cube's first metrics that roll up, and its first facts.
 HEADLINE = ["on_time_delivery_rate", "order_fill_rate", "revenue", "match_rate",
             "inventory_accuracy", "win_rate"]
+FACTS = {"fct_sales_order_line": "Order lines", "fct_delivery_line": "Delivery lines",
+         "fct_invoice_line": "Invoice lines", "fct_deal": "Deals"}
 
 
 def _fact(label, raw, fmt="int", better=None, value=None):
@@ -38,9 +41,7 @@ def _today() -> dt.date:
 
 
 def _golden() -> dict:
-    from evaluation.golden import GOLDEN
-
-    with open(GOLDEN) as fh:
+    with open(project.current().golden) as fh:
         return yaml.safe_load(fh)
 
 
@@ -58,7 +59,7 @@ def _quiet(fn, *args, **kwargs):
 
 
 def _run_results() -> dict:
-    with open(os.path.join(TARGET, "run_results.json")) as fh:
+    with open(os.path.join(project.current().target, "run_results.json")) as fh:
         results = json.load(fh)["results"]
     out = {"models": 0, "seeds": 0, "tests": 0, "passed": 0, "warned": 0, "failed": 0}
     for r in results:
@@ -138,7 +139,7 @@ def clean() -> dict:
         "quality", "Staging data tests", r["failed"] == 0,
         [_fact("Tests passed", r["passed"]), _fact("Warnings", r["warned"])],
         [f"{r['failed']} tests or models failed (see log)"] if r["failed"] else [],
-        "dbt tests in transform/models/silver/staging")
+        "dbt tests in transform/platform/models/silver/staging")
     return {"facts": [_fact("Staging tables built", r["models"]), _fact("Seeds loaded", r["seeds"])],
             "checks": [check]}
 
@@ -183,7 +184,7 @@ def match() -> dict:
 
 def model() -> dict:
     r = _run_results()
-    with open(os.path.join(TARGET, "manifest.json")) as fh:
+    with open(project.current().manifest) as fh:
         nodes = json.load(fh)["nodes"].values()
     gold = [n for n in nodes if n["resource_type"] == "model" and n["schema"].endswith("gold")]
     enforced = [n for n in gold if n["config"].get("contract", {}).get("enforced")]
@@ -192,10 +193,10 @@ def model() -> dict:
         def rows(t):
             return con.execute(f"select count(*) from gold.{t}").fetchone()[0]
 
-        facts = [_fact("Order lines", rows("fct_sales_order_line")),
-                 _fact("Delivery lines", rows("fct_delivery_line")),
-                 _fact("Invoice lines", rows("fct_invoice_line")),
-                 _fact("Deals", rows("fct_deal"))]
+        names = [n["name"] for n in gold if n["name"].startswith("fct_")]
+        chosen = [f for f in FACTS if f in names] + sorted(f for f in names if f not in FACTS)
+        facts = [_fact(FACTS.get(f) or f.removeprefix("fct_").replace("_", " ").capitalize() + "s", rows(f))
+                 for f in chosen[:4]]
     finally:
         con.close()
     check = _check(
@@ -205,7 +206,7 @@ def model() -> dict:
          _fact("Columns with enforced types", sum(len(n["columns"]) for n in enforced)),
          _fact("Tests passed", r["passed"])],
         [f"{r['failed']} tests or models failed (see log)"] if r["failed"] else [],
-        "enforced contracts in transform/models/gold/_gold__models.yml")
+        "enforced contracts in the pack's models/gold/_gold__models.yml")
     return {"facts": facts, "checks": [check]}
 
 
@@ -213,19 +214,22 @@ def metrics() -> dict:
     from evaluation.golden import run as golden_run
     from semantic.lint import lint
     from serving.powerbi import Cube, measure_sql
-    from serving.powerbi_parity import OUT, local
+    from serving.powerbi_parity import local
 
-    with open(SEMANTIC_MANIFEST) as fh:
+    with open(project.current().semantic_manifest) as fh:
         meta = {m["name"]: {"label": m["label"], **((m.get("config") or {}).get("meta") or {})}
                 for m in json.load(fh)["metrics"]}
     fmt = {"percent": "percent", "currency_usd": "usd", "days": "days"}
     cube = Cube()
     rollups, label = cube.rollups, cube.label
     year = _today().replace(month=1, day=1)
+    company = cube.cubes["mart_company_monthly"]["metrics"]
+    headline = [m for m in HEADLINE if m in company]
+    headline = (headline + [m for m in company if m not in headline and rollups[m]["kind"] != "fixed"])[:6]
     con = duckdb.connect(settings.warehouse_path, read_only=True)
     try:
         # Year to date, rolled up from the monthly cube with the Power BI templates' own math.
-        exprs = ", ".join(measure_sql(m, rollups[m]) for m in HEADLINE)
+        exprs = ", ".join(measure_sql(m, rollups[m]) for m in headline)
         row = con.execute(f"select {exprs} from marts.dashboard_cube "
                           "where _cube = 'mart_company_monthly' and metric_time__month >= ?",
                           [year]).fetchone()
@@ -236,7 +240,7 @@ def metrics() -> dict:
     facts = [_fact(f"{label(m)}, {year:%Y} to date", float(v) if v is not None else None,
                    fmt.get(meta[m].get("format"), "int"),
                    {"higher_is_better": "up", "lower_is_better": "down"}.get(meta[m].get("direction")))
-             for m, v in zip(HEADLINE, row)]
+             for m, v in zip(headline, row)]
     facts.append(_fact("Power BI table size", cube_rows, value=f"{cube_rows:,} × {cube_cols}"))
 
     frozen = _frozen_applies()
@@ -254,7 +258,7 @@ def metrics() -> dict:
                 "tests/conformance/test_golden_answers.py")
 
     problems, _ = _quiet(local, live=not frozen)
-    with open(OUT) as fh:
+    with open(project.current().parity_queries) as fh:
         total = len(json.load(fh))
     c7 = _check("C7", "Power BI measure parity", not problems,
                 [_fact("Parity queries passing", total - len(problems),

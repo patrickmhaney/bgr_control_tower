@@ -55,7 +55,7 @@ through those commands without Dagster, which proves it.
 | Azure cost | Append new days | - |
 
 Source column names are kept exactly (`ITMREF_0`), columns are frozen in
-`ingestion/schemas/`, and bronze is an append-only Delta changelog.
+`projects/<slug>/ingestion/schemas/`, and bronze is an append-only Delta changelog.
 
 **Swap:** adapter - one bronze adapter macro per tool. Any ingestion tool
 (ADF, Boomi Data Integration, Fivetran, Airbyte) must deliver deletes, change
@@ -101,7 +101,7 @@ T-SQL path (below); on Snowflake, MetricFlow supports it directly.
 
 ## Semantic modeling - MetricFlow
 
-`transform/models/semantic/`, `semantic/backlog.yml`, the dashboard seeds,
+`projects/<slug>/models/semantic/`, `projects/<slug>/backlog.yml`, the dashboard seeds,
 `serving/semantic_service.py`. See [architecture.md](architecture.md#the-semantic-layer).
 
 **The T-SQL path (decision D10).** MetricFlow has no T-SQL renderer. The
@@ -111,7 +111,7 @@ container and runs the golden answers through it.
 
 **Swap:** rebuild of the definitions (the Ossie converters may cut that down)
 plus a new `semantic_service` backend; consumers do not change. dbt 1.12
-writes `transform/target/osi_document.json` on every parse - the definitions
+writes `projects/<slug>/target/osi_document.json` on every parse - the definitions
 in the Open Semantic Interchange format, the starting point for any
 translation. Candidates: Power BI or Fabric semantic models as the source of
 truth, Snowflake semantic views, dbt Cloud Semantic Layer, Cube, AtScale, the

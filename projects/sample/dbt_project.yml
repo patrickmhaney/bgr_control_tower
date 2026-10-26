@@ -1,0 +1,57 @@
+# Generated from transform/platform/project_template.yml: only `name` and
+# `vars` may differ from it (python -m ctl check-pack).
+name: sample
+version: 3.0.0
+config-version: 2
+profile: control_tower
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+flags:
+  # Staging adapters (in the platform package) read the pack's bronze models.
+  require_ref_searches_node_package_before_root: true
+
+# The platform package's default__generate_schema_name names schemas by layer.
+dispatch:
+  - macro_namespace: dbt
+    search_order: ["platform", "dbt"]
+
+vars:
+  # Business assumptions, as vars so reversing one is a config change. Each is
+  # an open question in docs/open_questions.md.
+  fiscal_year_start_month: 1
+  reporting_currency: USD
+  match_qty_tolerance_pct: 0.0
+  match_price_tolerance_pct: 2.0
+  inventory_accuracy_tolerance_pct: 0.0
+  # Relationship tests on known-dirty joins warn instead of failing the build.
+  dirty_join_severity: warn
+
+models:
+  sample:
+    +materialized: view
+    bronze:
+      +schema: bronze
+      +materialized: table
+      +tags: ["bronze"]
+    silver:
+      +schema: silver
+      intermediate:
+        +tags: ["intermediate"]
+      conformed:
+        +materialized: table
+        +tags: ["conformed"]
+    gold:
+      +schema: gold
+      +materialized: table
+      +tags: ["gold"]
+      +contract:
+        enforced: true
+
+seeds:
+  sample:
+    +schema: seed

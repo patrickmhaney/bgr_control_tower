@@ -33,7 +33,7 @@ contract and tests, then a semantic model for it in
 MetricFlow may follow - include `employee` if the activity has a person, so
 department dashboards can cut it).
 
-**D. The data does not exist yet.** Add it to `semantic/backlog.yml` as
+**D. The data does not exist yet.** Add it to `projects/<slug>/backlog.yml` as
 `blocked` (with `blocked_reason` and `unblock_requires`) or `placeholder`
 (with `placeholder_reason`). It costs nothing, appears in the catalog with the
 reason, and the API and MCP tools return the reason instead of a number.
@@ -85,7 +85,7 @@ up - `sum`, `ratio` or `fixed` - is read from its definition
 python -m ctl dbt parse          # MetricFlow reads the YAML
 python -m semantic.lint          # governance
 python -m ctl dbt build          # if you changed models or seeds
-python -m semantic.catalog       # docs/metric_catalog.md
+python -m semantic.catalog       # projects/<slug>/docs/metric_catalog.md
 python -m ctl materialize        # the cubes gain the metric
 python -m ctl powerbi            # the Power BI model gains the measure
 ```
@@ -97,7 +97,7 @@ from serving.semantic_service import SemanticService
 SemanticService().query(["supplier_on_time_receipt_rate"], group_by=["site__site_name"])
 ```
 
-Add a golden answer to `evaluation/golden_answers.yml` with your SQL as
+Add a golden answer to `projects/<slug>/golden_answers.yml` with your SQL as
 `reference_sql`, then `python -m evaluation.golden freeze` and commit the diff.
 CI will hold every route to that number from now on.
 

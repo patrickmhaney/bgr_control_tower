@@ -1,0 +1,97 @@
+# Sample Project v2: the synthetic sources' settings (sources/generate.py reads them).
+# The generator draws from one seeded random generator, so changing any value here
+# changes the data: re-freeze the golden answers and explain the diff.
+# Unknown keys fail `python -m ctl check-pack`.
+
+seed: 20260905
+# Business activity starts here; the clock starts on initial_date and can advance to timeline_end.
+start: 2024-07-01
+initial_date: 2026-09-05
+timeline_end: 2026-10-31
+
+volumes:
+  customers: 220
+  items: 420
+  suppliers: 45
+  sales_reps: 28
+  orders: 4400
+  hs_companies: 260
+  hs_contacts: 900
+  hs_deals: 850
+
+email_domain: globexdist.com
+
+# Legal entities: X3 COMPANY (code, name, country, legislation).
+companies:
+  - ["GLBUS", "Globex Distribution Inc", "US", "USA"]
+  - ["GLBCA", "Globex Distribution Canada ULC", "CA", "CAN"]
+# Sites: X3 FACILITY (code, name, company, short name, country, city, state).
+sites:
+  - ["US001", "Dallas TX Distribution Center", "GLBUS", "DALLAS", "USA", "Dallas", "TX"]
+  - ["US002", "Reno NV Distribution Center", "GLBUS", "RENO", "USA", "Reno", "NV"]
+  - ["CA001", "Toronto ON Distribution Center", "GLBCA", "TORONTO", "CAN", "Toronto", "ON"]
+
+# Item categories and the share of items in each.
+item_categories:
+  FG: 0.45
+  RM: 0.25
+  CMP: 0.22
+  PKG: 0.08
+
+# Name pools the generator draws from, in order.
+names:
+  product_nouns: ["Valve", "Bearing", "Coupling", "Gasket", "Flange", "Actuator", "Bracket", "Manifold", "Seal Kit", "Impeller", "Housing", "Spindle", "Bushing", "Regulator", "Filter Element", "Drive Shaft", "Pump Head", "Sensor Mount"]
+  product_adjectives: ["Stainless", "Carbon Steel", "Brass", "Aluminum", "Composite", "Hardened", "Zinc-Plated", "Nitrile", "PTFE-Lined", "Cast Iron"]
+  product_sizes: ["1/4\"", "1/2\"", "3/4\"", "1\"", "1-1/2\"", "2\"", "3\"", "4\"", "6mm", "12mm", "25mm"]
+  customer_prefixes: ["Northwind", "Vertex", "Ironclad", "Bluepeak", "Summit", "Cardinal", "Longview", "Redstone", "Halcyon", "Kestrel", "Meridian", "Ashford", "Brightwater", "Copperline", "Dovetail", "Eastgate", "Fairmount", "Granite", "Harborview", "Ivyridge", "Juniper", "Keystone", "Lakeshore", "Millbrook", "Northgate", "Oakhurst", "Pinehurst", "Quarry", "Riverbend", "Stonebridge", "Thornton", "Union", "Vanguard", "Westfield", "Yorkville"]
+  customer_words: ["Industrial", "Manufacturing", "Supply", "Fluid Systems", "Engineering", "Machine Works", "Process Equipment", "Hydraulics", "Fabrication", "Controls", "Components", "Technologies"]
+  customer_suffixes: ["LLC", "Inc", "Corp", "Group", "Co", "Ltd"]
+  first_names: ["James", "Maria", "Robert", "Priya", "Michael", "Linda", "David", "Aisha", "John", "Sofia", "Daniel", "Emily", "Carlos", "Hannah", "Kevin", "Rachel", "Brian", "Nina", "Thomas", "Grace", "Andrew", "Chloe", "Marcus", "Elena", "Steven", "Fatima", "Paul", "Olivia", "Eric", "Naomi", "Victor", "Diane", "Samuel", "Leah", "Peter", "Jasmine", "Alan", "Ruth", "Tyler", "Monica"]
+  last_names: ["Alvarez", "Bennett", "Chowdhury", "Delgado", "Ellison", "Fontaine", "Garrison", "Huang", "Ibrahim", "Jankowski", "Kaminski", "Laurent", "Mbeki", "Novak", "Okafor", "Petrov", "Quintero", "Rasmussen", "Sandoval", "Takahashi", "Ueda", "Vasquez", "Whitfield", "Xu", "Yamamoto", "Zielinski", "Brennan", "Castellano", "Dubois", "Emerson", "Farrow", "Gallagher"]
+
+# Customer cities by country: (city, state or province, postal code).
+cities:
+  US:
+    - ["Dallas", "TX", "75201"]
+    - ["Houston", "TX", "77002"]
+    - ["Phoenix", "AZ", "85004"]
+    - ["Denver", "CO", "80202"]
+    - ["Chicago", "IL", "60601"]
+    - ["Atlanta", "GA", "30303"]
+    - ["Columbus", "OH", "43215"]
+    - ["Charlotte", "NC", "28202"]
+    - ["Seattle", "WA", "98104"]
+    - ["Reno", "NV", "89501"]
+    - ["Kansas City", "MO", "64106"]
+    - ["Nashville", "TN", "37201"]
+    - ["Portland", "OR", "97204"]
+    - ["Tampa", "FL", "33602"]
+    - ["Salt Lake City", "UT", "84101"]
+  CA:
+    - ["Toronto", "ON", "M5H 2N2"]
+    - ["Mississauga", "ON", "L5B 3C2"]
+    - ["Calgary", "AB", "T2P 1J9"]
+    - ["Montreal", "QC", "H3B 2Y3"]
+    - ["Vancouver", "BC", "V6C 2T4"]
+    - ["Winnipeg", "MB", "R3C 0V8"]
+
+# X3 function profiles (AUTILIS.PRFFCT_0) and how many extra users each gets.
+# seeds/function_profile_department.csv maps them to departments.
+function_profiles:
+  SALES: 0
+  CSR: 3
+  BUYER: 3
+  WHSE: 5
+  PLANNER: 2
+  AR: 2
+department_of_profile:
+  SALES: SALES
+  CSR: CUSTSVC
+  BUYER: PURCH
+  WHSE: WHSE
+  PLANNER: PLAN
+  AR: FIN
+# HubSpot teams per function profile.
+hubspot_teams:
+  SALES: ["Field Sales - US", "Field Sales - Canada", "Inside Sales"]
+  CSR: ["Customer Success"]

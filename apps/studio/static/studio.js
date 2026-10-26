@@ -325,7 +325,7 @@ function renderDay() {
   const c = S.state.clock;
   const busy = !!S.job;
   $("#daydot").className = "dot" + (busy ? " busy" : "");
-  $("#daytext").innerHTML = c.initialised ? `Business day <b>${shortDate(c.today)}</b>${busy ? " · running" : ""}` : "Not initialized";
+  $("#daytext").innerHTML = c.initialised ? `<span class="daylabel">Business day </span><b>${shortDate(c.today)}</b>${busy ? " · running" : ""}` : "Not initialized";
   if (!c.initialised) return;
   $("#bizdate").textContent = longDate(c.today);
   $("#daytrack").style.width = `${(100 * c.day) / c.days}%`;
@@ -598,7 +598,32 @@ setInterval(async () => {
 let resizeTimer;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawWires, 80); });
 
+/* ------------------------------------------------------------- projects */
+async function loadProjects() {
+  let p = await api("/api/projects");
+  // ?project=<slug> (the requirements tool's preview link) opens that project's data and definitions.
+  const asked = new URLSearchParams(location.search).get("project");
+  if (asked && asked !== p.current && p.projects.some((x) => x.slug === asked)) {
+    p = await api("/api/project", { slug: asked });
+    location.reload();
+    return;
+  }
+  const sel = $("#project");
+  sel.innerHTML = p.projects.map((x) =>
+    `<option value="${esc(x.slug)}" ${x.slug === p.current ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+  sel.onchange = async () => {
+    try {
+      await api("/api/project", { slug: sel.value });
+      location.reload();
+    } catch (e) {
+      sel.value = p.current;
+      toast(e.message);
+    }
+  };
+}
+
 (async function init() {
+  await loadProjects().catch(() => { $("#project").closest("label").hidden = true; });
   S.map = await api("/api/map");
   renderMap();
   await refreshState();

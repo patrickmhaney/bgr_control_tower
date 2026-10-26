@@ -5,23 +5,20 @@
     python -m evaluation.golden check --live     # after `as_of`: semantic layer == reference SQL only
     python -m evaluation.golden freeze           # write today's answers as expected (review the diff!)
 
-See evaluation/golden_answers.yml for what the file is and why.
+See the pack's golden_answers.yml (projects/<slug>/) for what the file is and why.
 """
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import math
-import os
 import sys
 
 import duckdb
 import yaml
 
+from core import project
 from core.settings import settings
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-GOLDEN = os.path.join(HERE, "golden_answers.yml")
 
 
 def _norm(v):
@@ -84,7 +81,8 @@ def semantic(svc, q: dict) -> dict:
 def run(mode: str, backend: str = "duckdb", frozen: bool = True) -> int:
     from serving.semantic_service import MetricRequestError, SemanticService
 
-    with open(GOLDEN) as fh:
+    golden = project.current().golden
+    with open(golden) as fh:
         doc = yaml.safe_load(fh)
     tol = float(doc.get("tolerance", 1e-6))
     provider = settings.mdm_provider
@@ -127,8 +125,8 @@ def run(mode: str, backend: str = "duckdb", frozen: bool = True) -> int:
     finally:
         con.close()
     if mode == "freeze":
-        header = open(GOLDEN).read().split("\nversion:")[0]
-        with open(GOLDEN, "w") as fh:
+        header = open(golden).read().split("\nversion:")[0]
+        with open(golden, "w") as fh:
             fh.write(header + "\n")
             yaml.safe_dump(doc, fh, sort_keys=False, width=100)
         print(f"Froze {len(doc['queries'])} golden answers for MDM provider {provider}.")

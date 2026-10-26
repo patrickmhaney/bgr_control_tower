@@ -1,0 +1,305 @@
+# The semantic layer, part 2: metrics - the one place a measure is defined.
+#
+# Every consumer reads these: the cubes and marts (saved queries) and the
+# Power BI model over them, the data service and its MCP tools, and the
+# golden answers.
+# Governance lives in config.meta and `python -m semantic.lint` enforces it:
+#
+#   status     active (agreed) | provisional (a working definition; a decision
+#              is open - see provisional_reason). Metrics with no definition
+#              yet are `placeholder` or `blocked` in backlog.yml.
+#   owner      required; TBD is allowed and stays visible
+#   role       kpi (shown on dashboards) or component (a building block)
+#   provisional_reason, caveats, format, direction
+#
+# Which dashboard shows a metric is not here: seeds/process_metric.csv and
+# seeds/department_metric.csv own that, so a metric on two dashboards is two
+# seed rows, never two definitions. Metrics with no definition yet live in
+# backlog.yml.
+
+metrics:
+
+  # ------------------------------------------------------------ components --
+  - {name: on_time_deliveries, label: On-time delivery lines, type: simple, type_params: {measure: on_time_delivery_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: delivered_lines, label: Delivered lines, type: simple, type_params: {measure: delivered_delivery_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  # Filtered here rather than on order_fill_rate, so the ratio is a plain
+  # ratio of two sums and rolls up (semantic/rollup.py).
+  - {name: ordered_quantity, label: Ordered quantity (not cancelled), type: simple, type_params: {measure: ordered_quantity},
+     filter: "{{ Dimension('sales_order_line__is_cancelled') }} = 0",
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: delivered_quantity, label: Delivered quantity (not cancelled), type: simple, type_params: {measure: delivered_quantity},
+     filter: "{{ Dimension('sales_order_line__is_cancelled') }} = 0",
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: invoiced_value, label: Invoiced value, type: simple, type_params: {measure: invoiced_value_usd},
+     config: {meta: {role: component, status: active, owner: TBD, format: currency_usd}}}
+  - {name: returned_value, label: Returned value, type: simple, type_params: {measure: returned_value_usd},
+     config: {meta: {role: component, status: active, owner: TBD, format: currency_usd}}}
+  - {name: days_to_pay_total, label: Days to pay (sum), type: simple, type_params: {measure: days_to_pay_total},
+     config: {meta: {role: component, status: active, owner: TBD, format: days}}}
+  - {name: settled_invoice_lines, label: Settled invoice lines, type: simple, type_params: {measure: settled_invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: unsettled_invoice_lines, label: Unsettled invoice lines, type: simple, type_params: {measure: unsettled_invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: invoice_lines, label: Invoice lines, type: simple, type_params: {measure: invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: matched_supplier_invoice_lines, label: Matched supplier invoice lines, type: simple, type_params: {measure: matched_supplier_invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: supplier_invoice_lines, label: Supplier invoice lines, type: simple, type_params: {measure: supplier_invoice_lines},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: accurate_positions, label: Accurate positions, type: simple, type_params: {measure: accurate_positions},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: positions_counted, label: Positions counted, type: simple, type_params: {measure: positions_counted},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: deals_won, label: Deals won, type: simple, type_params: {measure: deals_won},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: deals_closed, label: Deals closed, type: simple, type_params: {measure: deals_closed},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: days_to_win_total, label: Days to win (sum), type: simple, type_params: {measure: days_to_win_total},
+     config: {meta: {role: component, status: active, owner: TBD, format: days}}}
+  - {name: forecast_absolute_error, label: Forecast absolute error, type: simple, type_params: {measure: forecast_absolute_error_qty},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: forecast_actual, label: Actual demand, type: simple, type_params: {measure: forecast_actual_qty},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: crm_companies, label: CRM companies, type: simple, type_params: {measure: crm_companies},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+  - {name: crm_companies_matched, label: CRM companies matched, type: simple, type_params: {measure: crm_companies_matched},
+     config: {meta: {role: component, status: active, owner: TBD, format: count}}}
+
+  # ------------------------------------------------------------------ KPIs --
+  - name: on_time_delivery_rate
+    label: On-Time Delivery
+    description: >
+      The share of delivered order lines that arrived on or before the date the
+      customer requested. Lines still in transit are outside the denominator.
+    type: ratio
+    type_params: {numerator: on_time_deliveries, denominator: delivered_lines}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: VP Operations
+        provisional_reason: >
+          Measured against the customer's requested date. Whether the promise
+          should be the requested date or a confirmed ship date is open question 1.
+        caveats:
+          - A delivery that never arrives cannot make this metric worse - it never enters the denominator.
+        format: percent
+        direction: higher_is_better
+        requirement: O2C-M1
+
+  - name: order_fill_rate
+    label: Order Fill Rate
+    description: Delivered quantity as a share of ordered quantity, on orders that were not cancelled.
+    type: ratio
+    type_params: {numerator: delivered_quantity, denominator: ordered_quantity}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: Director of Operations
+        provisional_reason: A working definition until the business defines fill rate (open question Q-B).
+        caveats:
+          - Open orders count as unfilled until they ship, so the most recent weeks read low.
+        format: percent
+        direction: higher_is_better
+        requirement: O2C-M4
+
+  - name: return_rate
+    label: Return Rate
+    description: Credit value of customer returns as a share of invoiced value, dated on the order.
+    type: ratio
+    type_params: {numerator: returned_value, denominator: invoiced_value}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: Director of Customer Service
+        provisional_reason: The denominator (invoiced value) and the date basis (order date) are open questions 16 and 17.
+        caveats:
+          - Returns that resolve to no order line count toward no order, which understates this slightly.
+        format: percent
+        direction: lower_is_better
+        requirement: O2C-M2
+
+  - name: dso_days_to_pay_proxy
+    label: DSO (days-to-pay proxy)
+    description: Average days from invoice to payment, over settled invoice lines.
+    type: ratio
+    type_params: {numerator: days_to_pay_total, denominator: settled_invoice_lines}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: Controller
+        provisional_reason: A days-to-pay proxy, not a balance-based DSO. Open question 2.
+        caveats:
+          - Unpaid invoices are excluded, so publish it beside Unsettled Invoice Rate.
+        format: days
+        direction: lower_is_better
+        requirement: O2C-M3
+
+  - name: unsettled_invoice_rate
+    label: Unsettled Invoice Rate
+    description: The share of invoice lines not yet paid. The companion DSO needs.
+    type: ratio
+    type_params: {numerator: unsettled_invoice_lines, denominator: invoice_lines}
+    config:
+      meta: {role: kpi, status: active, owner: TBD, owner_proposed: Controller,
+             format: percent, direction: lower_is_better}
+
+  - name: match_rate
+    label: Match Rate
+    description: The share of supplier invoice lines that agree with the purchase order and the receipt.
+    type: ratio
+    type_params: {numerator: matched_supplier_invoice_lines, denominator: supplier_invoice_lines}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: AP Manager
+        provisional_reason: Exact quantity and 2% price tolerance are placeholders. Open question 14.
+        format: percent
+        direction: higher_is_better
+        requirement: S2P-M1
+
+  - name: inventory_accuracy
+    label: Inventory Accuracy
+    description: The share of counted stock positions whose count matched the system quantity.
+    type: ratio
+    type_params: {numerator: accurate_positions, denominator: positions_counted}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: Warehouse Manager
+        provisional_reason: Exact match by position is the placeholder tolerance. Open question 15.
+        format: percent
+        direction: higher_is_better
+        requirement: I2D-M1
+
+  - name: forecast_accuracy
+    label: Forecast Accuracy
+    description: One minus the weighted absolute percentage error of Netstock's forecast against actual demand.
+    type: derived
+    type_params:
+      expr: 1 - forecast_absolute_error / forecast_actual
+      metrics:
+        - {name: forecast_absolute_error}
+        - {name: forecast_actual}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: Demand Planning Manager
+        provisional_reason: WMAPE is a placeholder for the measure Planning chooses.
+        caveats:
+          - Netstock lags the ERP by two days by construction.
+        format: percent
+        direction: higher_is_better
+        requirement: F2P-M1
+
+  - name: win_rate
+    label: Win Rate
+    description: Deals won as a share of deals closed, dated on the close date.
+    type: ratio
+    type_params: {numerator: deals_won, denominator: deals_closed}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: VP Sales
+        provisional_reason: A working definition until Sales confirms it (open question Q-B).
+        format: percent
+        direction: higher_is_better
+        requirement: P2C-M1
+
+  - name: pipeline_value
+    label: Pipeline Value
+    description: The amount on open deals, dated on the date each deal was created.
+    type: simple
+    type_params: {measure: open_pipeline_usd}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: VP Sales
+        provisional_reason: A working definition until Sales confirms it (open question Q-B).
+        format: currency_usd
+        direction: higher_is_better
+        requirement: P2C-M2
+
+  - name: sales_cycle_days
+    label: Sales Cycle Days
+    description: Average days from deal creation to winning it.
+    type: ratio
+    type_params: {numerator: days_to_win_total, denominator: deals_won}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: VP Sales
+        provisional_reason: A working definition until Sales confirms it (open question Q-B).
+        format: days
+        direction: lower_is_better
+        requirement: P2C-M3
+
+  - name: revenue
+    label: Revenue
+    description: Invoiced revenue net of credit memos, in USD. Reconciles to GL account 41000.
+    type: simple
+    type_params: {measure: revenue_usd}
+    config:
+      meta: {role: kpi, status: active, owner: TBD, owner_proposed: Controller,
+             format: currency_usd, direction: higher_is_better}
+
+  - name: trailing_90d_revenue
+    label: Trailing 90-day Revenue
+    description: Revenue over the 90 days ending on each date.
+    type: cumulative
+    type_params:
+      measure: revenue_usd
+      cumulative_type_params: {window: 90 days}
+    config:
+      meta:
+        role: kpi
+        status: provisional
+        owner: TBD
+        owner_proposed: Controller
+        provisional_reason: Exercises a cumulative metric; whether the business wants it is open.
+        caveats:
+          - A rolling window does not add up, so dashboards show it only at the grain of the cube that stores it.
+        format: currency_usd
+        direction: higher_is_better
+        requirement: R2P-M1
+
+  - name: customer_match_rate
+    label: Customer Match Rate
+    description: >
+      The share of CRM companies the MDM provider matched to an ERP customer.
+      A data-quality metric: the rest are crm_only and stay visible.
+    type: ratio
+    type_params: {numerator: crm_companies_matched, denominator: crm_companies}
+    config:
+      meta: {role: kpi, status: active, owner: TBD, owner_proposed: Data Steward,
+             is_data_quality: true, format: percent, direction: higher_is_better}
+
+  - name: cloud_cost
+    label: Platform Cloud Cost
+    description: The platform's own Azure cost, by component and environment.
+    type: simple
+    type_params: {measure: cloud_cost_usd}
+    config:
+      meta: {role: kpi, status: active, owner: TBD, owner_proposed: Platform Lead,
+             format: currency_usd, direction: lower_is_better}

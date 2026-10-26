@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: conf_customer_xref
+    description: Contract C3 for customers, as silver sees it. One row per source record.
+    columns:
+      - name: customer_key
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [source_system, source_key]
+
+  - name: conf_employee_xref
+    description: Contract C3 for people, as silver sees it. One row per source record.
+    columns:
+      - name: employee_key
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [source_system, source_key]
+
+  - name: conf_employee
+    description: One row per golden employee, with their department (decision D7).
+    columns:
+      - name: employee_key
+        tests: [unique, not_null]
+      - name: department_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('department')
+                field: department_code

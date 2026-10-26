@@ -2,6 +2,16 @@
 
 Branch: `control_tower_v2` · Drafted 2026-10-20 · Revised 2026-10-21 (D12: Power BI imports one cube; no DAX compiler) · Status: implemented on this branch (see README, "Where things stand")
 
+> **v3 (2026-10-25, branch `control_tower_v3`): one architecture, many project
+> packs.** The content this plan was built with now lives in the pack
+> `projects/sample_v2/`; everything else is the architecture, identical for
+> every project. Paths below that name `transform/models/`, `transform/seeds/`,
+> `semantic/backlog.yml`, `evaluation/golden_answers.yml`, `ingestion/specs/`,
+> `ingestion/schemas/` or `powerbi/` now resolve inside a pack
+> (`projects/<slug>/...`); the staging models and macros moved to the dbt
+> package `transform/platform/`. See §6 and
+> [docs/architecture.md](docs/architecture.md#architecture-and-projects).
+
 ## 1. What we are building
 
 An open-source baseline data platform on Azure. It is the reference
@@ -198,25 +208,34 @@ sources/           synthetic source systems
   generate.py        deterministic generator: X3, HubSpot, Netstock, ground truth
   clock.py           as-of dates, day-by-day change simulation, X3 CDC change tables
   simulators/        sage_x3.py  hubspot.py  netstock.py
-ingestion/         dlt pipelines, one per source; specs/*.yml (C1); schemas/*.schema.yaml (C2)
+ingestion/         dlt pipelines built from a pack's specs (C1) and frozen schemas (C2)
 mdm/               contract.yml (C3); splink_provider.py; rules_provider.py
-transform/         the dbt project
-  models/bronze/     current state from the changelog (one macro)
-  models/silver/     staging + conformed entities
+core/              settings, project.py (the pack in use and its paths), pack.py (check-pack)
+transform/
+  profiles.yml       the connection, shared by every pack
+  platform/          dbt package: macros, staging adapters per source system,
+                     project_template.yml (every pack's dbt_project.yml)
+projects/<slug>/   a project pack: content only, no Python (v3)
+  project.yml        name, systems, MDM provider, pinned architecture version
+  scenario.yml       the synthetic data's settings
+  ingestion/         specs/*.yml (C1); schemas/*.schema.yaml (C2)
+  models/bronze/     current state from the changelog (one macro call per table)
+  models/silver/     intermediate + conformed entities
   models/gold/       star schema with enforced contracts (C4)
   models/semantic/   MetricFlow semantic models, metrics, saved queries, time spine (C5)
-  seeds/             process, department, process_metric, department_metric, crosswalks
-  macros/ tests/
-semantic/          backlog.yml (placeholder and blocked metrics); catalog generator
+  seeds/ tests/      process, department, process_metric, department_metric, crosswalks
+  backlog.yml        placeholder and blocked metrics
+  golden_answers.yml
+  powerbi/ docs/     generated model and catalogue; open questions, source quirks
+semantic/          catalog generator, governance lint, rollups, C8 schema
 serving/           semantic_service (DuckDB and T-SQL backends), cube materializer,
                    Power BI model generator, reverse loads
 apps/
   data_service/      FastAPI: REST + MCP over the semantic layer and the serving DB (C6)
   examples/ask_metrics/  embedded-AI example app
 orchestration/     Dagster definitions: assets, checks, schedules, sensors
-powerbi/           PBIP: generated semantic model (TMDL) + hand-built reports (PBIR), parity queries
 infra/             Bicep: main.bicep, modules/, env/*.bicepparam
-evaluation/        component registry, scorecard template, golden answers, cost model
+evaluation/        component registry, scorecard template, golden-answer harness, cost model
 tests/             pytest: unit, conformance, end-to-end
 docs/              architecture, components/*.md, running, adding a metric, open questions
 .github/           workflows/, CODEOWNERS, pull_request_template.md

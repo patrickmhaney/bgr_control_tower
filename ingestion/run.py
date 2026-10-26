@@ -6,8 +6,8 @@
     python -m ingestion.run --full-refresh          # snapshot everything again
     python -m ingestion.run --freeze-schemas        # accept today's columns as the contract
 
-Contract C2 is enforced here. Each source's columns are frozen in
-ingestion/schemas/<source>.schema.yaml: a new column fails the run, which is
+Contract C2 is enforced here. Each source's columns are frozen in the
+project pack's ingestion/schemas/<source>.schema.yaml: a new column fails the run, which is
 how a silently changed source becomes a reviewed change instead of a wrong
 number. `--freeze-schemas` re-exports the files; review the diff before
 committing it, because re-freezing is also how a lost column gets silenced.
@@ -19,12 +19,11 @@ import os
 
 import dlt
 
+from core import project
 from core.settings import settings
 
 from .sources import BUILDERS
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SCHEMA_DIR = os.path.join(HERE, "schemas")
 FROZEN = {"tables": "evolve", "columns": "freeze", "data_type": "freeze"}
 
 
@@ -47,15 +46,16 @@ def extract(source: str, full_refresh: bool = False, reconcile: bool = False,
             freeze_schemas: bool = False, tables: list[str] | None = None) -> dict[str, int]:
     """Run one source's extract. Returns rows written per table in this run."""
     _configure()
-    schema_file = os.path.join(SCHEMA_DIR, f"{source}.schema.yaml")
+    schema_dir = project.current().schemas
+    schema_file = os.path.join(schema_dir, f"{source}.schema.yaml")
     frozen = os.path.exists(schema_file) and not freeze_schemas
     pipeline = dlt.pipeline(
         pipeline_name=f"bronze_{source}",
         pipelines_dir=os.path.join(settings.data_dir, "dlt"),
         destination="filesystem",
         dataset_name=source,
-        import_schema_path=SCHEMA_DIR if frozen else None,
-        export_schema_path=SCHEMA_DIR if (freeze_schemas or not frozen) else None,
+        import_schema_path=schema_dir if frozen else None,
+        export_schema_path=schema_dir if (freeze_schemas or not frozen) else None,
         progress=None,
     )
     kwargs = {"full_refresh": full_refresh, "tables": tables}
@@ -93,7 +93,7 @@ def main() -> None:
                    help="also diff HubSpot keys against the source to catch hard deletes")
     p.add_argument("--freeze-schemas", action="store_true")
     args = p.parse_args()
-    for source in args.source or list(BUILDERS):
+    for source in args.source or [s for s in BUILDERS if s in project.current().systems]:
         counts = extract(source, args.full_refresh, args.reconcile, args.freeze_schemas)
         total = sum(counts.values())
         print(f"{source:<12} {total:>8,} rows  " +

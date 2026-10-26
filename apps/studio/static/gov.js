@@ -126,7 +126,7 @@ const Gov = (() => {
       const ds = m.departments.filter((d) => d.department === code);
       return ds.map((d) => `<span class="infl ${esc(d.influence)}" title="${esc(d.name)} ${esc(d.influence)} ${esc(m.label)} in ${esc(procName(d.process))}">${d.influence === "owns" ? "●" : "○"} ${esc(d.process)}</span>`).join("");
     };
-    return `<div class="sub">From <span class="mono">transform/seeds/department_metric.csv</span>: the department-dashboard matrix.
+    return `<div class="sub">From the project's <span class="mono">seeds/department_metric.csv</span>: the department-dashboard matrix.
       <span class="infl owns">● owns</span> <span class="infl contributes">○ contributes</span>, with the process it happens in.</div>
       <div class="tablewrap gwrap"><table class="gtable dept"><thead><tr><th>Metric</th>${depts.map(([, n]) => `<th class="c">${esc(n)}</th>`).join("")}<th class="c">Cut by department</th></tr></thead><tbody>
       ${ms.map((m) => `<tr data-gmetric="${esc(m.name)}"><td><b>${esc(m.label)}</b> ${pill(m.status)}</td>${depts.map(([c]) => `<td class="c">${cell(m, c)}</td>`).join("")}

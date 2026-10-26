@@ -1,0 +1,8 @@
+process_code,metric_name,slot,display_order
+O2C,days_sales_outstanding,M1,1
+O2C,cost_per_order,M2,2
+O2C,return_rate,M3,3
+P2P,three_way_match_rate,M1,1
+I2D,on_time_delivery_rate,M1,1
+I2D,cost_per_shipment,M2,2
+I2D,inventory_accuracy,M3,3

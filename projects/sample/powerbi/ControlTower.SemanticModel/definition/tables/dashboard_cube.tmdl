@@ -1,0 +1,147 @@
+table dashboard_cube
+
+	/// The share of delivered shipments that arrived by the date we promised. Rolls up as: ratio.
+	measure 'On-Time Delivery' = IF(HASONEVALUE('dashboard_cube'[Cube]), DIVIDE(SUM('dashboard_cube'[on_time_deliveries]), SUM('dashboard_cube'[delivered_lines])))
+		formatString: 0.0%
+		displayFolder: KPIs
+
+	/// The average freight cost of moving one shipment. Rolls up as: ratio.
+	measure 'Cost Per Shipment' = IF(HASONEVALUE('dashboard_cube'[Cube]), DIVIDE(SUM('dashboard_cube'[invoiced_freight_cost]), SUM('dashboard_cube'[invoiced_shipments])))
+		formatString: \$#,0
+		displayFolder: KPIs
+
+	/// How closely counted stock matches what the system says we have. Rolls up as: ratio.
+	measure 'Inventory Accuracy' = IF(HASONEVALUE('dashboard_cube'[Cube]), DIVIDE(SUM('dashboard_cube'[accurate_positions]), SUM('dashboard_cube'[positions_counted])))
+		formatString: 0.0%
+		displayFolder: KPIs
+
+	/// The share of sales that come back as returns. Rolls up as: ratio.
+	measure 'Return Rate' = IF(HASONEVALUE('dashboard_cube'[Cube]), DIVIDE(SUM('dashboard_cube'[returned_value]), SUM('dashboard_cube'[invoiced_value])))
+		formatString: 0.0%
+		displayFolder: KPIs
+
+	/// The share of supplier invoices that match the purchase order and the goods receipt. Rolls up as: ratio.
+	measure 'Three-Way Match Rate' = IF(HASONEVALUE('dashboard_cube'[Cube]), DIVIDE(SUM('dashboard_cube'[matched_supplier_invoice_lines]), SUM('dashboard_cube'[supplier_invoice_lines])))
+		formatString: 0.0%
+		displayFolder: KPIs
+
+	/// The saved query a row comes from. Filter every page or visual to one. Grains: mart_company_monthly = Month; mart_o2c = Month, Site Name; mart_p2p = Month, Site Name, Supplier Name; mart_i2d = Month, Site Name; mart_carrier_scorecard = Month, Carrier Name.
+	column Cube
+		dataType: string
+		summarizeBy: none
+		sourceColumn: _cube
+
+	column Month
+		dataType: dateTime
+		formatString: mmm yyyy
+		summarizeBy: none
+		sourceColumn: metric_time__month
+
+	column 'Site Name'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: site__site_name
+
+	column 'Supplier Name'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: supplier__supplier_name
+
+	column 'Carrier Name'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: carrier__carrier_name
+
+	column on_time_delivery_rate
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: on_time_delivery_rate
+
+	column cost_per_shipment
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: cost_per_shipment
+
+	column inventory_accuracy
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: inventory_accuracy
+
+	column return_rate
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: return_rate
+
+	column three_way_match_rate
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: three_way_match_rate
+
+	column on_time_deliveries
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: on_time_deliveries
+
+	column delivered_lines
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: delivered_lines
+
+	column invoiced_freight_cost
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: invoiced_freight_cost
+
+	column invoiced_shipments
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: invoiced_shipments
+
+	column accurate_positions
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: accurate_positions
+
+	column positions_counted
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: positions_counted
+
+	column returned_value
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: returned_value
+
+	column invoiced_value
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: invoiced_value
+
+	column matched_supplier_invoice_lines
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: matched_supplier_invoice_lines
+
+	column supplier_invoice_lines
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: supplier_invoice_lines
+
+	partition dashboard_cube = m
+		mode: import
+		source = LoadMart("dashboard_cube")

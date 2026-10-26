@@ -1,4 +1,4 @@
-"""dlt sources, one per system, built entirely from the C1 specs in ingestion/specs/.
+"""dlt sources, one per system, built entirely from the project pack's C1 specs.
 
 This module is production code. It knows nothing about the mock: it asks the
 client modules in sources/simulators/ for rows, and swapping those for real
@@ -25,12 +25,13 @@ from dataclasses import dataclass, field
 import dlt
 import yaml
 
+from core import project
 from sources.simulators import azure_cost as cost_client
+from sources.simulators import freight as freight_client
 from sources.simulators import netstock as ns_client
 from sources.simulators import sage_x3 as x3_client
 from sources.simulators.hubspot import HubSpotClient
 
-SPEC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "specs")
 SNAPSHOT_SEQ_SUFFIX = "F" * 20
 
 
@@ -53,7 +54,7 @@ class SourceSpec:
 
 
 def load_spec(source: str) -> SourceSpec:
-    with open(os.path.join(SPEC_DIR, f"{source}.yml")) as fh:
+    with open(os.path.join(project.current().specs, f"{source}.yml")) as fh:
         raw = yaml.safe_load(fh)
     default = raw.get("strategy")
     tables = {
@@ -215,9 +216,41 @@ def azure_cost_source(full_refresh: bool = False, tables: list[str] | None = Non
     yield _resource(fetch, t)
 
 
+# ---------------------------------------------------------------------------
+# Freight platform: carriers in full, shipments and invoices by updated-since
+# ---------------------------------------------------------------------------
+@dlt.source(name="freight")
+def freight_source(full_refresh: bool = False, tables: list[str] | None = None):
+    spec = load_spec("freight")
+    lookback = dt.timedelta(days=spec.raw.get("lookback_days", 1))
+
+    def make(t: TableSpec):
+        def fetch():
+            state = dlt.current.resource_state()
+            extracted_at = _now()
+            seq = extracted_at.isoformat()
+            if t.strategy == "full_refresh":
+                yield from _stamp(freight_client.list_rows(t.name), "S", seq, extracted_at)
+                return
+            high_water = None if full_refresh else state.get("high_water")
+            since = (dt.date.fromisoformat(high_water) - lookback) if high_water else None
+            rows = freight_client.list_rows(t.name, since)
+            if rows:
+                top = max(r[t.cursor] for r in rows)
+                state["high_water"] = max(top.isoformat(), high_water or "")
+            # Op S for the first load, so bronze_current starts from it; U after that.
+            yield from _stamp(rows, "U" if high_water else "S", seq, extracted_at)
+        return _resource(fetch, t)
+
+    for t in spec.tables.values():
+        if tables is None or t.name in tables:
+            yield make(t)
+
+
 BUILDERS = {
     "sage_x3": sage_x3_source,
     "hubspot": hubspot_source,
     "netstock": netstock_source,
     "azure_cost": azure_cost_source,
+    "freight": freight_source,
 }

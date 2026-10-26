@@ -29,13 +29,10 @@ import os
 import re
 import shutil
 
-from core.settings import ROOT
+from core import project
 from semantic.rollup import cube_columns, group_by_names
 from semantic.rollup import load as load_rollups
 
-MANIFEST = os.path.join(ROOT, "transform", "target", "manifest.json")
-SEMANTIC_MANIFEST = os.path.join(ROOT, "transform", "target", "semantic_manifest.json")
-OUT = os.path.join(ROOT, "powerbi", "ControlTower.SemanticModel", "definition")
 TABLE = "dashboard_cube"
 
 FORMATS = {"percent": "0.0%", "currency_usd": "\\$#,0", "days": "#,0.0", "count": "#,0"}
@@ -73,8 +70,9 @@ class Cube:
     """What dashboard_cube holds, read from the manifests: no warehouse needed."""
 
     def __init__(self):
-        self.sm, self.rollups = load_rollups(SEMANTIC_MANIFEST)
-        with open(MANIFEST) as fh:
+        pack = project.current()
+        self.sm, self.rollups = load_rollups(pack.semantic_manifest)
+        with open(pack.manifest) as fh:
             nodes = json.load(fh)["nodes"].values()
         self.gold = {n["name"]: n for n in nodes
                      if n["resource_type"] == "model" and n["config"].get("schema") == "gold"}
@@ -138,14 +136,15 @@ def _write(path: str, text: str) -> None:
 
 def generate_model() -> str:
     cube = Cube()
-    if os.path.isdir(OUT):
-        shutil.rmtree(OUT)
-    _write(os.path.join(OUT, "database.tmdl"), "database\n\tcompatibilityLevel: 1600\n")
-    _write(os.path.join(OUT, "model.tmdl"),
+    out = project.current().powerbi_model
+    if os.path.isdir(out):
+        shutil.rmtree(out)
+    _write(os.path.join(out, "database.tmdl"), "database\n\tcompatibilityLevel: 1600\n")
+    _write(os.path.join(out, "model.tmdl"),
            "model Model\n\tculture: en-US\n\tdefaultPowerBIDataSourceVersion: powerBI_V3\n"
            "\tdiscourageImplicitMeasures\n\tsourceQueryCulture: en-US\n\n"
            f"ref table {TABLE}\n")
-    _write(os.path.join(OUT, "expressions.tmdl"), EXPRESSIONS)
+    _write(os.path.join(out, "expressions.tmdl"), EXPRESSIONS)
 
     lines = [f"table {TABLE}", ""]
     for m in cube.kpis:
@@ -176,9 +175,9 @@ def generate_model() -> str:
                   f"\t\tsourceColumn: {m}", ""]
     lines += [f"\tpartition {TABLE} = m", "\t\tmode: import",
               f"\t\tsource = LoadMart(\"{TABLE}\")", ""]
-    _write(os.path.join(OUT, "tables", f"{TABLE}.tmdl"), "\n".join(lines))
-    print(f"powerbi model: 1 table, {len(cube.kpis)} measures, {len(cube.cubes)} cubes -> {OUT}")
-    return OUT
+    _write(os.path.join(out, "tables", f"{TABLE}.tmdl"), "\n".join(lines))
+    print(f"powerbi model: 1 table, {len(cube.kpis)} measures, {len(cube.cubes)} cubes -> {out}")
+    return out
 
 
 EXPRESSIONS = """expression MartFolder = "C:\\\\control-tower\\\\exports\\\\marts\\\\" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]

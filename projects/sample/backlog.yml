@@ -1,0 +1,35 @@
+# Metrics the business wants that have no definition yet. Compiled from the
+# requirements tool (contract C8).
+#
+#   placeholder   the data exists; the business has not defined the metric
+#   blocked       the data does not exist in any source system
+
+metrics:
+
+  - name: days_sales_outstanding
+    label: Days Sales Outstanding
+    status: placeholder
+    owner: Finance
+    placeholder_reason: >
+      The agreed formula needs month-end receivable balances, which the warehouse
+      doesn't hold yet.
+    unblock_requires:
+      - A month-end accounts receivable snapshot in gold.
+
+  - name: cost_per_order
+    label: Cost Per Order
+    status: placeholder
+    owner: TBD
+    description: What it costs us to fulfil one customer order.
+    placeholder_reason: 'Which costs count is open: freight only, or warehouse labour too.'
+
+  - name: supplier_on_time_rate
+    label: Supplier On-Time Rate
+    status: placeholder
+    owner: TBD
+    description: The share of purchase order lines that arrive by the date the supplier promised.
+    placeholder_reason: >
+      Needs each receipt's promised date; the ERP keeps only a purchase order
+      line's last receipt date.
+    unblock_requires:
+      - The promised date on each purchase order line receipt.

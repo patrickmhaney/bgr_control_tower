@@ -1,0 +1,116 @@
+version: 2
+
+# Seeds hold the business mappings the platform reads but no source system
+# owns. Each is a CSV a business user can edit in a pull request. Metric names
+# in the two mapping seeds are checked against the metric catalog (MetricFlow
+# definitions plus backlog.yml) by `python -m semantic.lint`, which CI
+# runs - a typo fails the build rather than producing an empty tile.
+
+seeds:
+  - name: process
+    description: >
+      The business processes, by acronym. Expansions are not confirmed by the
+      business and are deliberately absent. Processes with no metrics yet are
+      listed anyway, so every route is exercised against the empty case.
+    columns:
+      - name: process_code
+        tests: [unique, not_null]
+
+  - name: department
+    description: >
+      The departments whose activity the platform attributes (decision D7).
+      Placeholders until the business defines them (open question Q-A).
+      UNASSIGNED collects system users and anyone not mapped.
+    columns:
+      - name: department_code
+        tests: [unique, not_null]
+
+  - name: process_metric
+    description: >
+      Which metrics appear on each process dashboard, and in which slot. A
+      metric on two dashboards is two rows here, never two definitions.
+      Includes backlog metrics, which render as tiles stating why they have no
+      number.
+    columns:
+      - name: process_code
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('process')
+                field: process_code
+      - name: slot
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['M1', 'M2', 'M3', 'M4']
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [process_code, slot]
+
+  - name: department_metric
+    description: >
+      The process x department matrix: which metrics, in which process, each
+      department's activities influence. `owns` or `contributes`. Illustrative
+      until the business defines it (open question Q-B).
+    columns:
+      - name: department_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('department')
+                field: department_code
+      - name: process_code
+        tests:
+          - relationships:
+              arguments:
+                to: ref('process')
+                field: process_code
+      - name: influence
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['owns', 'contributes']
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [department_code, process_code, metric_name]
+
+  - name: function_profile_department
+    description: X3 function profile (AUTILIS.PRFFCT_0) to department.
+    columns:
+      - name: function_profile
+        tests: [unique, not_null]
+
+  - name: hubspot_team_department
+    description: HubSpot owner team to department, for CRM users with no X3 profile.
+    columns:
+      - name: team_name
+        tests: [unique, not_null]
+
+  - name: site_code_crosswalk
+    description: >
+      Site identity between X3 and Netstock. Netstock uses the X3 codes today;
+      the seed exists so a planning system that names sites differently is a
+      row change, not a model change.
+    columns:
+      - name: x3_site_code
+        tests: [unique, not_null]
+
+  - name: legal_suffix
+    description: >
+      Legal suffixes stripped for core-name matching by the MDM providers.
+      Entity resolution is what a client iterates on hardest once real names
+      arrive, so the list is a seed, not a regex.
+    columns:
+      - name: suffix
+        tests: [unique, not_null]
+
+  - name: license_cost
+    description: >
+      Monthly licence cost per component, for total-cost comparisons that the
+      Azure bill alone cannot make. Prices are placeholders to verify.
+    columns:
+      - name: component
+        tests: [not_null]

@@ -1,5 +1,7 @@
 # The whole interface. Every target calls a step command (python -m ctl ...).
+# Every target works on one project pack: make run PROJECT=sample (default sample_v2).
 PY := uv run python
+export CT_PROJECT := $(or $(PROJECT),$(CT_PROJECT))
 
 .PHONY: setup mock advance run golden test lint ui serve studio reset
 setup:            ## install dependencies and dbt packages
@@ -15,8 +17,9 @@ golden:           ## golden answers: semantic layer == reference SQL == frozen a
 	$(PY) -m evaluation.golden check
 test:             ## unit and conformance tests
 	uv run pytest -q
-lint:             ## ruff, governance lint, SQL portability
+lint:             ## ruff, the pack layout, governance lint, SQL portability
 	uv run ruff check .
+	$(PY) -m ctl check-pack
 	$(PY) -m ctl dbt compile --quiet
 	$(PY) -m semantic.lint
 	$(PY) -m checks.portability
@@ -26,5 +29,5 @@ serve:            ## data service (REST + MCP) on http://localhost:8000
 	uv run uvicorn apps.data_service.app:app --port 8000
 studio:           ## the Studio: architecture, live pipeline, preview dashboards, query, chat - http://localhost:8800
 	$(PY) -m apps.studio
-reset:            ## delete everything under .data/
+reset:            ## delete everything under .data/<project>/
 	$(PY) -m ctl reset

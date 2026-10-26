@@ -7,7 +7,7 @@ the semantic layer.
 
 ## The cube
 
-Each saved query in `transform/models/semantic/saved_queries.yml` is one
+Each saved query in `projects/<slug>/models/semantic/saved_queries.yml` is one
 cube: a fixed set of metrics at a fixed grain (for example, the O2C metrics by
 site and month). `python -m ctl materialize` computes each one through
 MetricFlow, then stacks them all into `dashboard_cube`:
@@ -21,12 +21,12 @@ MetricFlow, then stacks them all into `dashboard_cube`:
 
 It's small: about 5,000 rows by 42 columns on the synthetic data, far below
 anything that troubles Power BI's in-memory engine. Every cube and its grain
-is listed at the end of [metric_catalog.md](metric_catalog.md#dashboard-cubes).
+is listed at the end of [metric_catalog.md](../projects/sample_v2/docs/metric_catalog.md#dashboard-cubes).
 
 ## The model
 
 `python -m ctl powerbi` generates the model as TMDL in
-`powerbi/ControlTower.SemanticModel/definition/`, from the manifests alone.
+`projects/<slug>/powerbi/ControlTower.SemanticModel/definition/`, from the manifests alone.
 It has one table and one measure per KPI. Every measure is one of three
 templates, picked from the metric's definition (`semantic/rollup.py`):
 
@@ -79,7 +79,7 @@ a page means adding it to the saved query, `make run`, `python -m ctl powerbi`,
 and placing the measure on the page.
 
 Which process and department each metric belongs to is governance, not data:
-it lives in the dashboard seeds and shows in [metric_catalog.md](metric_catalog.md),
+it lives in the dashboard seeds and shows in [metric_catalog.md](../projects/sample_v2/docs/metric_catalog.md),
 together with the backlog metrics and why they have no number.
 
 ## Opening it
@@ -87,7 +87,7 @@ together with the backlog metrics and why they have no number.
 1. `make run`, then `python -m ctl powerbi` (the model only changes when the
    semantic layer does).
 2. In Power BI Desktop, create a Power BI Project (`File > Save as > .pbip`)
-   once and commit it under `powerbi/`, then point its semantic model at the
+   once and commit it under `projects/<slug>/powerbi/`, then point its semantic model at the
    generated `ControlTower.SemanticModel` folder - or open the folder in
    Tabular Editor.
 3. Set the `MartFolder` parameter to `.data/exports/marts/` (absolute path,
@@ -98,7 +98,7 @@ together with the backlog metrics and why they have no number.
 
 ## Parity: proving it matches
 
-`python -m ctl powerbi` also writes `powerbi/parity/parity_queries.json`: each
+`python -m ctl powerbi` also writes `projects/<slug>/powerbi/parity/parity_queries.json`: each
 golden answer that some cube can serve (21 of them), as the DAX query a
 visual would run, with the frozen answer beside it.
 

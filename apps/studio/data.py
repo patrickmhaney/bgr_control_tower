@@ -71,6 +71,11 @@ def _cube():
     return Cube()
 
 
+def forget() -> None:
+    """Drop what was read from the previous project's manifests."""
+    _cube.cache_clear()
+
+
 # ------------------------------------------------------------- dashboards --
 MONTH = "metric_time__month"
 DASH_LIMIT = 5000
@@ -78,7 +83,8 @@ PERIODS = ("month", "qtd", "ytd", "12m")
 #: Process names as the requirements plan spells them; the two sales and
 #: revenue cubes are named for what they hold.
 TITLES = {"mart_company_monthly": "Company scorecard", "mart_o2c": "Order to Cash", "mart_i2d": "Inventory to Delivery",
-          "mart_s2p": "Source to Pay", "mart_f2p": "Forecast to Plan", "mart_p2c": "Sales pipeline",
+          "mart_s2p": "Source to Pay", "mart_p2p": "Procure to Pay", "mart_f2p": "Forecast to Plan",
+          "mart_p2c": "Sales pipeline", "mart_r2r": "Record to Report", "mart_h2r": "Hire to Retire",
           "mart_r2p": "Revenue", "mart_department_scorecard": "Departments",
           "mart_customer_scorecard": "Customers", "mart_platform_cost": "Platform cost"}
 PROCESS = re.compile(r"^mart_([a-z]2[a-z])$")
@@ -409,9 +415,9 @@ def schema() -> list[dict]:
 
 
 def examples() -> list[dict]:
-    from evaluation.golden import GOLDEN
+    from core import project
 
-    with open(GOLDEN) as fh:
+    with open(project.current().golden) as fh:
         queries = yaml.safe_load(fh)["queries"]
     out = [{"label": "Every table in the Power BI cube, by saved query",
             "sql": "select _cube, count(*) as rows\nfrom marts.dashboard_cube\ngroup by 1\norder by 1"}]

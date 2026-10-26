@@ -2,7 +2,7 @@
 
     python -m serving.materialize
 
-Each saved query in transform/models/semantic/saved_queries.yml is compiled
+Each saved query in the pack's models/semantic/saved_queries.yml is compiled
 through the semantic service into SQL and written to the warehouse's `marts`
 schema as a table. Beside every ratio it stores the numerator and denominator,
 so a reader can roll the rows up correctly (semantic/rollup.py).
@@ -17,17 +17,17 @@ from __future__ import annotations
 
 import duckdb
 
-from core import storage
+from core import project, storage
 from core.settings import settings
 from semantic.rollup import cube_columns, group_by_names
 from semantic.rollup import load as load_rollups
-from serving.semantic_service import MANIFEST, SemanticService
+from serving.semantic_service import SemanticService
 
 CUBE = "dashboard_cube"
 
 
 def saved_queries() -> list[dict]:
-    return load_rollups(MANIFEST)[0].get("saved_queries", [])
+    return load_rollups(project.current().semantic_manifest)[0].get("saved_queries", [])
 
 
 def _export(con, name: str) -> None:
@@ -37,7 +37,7 @@ def _export(con, name: str) -> None:
 
 def materialize() -> dict[str, int]:
     svc = SemanticService()
-    sm, rollups = load_rollups(MANIFEST)
+    sm, rollups = load_rollups(project.current().semantic_manifest)
     cumulative = {m["name"] for m in sm["metrics"] if m["type"] == "cumulative"}
     as_of = svc.as_of_date().isoformat()
     counts = {}

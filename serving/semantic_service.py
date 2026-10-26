@@ -37,9 +37,9 @@ from urllib.parse import urlparse
 
 import duckdb
 
-from core.settings import ROOT, settings
+from core import project
+from core.settings import settings
 
-MANIFEST = os.path.join(ROOT, "transform", "target", "semantic_manifest.json")
 DEFAULT_ROW_LIMIT = 5000
 
 
@@ -168,7 +168,7 @@ def to_tsql(stmt: str, database: str | None = None) -> str:
 class SemanticService:
     backend: str = "duckdb"
     warehouse_path: str = field(default_factory=lambda: settings.warehouse_path)
-    manifest_path: str = MANIFEST
+    manifest_path: str = field(default_factory=lambda: project.current().semantic_manifest)
     tsql_url: str | None = field(default_factory=lambda: os.environ.get("TSQL_URL"))
 
     @cached_property

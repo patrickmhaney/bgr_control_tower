@@ -32,11 +32,10 @@ import urllib.request
 import duckdb
 import yaml
 
-from core.settings import ROOT, settings
-from evaluation.golden import GOLDEN, _maps_equal, _rows_to_map, reference
+from core import project
+from core.settings import settings
+from evaluation.golden import _maps_equal, _rows_to_map, reference
 from serving.powerbi import TABLE, Cube, measure_sql
-
-OUT = os.path.join(ROOT, "powerbi", "parity", "parity_queries.json")
 
 
 def _pick_cube(cube: Cube, metrics: list[str], group_by: list[str]) -> str | None:
@@ -52,7 +51,7 @@ def _pick_cube(cube: Cube, metrics: list[str], group_by: list[str]) -> str | Non
 
 def write() -> list[dict]:
     cube = Cube()
-    with open(GOLDEN) as fh:
+    with open(project.current().golden) as fh:
         doc = yaml.safe_load(fh)
     out = []
     for q in doc["queries"]:
@@ -70,11 +69,12 @@ def write() -> list[dict]:
                     if q.get("mdm_sensitive") else q.get("expected"))
         out.append({"id": q["id"], "cube": name, "group_by": group_by, "metrics": q["metrics"],
                     "dax": dax, "expected": expected})
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as fh:
+    out_path = project.current().parity_queries
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w") as fh:
         json.dump(out, fh, indent=2, default=str)
         fh.write("\n")
-    print(f"{len(out)} parity queries -> {OUT}")
+    print(f"{len(out)} parity queries -> {out_path}")
     return out
 
 
@@ -91,9 +91,9 @@ def _compare(got: dict, exp: dict) -> str | None:
 def local(live: bool = False) -> list[str]:
     """Every parity query through the SQL twin of the templates; the problems found."""
     cube = Cube()
-    with open(OUT) as fh:
+    with open(project.current().parity_queries) as fh:
         queries = json.load(fh)
-    with open(GOLDEN) as fh:
+    with open(project.current().golden) as fh:
         golden = {q["id"]: q for q in yaml.safe_load(fh)["queries"]}
     problems = []
     con = duckdb.connect(settings.warehouse_path, read_only=True)
@@ -120,7 +120,7 @@ def run() -> int:
     if not (ws and ds and token):
         print("Set PBI_WORKSPACE_ID, PBI_DATASET_ID and PBI_ACCESS_TOKEN to run parity.")
         return 2
-    with open(OUT) as fh:
+    with open(project.current().parity_queries) as fh:
         queries = json.load(fh)
     url = f"https://api.powerbi.com/v1.0/myorg/groups/{ws}/datasets/{ds}/executeQueries"
     failures = 0

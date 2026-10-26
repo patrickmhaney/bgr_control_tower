@@ -15,6 +15,10 @@ chat that can only call the governed metric tools (the MCP tools, C6). The
 Governance screen shows each metric's definition, ownership, lifecycle and the
 golden answers that prove it.
 
+A project switcher in the header (like the stack switcher on the map) picks
+the project pack: its data directory, definitions and numbers. The map is
+drawn from architecture content only, so it never changes with the project.
+
 It runs commands on this machine, so it listens on localhost only. On a VM it
 belongs behind Entra ID sign-in, like the data service.
 """
@@ -34,14 +38,13 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from core import lock
+from core import lock, project
 from core.settings import ROOT, settings
 
 from . import contracts, data, governance, pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPONENTS = os.path.join(ROOT, "evaluation", "components.yml")
-TARGET = os.path.join(ROOT, "transform", "target")
 
 app = FastAPI(title="Control Tower Studio", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
@@ -69,7 +72,11 @@ def _load_state() -> dict:
         return {}
 
 
-STATE = {"provider": settings.mdm_provider, "results": {}, **_load_state()}
+def _fresh_state() -> dict:
+    return {"provider": settings.mdm_provider, "results": {}, **_load_state()}
+
+
+STATE = _fresh_state()
 
 
 def _save_state() -> None:
@@ -232,18 +239,17 @@ def index():
 
 
 def _counts() -> dict:
-    from evaluation.golden import GOLDEN
-
     out = {}
-    with open(GOLDEN) as fh:
+    pack = project.current()
+    with open(pack.golden) as fh:
         golden = yaml.safe_load(fh)
     out["golden"] = len(golden["queries"])
     out["as_of"] = str(golden["as_of"])
     try:
-        with open(os.path.join(TARGET, "semantic_manifest.json")) as fh:
+        with open(pack.semantic_manifest) as fh:
             metrics = json.load(fh)["metrics"]
         out["metrics"] = sum(1 for m in metrics if ((m.get("config") or {}).get("meta") or {}).get("role") == "kpi")
-        with open(os.path.join(TARGET, "manifest.json")) as fh:
+        with open(pack.manifest) as fh:
             nodes = json.load(fh)["nodes"].values()
         out["star"] = sum(1 for n in nodes if n["resource_type"] == "model" and n["schema"].endswith("gold"))
     except OSError:
@@ -305,6 +311,33 @@ def _clock() -> dict:
             "days": (g.TIMELINE_END - g.INITIAL_DATE).days}
 
 
+@app.get("/api/projects")
+def projects():
+    return {"current": project.slug(),
+            "projects": [{"slug": s, "name": project.Project(s).name} for s in project.available()]}
+
+
+class ProjectRequest(BaseModel):
+    slug: str
+
+
+@app.post("/api/project")
+def switch_project(req: ProjectRequest):
+    """Open another project pack: its data directory, definitions and numbers. Never the map."""
+    global STATE, _SVC
+    if req.slug not in project.available():
+        raise HTTPException(404, "No such project.")
+    if CURRENT or lock.holder():
+        raise HTTPException(409, data.busy_reason(bool(CURRENT)) or "Wait for the run to finish.")
+    from sources import generate as g
+
+    project.use(req.slug)
+    g._apply(g.load_scenario())
+    STATE, _SVC = _fresh_state(), None
+    data.forget()
+    return projects()
+
+
 @app.get("/api/state")
 def state():
     # Only read the source database between jobs: the pipeline may be writing it.
@@ -313,6 +346,7 @@ def state():
         clock = _clock()
         STATE["clock"] = clock
     return {"clock": clock, "built": os.path.exists(settings.warehouse_path), "provider": STATE["provider"],
+            "project": {"slug": project.slug(), "name": project.current().name},
             "results": STATE["results"], "steps": [{k: s[k] for k in ("id", "title", "lead", "node")}
                                                   | {"checks": s.get("checks", [])} for s in pipeline.STEPS],
             "job": {"id": CURRENT.id, "steps": [s["id"] for s in CURRENT.steps]} if CURRENT else None,
