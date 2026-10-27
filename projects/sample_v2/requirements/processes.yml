@@ -1,0 +1,59 @@
+# Business processes, by code, in display order: the rows of the bus matrix.
+# seeds/process.csv is generated from this file. Questions: core/requirements/questions.yml.
+
+P2C:
+  name: Sales pipeline
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: ''}
+  answers:
+    systems: [HubSpot]
+
+O2C:
+  name: Order to Cash
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: ''}
+  answers:
+    systems: [Sage X3]
+
+S2P:
+  name: Source to Pay
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: ''}
+  answers:
+    systems: [Sage X3]
+
+F2P:
+  name: Forecast to Plan
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: ''}
+  answers:
+    systems: [Sage X3, Netstock]
+
+I2D:
+  name: Inventory to Delivery
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: ''}
+  answers:
+    systems: [Sage X3]
+
+R2P:
+  name: Revenue
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: ''}
+  answers:
+    systems: [Sage X3]
+
+H2R:
+  name: H2R
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: '', systems: ''}
+
+I2S:
+  name: I2S
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: '', systems: ''}
+
+M2O:
+  name: M2O
+  interview: in_progress
+  unknown: {purpose: '', boundaries: '', steps: '', event: '', volume: '', decisions: '', pain_points: '', owner: '', priority: '', systems: ''}

@@ -1,0 +1,51 @@
+# Dashboard sketches, by dashboard code: tiles on a 12-column grid.
+# Tile kinds: core/requirements/questions.yml (tiles).
+
+P2C:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: filter, x: 3, y: 0, w: 3, h: 1, dimension: employee}
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: win_rate}
+  - {kind: kpi, x: 3, y: 1, w: 3, h: 2, measure: pipeline_value}
+  - {kind: kpi, x: 6, y: 1, w: 3, h: 2, measure: sales_cycle_days}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, title: Win Rate by month, measure: win_rate, dimension: date}
+  - {kind: bar, x: 6, y: 3, w: 6, h: 3, measure: win_rate, dimension: employee}
+
+O2C:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: filter, x: 3, y: 0, w: 3, h: 1, dimension: site}
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: on_time_delivery_rate}
+  - {kind: kpi, x: 3, y: 1, w: 3, h: 2, measure: return_rate}
+  - {kind: kpi, x: 6, y: 1, w: 3, h: 2, measure: dso_days_to_pay_proxy}
+  - {kind: kpi, x: 9, y: 1, w: 3, h: 2, measure: order_fill_rate}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, title: On-Time Delivery by month, measure: on_time_delivery_rate, dimension: date}
+  - {kind: bar, x: 6, y: 3, w: 6, h: 3, measure: on_time_delivery_rate, dimension: site}
+
+S2P:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: filter, x: 3, y: 0, w: 3, h: 1, dimension: site}
+  - {kind: filter, x: 6, y: 0, w: 3, h: 1, dimension: supplier}
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: match_rate}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, title: Match Rate by month, measure: match_rate, dimension: date}
+  - {kind: bar, x: 6, y: 3, w: 6, h: 3, measure: match_rate, dimension: site}
+
+F2P:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: filter, x: 3, y: 0, w: 3, h: 1, dimension: site}
+  - {kind: filter, x: 6, y: 0, w: 3, h: 1, dimension: item}
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: forecast_accuracy}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, title: Forecast Accuracy by month, measure: forecast_accuracy, dimension: date}
+  - {kind: bar, x: 6, y: 3, w: 6, h: 3, measure: forecast_accuracy, dimension: site}
+
+I2D:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: filter, x: 3, y: 0, w: 3, h: 1, dimension: site}
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: inventory_accuracy}
+  - {kind: kpi, x: 3, y: 1, w: 3, h: 2, measure: on_time_delivery_rate}
+  - {kind: kpi, x: 6, y: 1, w: 3, h: 2, measure: order_fill_rate}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, title: Inventory Accuracy by month, measure: inventory_accuracy, dimension: date}
+  - {kind: bar, x: 6, y: 3, w: 6, h: 3, measure: inventory_accuracy, dimension: site}
+
+R2P:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: trailing_90d_revenue}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, title: Trailing 90-day Revenue by month, measure: trailing_90d_revenue, dimension: date}

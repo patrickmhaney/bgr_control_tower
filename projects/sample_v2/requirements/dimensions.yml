@@ -1,0 +1,105 @@
+# Dimensions, by code, in display order: what the business is measured by, and
+# the columns of the bus matrix. Questions: core/requirements/questions.yml.
+
+date:
+  name: Date
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: '', quality: '', systems: ''}
+  answers:
+    definition: >-
+      One row per day. The conformed calendar and MetricFlow's time spine; fiscal
+      periods follow var fiscal_year_start_month (open question 4).
+    identifier: date_day in gold.dim_date
+    attributes: >-
+      calendar_year, calendar_quarter, calendar_month, calendar_month_label,
+      calendar_quarter_label, month_start_date, fiscal_year, fiscal_quarter,
+      fiscal_year_label, fiscal_quarter_label, fiscal_quarter_start_date, fiscal_year_start_date
+
+customer:
+  name: Customer
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: ''}
+  answers:
+    definition: >-
+      One row per golden customer from MDM (contract C3). X3 wins financial
+      attributes, HubSpot firmographics (open question 7). CRM-only companies stay
+      in, so the unmatched rate is visible.
+    identifier: customer_key in gold.dim_customer
+    attributes: >-
+      customer_name, x3_customer_code, hubspot_company_id, source_scope,
+      match_rule, match_score, needs_steward_review, customer_group_code,
+      payment_term_code, currency_code, credit_limit_amount, primary_rep_code,
+      primary_rep_name, industry, employee_count, domain, country_code,
+      crm_company_count, crm_matched_company_count, first_seen_date
+    systems: [Sage X3, HubSpot]
+    quality: |-
+      **Array columns.** `BPCUSTOMER.REP_1` (~18% of customers) and `ITMMASTER.TSICOD_0..2`.
+      **Rep reassignments.** A customer's `REP_0` changes on its last update date. CDC keeps the before-image, which is the as-was history (open question 11).
+      **Customer names drift.** No shared key between HubSpot and X3; ~22% of names gain punctuation, ~10% lose their suffix, ~6% are upper-cased.
+
+employee:
+  name: Employee
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: ''}
+  answers:
+    definition: >-
+      One row per golden employee from MDM, with the department their work counts
+      toward (decision D7).
+    identifier: employee_key in gold.dim_employee
+    attributes: >-
+      employee_name, email, x3_user_code, x3_rep_code, hubspot_owner_id,
+      function_profile, crm_team_name, department_code, department_name
+    systems: [Sage X3, HubSpot]
+    quality: >-
+      **Employee identity.** Two X3 users have no email; one HubSpot owner's email
+      arrives in different casing. EDI, WMS and ADMIN are system users.
+
+department:
+  name: Department
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: '', quality: '', systems: ''}
+  answers:
+    definition: One row per department. Placeholders (open question Q-A).
+    identifier: department_code in gold.dim_department
+    attributes: department_name, display_order
+
+item:
+  name: Item
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: ''}
+  answers:
+    definition: 'One row per item: the X3 item master with Netstock planning attributes.'
+    identifier: item_code in gold.dim_item
+    attributes: >-
+      item_description, item_category_code, statistical_group, stock_unit,
+      item_status, is_active_item, base_sales_price, base_purchase_price,
+      best_abc_class, best_xyz_class, planned_location_count,
+      has_high_stockout_risk, netstock_last_sync_date, is_planned_in_netstock
+    systems: [Sage X3, Netstock]
+    quality: >-
+      **Netstock lag and orphans.** Two days behind X3; 35 item-locations
+      reference items the ERP does not have.
+
+site:
+  name: Site
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: ''}
+  answers:
+    definition: One row per site. X3 codes are the conformed key.
+    identifier: site_code in gold.dim_site
+    attributes: >-
+      site_name, city, state_province, country_code, company_code, company_name, netstock_location_code
+    systems: [Sage X3]
+    quality: >-
+      **Netstock lag and orphans.** Two days behind X3; 35 item-locations
+      reference items the ERP does not have.
+
+supplier:
+  name: Supplier
+  interview: in_progress
+  unknown: {hierarchy: '', history: '', owner: '', quality: ''}
+  answers:
+    definition: One row per supplier, with X3's and Netstock's lead times side by side.
+    identifier: supplier_code in gold.dim_supplier
+    attributes: supplier_name, payment_term_code, x3_lead_time_days, netstock_lead_time_days
+    systems: [Sage X3, Netstock]

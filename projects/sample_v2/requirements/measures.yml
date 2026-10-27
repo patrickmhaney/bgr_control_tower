@@ -1,0 +1,218 @@
+# Each measure's discovery answers, by metric name. Its label, description,
+# owner and caveats are its definition, in the semantic files
+# (models/semantic/metrics.yml, or backlog.yml until it has a formula).
+# Questions: core/requirements/questions.yml.
+
+win_rate:
+  interview: in_progress
+  followup: true
+  followup_note: A working definition until Sales confirms it (open question Q-B).
+  unknown: {target: VP Sales, report: '', sme: VP Sales, restatement: '', owner: VP Sales}
+  answers:
+    formula: Deals won divided by Deals closed.
+    sources: [HubSpot]
+    dimensions: [date, department]
+    time: Created date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+pipeline_value:
+  interview: in_progress
+  followup: true
+  followup_note: A working definition until Sales confirms it (open question Q-B).
+  unknown: {target: VP Sales, report: '', sme: VP Sales, restatement: '', owner: VP Sales, formula: ''}
+  answers:
+    sources: [HubSpot]
+    dimensions: [date, department]
+    time: Created date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+sales_cycle_days:
+  interview: in_progress
+  followup: true
+  followup_note: A working definition until Sales confirms it (open question Q-B).
+  unknown: {target: VP Sales, report: '', sme: VP Sales, restatement: '', owner: VP Sales}
+  answers:
+    formula: Days to win (sum) divided by Deals won.
+    sources: [HubSpot]
+    dimensions: [date, department]
+    time: Created date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+on_time_delivery_rate:
+  interview: in_progress
+  followup: true
+  followup_note: >-
+    Measured against the customer's requested date. Whether the promise should
+    be the requested date or a confirmed ship date is open question 1.
+  unknown: {target: VP Operations, report: '', sme: VP Operations, restatement: '', owner: VP Operations}
+  answers:
+    formula: On-time delivery lines divided by Delivered lines.
+    sources: [Sage X3]
+    dimensions: [date, customer, department, site]
+    time: Ship date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+return_rate:
+  interview: in_progress
+  followup: true
+  followup_note: >-
+    The denominator (invoiced value) and the date basis (order date) are open
+    questions 16 and 17.
+  unknown: {target: Director of Customer Service, report: '', sme: Director of Customer Service, restatement: '', owner: Director of Customer Service}
+  answers:
+    formula: Returned value divided by Invoiced value.
+    sources: [Sage X3]
+    dimensions: [date, customer, department, site]
+    time: Order date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+dso_days_to_pay_proxy:
+  interview: in_progress
+  followup: true
+  followup_note: A days-to-pay proxy, not a balance-based DSO. Open question 2.
+  unknown: {target: Controller, report: '', sme: Controller, restatement: '', owner: Controller}
+  answers:
+    formula: Days to pay (sum) divided by Settled invoice lines.
+    sources: [Sage X3]
+    dimensions: [date, customer, site]
+    time: Invoice date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+order_fill_rate:
+  interview: in_progress
+  followup: true
+  followup_note: A working definition until the business defines fill rate (open question Q-B).
+  unknown: {target: Director of Operations, report: '', sme: Director of Operations, restatement: '', owner: Director of Operations}
+  answers:
+    formula: Delivered quantity (not cancelled) divided by Ordered quantity (not cancelled).
+    sources: [Sage X3]
+    dimensions: [date, department, site]
+    time: Order date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+match_rate:
+  interview: in_progress
+  followup: true
+  followup_note: Exact quantity and 2% price tolerance are placeholders. Open question 14.
+  unknown: {target: AP Manager, report: '', sme: AP Manager, restatement: '', owner: AP Manager}
+  answers:
+    formula: Matched supplier invoice lines divided by Supplier invoice lines.
+    sources: [Sage X3]
+    dimensions: [date, department, site, supplier]
+    time: Invoice date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+supplier_on_time_receipt_rate:
+  interview: in_progress
+  unknown: {target: Purchasing Manager, report: '', sme: Purchasing Manager, restatement: '', owner: Purchasing Manager, sources: '', formula: Purchasing Manager, time: Purchasing Manager, breakdowns: ''}
+  answers:
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+forecast_accuracy:
+  interview: in_progress
+  followup: true
+  followup_note: WMAPE is a placeholder for the measure Planning chooses.
+  unknown: {target: Demand Planning Manager, report: '', sme: Demand Planning Manager, restatement: '', owner: Demand Planning Manager, formula: ''}
+  answers:
+    sources: [Sage X3, Netstock]
+    dimensions: [date, item, site]
+    time: Period start date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+inventory_accuracy:
+  interview: in_progress
+  followup: true
+  followup_note: Exact match by position is the placeholder tolerance. Open question 15.
+  unknown: {target: Warehouse Manager, report: '', sme: Warehouse Manager, restatement: '', owner: Warehouse Manager}
+  answers:
+    formula: Accurate positions divided by Positions counted.
+    sources: [Sage X3]
+    dimensions: [date, department, site]
+    time: Count date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+cost_per_shipment:
+  interview: in_progress
+  unknown: {target: Logistics Manager, report: '', sme: Logistics Manager, restatement: '', owner: Logistics Manager, sources: '', formula: Logistics Manager, time: Logistics Manager, breakdowns: ''}
+  answers:
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+trailing_90d_revenue:
+  interview: in_progress
+  followup: true
+  followup_note: Exercises a cumulative metric; whether the business wants it is open.
+  unknown: {target: Controller, report: '', sme: Controller, restatement: '', owner: Controller, formula: ''}
+  answers:
+    sources: [Sage X3]
+    dimensions: [date]
+    time: Invoice date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+unsettled_invoice_rate:
+  interview: complete
+  unknown: {target: Controller, report: '', sme: Controller, restatement: '', owner: Controller}
+  answers:
+    formula: Unsettled invoice lines divided by Invoice lines.
+    sources: [Sage X3]
+    dimensions: [date, customer, site]
+    time: Invoice date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+revenue:
+  interview: complete
+  unknown: {target: Controller, report: '', sme: Controller, restatement: '', owner: Controller, formula: ''}
+  answers:
+    sources: [Sage X3]
+    dimensions: [date, customer]
+    time: Invoice date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+customer_match_rate:
+  interview: complete
+  unknown: {target: Data Steward, report: '', sme: Data Steward, restatement: '', owner: Data Steward}
+  answers:
+    formula: CRM companies matched divided by CRM companies.
+    sources: [Sage X3, HubSpot]
+    dimensions: [date]
+    time: First seen date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+cloud_cost:
+  interview: complete
+  unknown: {target: Platform Lead, report: '', sme: Platform Lead, restatement: '', owner: Platform Lead, formula: ''}
+  answers:
+    sources: [Azure Cost]
+    dimensions: [date]
+    time: Charge date. Calendar months.
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+cost_per_order:
+  interview: in_progress
+  unknown: {target: Director of Sales Operations, report: '', sme: Director of Sales Operations, restatement: '', owner: Director of Sales Operations, sources: '', formula: Director of Sales Operations, time: Director of Sales Operations, breakdowns: ''}
+  answers:
+    refresh: daily
+    refresh_why: The pipeline runs every morning.
+
+perfect_order_rate:
+  interview: in_progress
+  unknown: {target: VP Operations, report: '', sme: VP Operations, restatement: '', owner: VP Operations, sources: '', formula: VP Operations, time: VP Operations, breakdowns: ''}
+  answers:
+    refresh: daily
+    refresh_why: The pipeline runs every morning.

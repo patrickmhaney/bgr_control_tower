@@ -27,8 +27,8 @@ Answered "I don't know" in the Requirements tab, with who might know.
 |---|---|---|
 | Process Procure to Pay (`P2P`) | Volume | Purchasing Manager |
 | Dimension Product (`item`) | Roll-ups | Purchasing Manager |
-| Measure Inventory Accuracy (`inventory_accuracy`) | Calculation | Finance Controller |
-| Measure Return Rate (`return_rate`) | Source systems | Sales Operations Lead |
+| Measure Inventory Accuracy (`inventory_accuracy`) | Calculation | - |
+| Measure Days Sales Outstanding (`days_sales_outstanding`) | Definition | - |
 
 Flagged for follow-up.
 
@@ -36,6 +36,9 @@ Flagged for follow-up.
 |---|---|
 | Process Procure to Pay (`P2P`) | - |
 | Dimension Product (`item`) | - |
+| Measure Inventory Accuracy (`inventory_accuracy`) | - |
+| Measure Days Sales Outstanding (`days_sales_outstanding`) | - |
 | Measure Cost Per Order (`cost_per_order`) | Which costs count? Freight only, or warehouse labour too. Ask the Finance Controller. |
+| Measure Return Rate (`return_rate`) | - |
 
 <!-- requirements:end -->

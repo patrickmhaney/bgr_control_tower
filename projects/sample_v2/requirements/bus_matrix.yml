@@ -1,0 +1,8 @@
+# The bus matrix: each process and the dimensions it is analysed by.
+
+P2C: [date, customer, employee, department]
+O2C: [date, customer, employee, department, item, site]
+S2P: [date, employee, department, item, site, supplier]
+F2P: [date, item, site]
+I2D: [date, customer, employee, department, item, site]
+R2P: [date, customer, item, site]

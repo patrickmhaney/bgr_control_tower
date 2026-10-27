@@ -44,7 +44,8 @@ cost_per_shipment:
 inventory_accuracy:
   interview: in_progress
   assignee: p1
-  unknown: {formula: Finance Controller}
+  followup: true
+  unknown: {formula: ''}
   answers:
     sources: [ERP, Inventory planning]
     dimensions: [item, site]
@@ -53,6 +54,8 @@ inventory_accuracy:
 days_sales_outstanding:
   interview: complete
   assignee: p2
+  followup: true
+  unknown: {definition: ''}
   answers:
     formula: Accounts receivable divided by credit sales, times days in the period.
     sources: [ERP]
@@ -77,7 +80,7 @@ cost_per_order:
 
 return_rate:
   interview: in_progress
-  unknown: {sources: Sales Operations Lead}
+  followup: true
 
 three_way_match_rate:
   interview: in_progress

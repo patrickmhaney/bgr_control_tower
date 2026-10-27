@@ -10,6 +10,7 @@ metrics:
     label: Days Sales Outstanding
     status: placeholder
     owner: Finance
+    description: How long, on average, customers take to pay us.
     placeholder_reason: >
       The agreed formula needs month-end receivable balances, which the warehouse
       doesn't hold yet.

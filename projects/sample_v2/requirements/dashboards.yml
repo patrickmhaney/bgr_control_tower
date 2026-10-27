@@ -1,0 +1,40 @@
+# Dashboards, by code, in display order: the rows of the Measures grid, and how
+# each is used. A process dashboard (its code is a process code) takes its
+# measures from seeds/process_metric.csv; any other lists them in `slots`.
+
+P2C:
+  name: Sales pipeline
+
+O2C:
+  name: Order to Cash
+
+S2P:
+  name: Source to Pay
+
+F2P:
+  name: Forecast to Plan
+
+I2D:
+  name: Inventory to Delivery
+
+R2P:
+  name: Revenue
+
+H2R:
+  name: H2R
+
+I2S:
+  name: I2S
+
+M2O:
+  name: M2O
+
+OTHER:
+  name: Not on a process dashboard
+  slots:
+    M1: unsettled_invoice_rate
+    M2: revenue
+    M3: customer_match_rate
+    M4: cloud_cost
+    M5: cost_per_order
+    M6: perfect_order_rate
