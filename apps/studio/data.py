@@ -150,12 +150,24 @@ def _group(m: str) -> str:
     return "Data quality" if _cube().meta(m).get("is_data_quality") else "Other"
 
 
+def _sketches() -> dict[str, list]:
+    """The requirements' dashboard sketches, by dashboard code."""
+    import os
+
+    from core import project, requirements
+
+    path = os.path.join(project.current().requirements, "sketches.yml")
+    return {code: tiles for code, tiles in requirements.load(path).items() if tiles}
+
+
 def pages() -> list[dict]:
     cube = _cube()
+    sketched = _sketches()
     out = []
     for name, c in cube.cubes.items():
         code = PROCESS.match(name)
         out.append({"id": name, "title": _title(name), "code": code.group(1).upper() if code else None,
+                    "sketch": bool(code and code.group(1).upper() in sketched),
                     "section": _section(name), "description": c["description"],
                     "dims": [{"id": d, "label": _dim_label(d)} for d in c["dims"]],
                     "metrics": [_metric(m) for m in c["metrics"]],
@@ -398,6 +410,56 @@ def page(name: str, metric: str | None, period: str, today: dt.date, asof: dt.da
             "matrix": matrix, "sql": _sql_text(card_sql, card_params),
             "refreshed": dt.datetime.fromtimestamp(os.path.getmtime(settings.warehouse_path)).isoformat(
                 timespec="minutes")}
+
+
+# ---------------------------------------------------------------- sketches --
+def sketch(name: str, period: str, today: dt.date, asof: dt.date | None = None,
+           filters: dict | None = None) -> dict:
+    """A process page laid out as its requirements sketch (requirements/sketches.yml):
+    the page itself, each tile resolved against the cube, and the trend or
+    breakdown each chart tile shows. Every number is page()'s, so the same
+    templates as the standard layout and Power BI."""
+    from apps.studio.governance import cuts
+    from core import project, requirements
+
+    c = _cube().cubes[name]
+    code = PROCESS.match(name).group(1).upper()
+    dims = requirements.load(f"{project.current().requirements}/dimensions.yml")
+    defs = requirements.definitions(project.current())
+    others = [d for d in c["dims"] if d != MONTH]
+    tiles = []
+    for t in sorted(_sketches().get(code, []), key=lambda t: (t["y"], t["x"])):
+        tile = dict(t)
+        m, d = t.get("measure"), t.get("dimension")
+        if m and m not in c["metrics"]:
+            label = (defs.get(m) or {}).get("label") or m
+            tile["issue"] = (f"{label} has no number yet: it is in the backlog." if (defs.get(m) or {}).get("file") == "backlog.yml"
+                             else f"{label} isn't in this page's cube.")
+        if d:
+            tile["dimension_label"] = (dims.get(d) or {}).get("name") or d
+            if d == "date":
+                tile["cube_dim"] = MONTH
+            else:
+                tile["cube_dim"] = next((x for x in others if cuts(x, d)), None)
+                if tile["cube_dim"] is None and t["kind"] in ("bar", "table", "filter"):
+                    tile["issue"] = (f"This page's cube doesn't carry {tile['dimension_label']}: adding it to "
+                                     f"the saved query's grain is build logic.")
+        tiles.append(tile)
+    first = next((t["measure"] for t in tiles if t.get("measure") and not t.get("issue")), None)
+    base = page(name, first, period, today, asof, filters)
+    parts = {}
+    for t in tiles:
+        if t["kind"] not in ("line", "bar", "table") or t.get("issue"):
+            continue
+        metric = t.get("measure") or base["metric"]
+        dim = t.get("cube_dim") if t["kind"] != "line" and t.get("cube_dim") != MONTH else None
+        key = f"{metric}|{dim or ''}"
+        t["part"] = key
+        if key not in parts:
+            res = base if metric == base["metric"] and dim in (None, base["dim"]) else \
+                page(name, metric, period, today, asof, filters, dim)
+            parts[key] = {k: res[k] for k in ("metric", "trend", "table", "breakdown", "comparisons", "first_cmp")}
+    return {"base": base, "tiles": tiles, "parts": parts}
 
 
 # ------------------------------------------------------------------ query --

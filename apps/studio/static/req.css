@@ -59,13 +59,13 @@ textarea.rq-in { resize: vertical; line-height: 1.45; }
 .rq-minibar { height: 5px; border-radius: 5px; background: var(--line); overflow: hidden; margin-top: 6px; }
 .rq-minibar i { display: block; height: 100%; background: var(--ok); }
 .rq-ovline { font-size: 12.5px; color: var(--ink-2); }
-.rq-ovgrid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; align-items: start; }
-.rq-todo, .rq-notbuilt, .rq-checklist { list-style: none; margin: 10px 0 0; padding: 0; }
+.rq-ovgrid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+.rq-todo, .rq-checklist { list-style: none; margin: 10px 0 0; padding: 0; }
 .rq-todo li, .rq-checklist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
-.rq-notbuilt li { display: grid; grid-template-columns: 1fr 1.3fr; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
-.rq-notbuilt .faint { font-size: 12.5px; margin-top: 2px; }
-.rq-wait { color: var(--ink-2); font-size: 13px; }
-.rq-ready { color: var(--ok); font-weight: 650; }
+.rq-exports { margin-top: 20px; }
+.rq-exportrow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.rq-export { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: inherit; text-decoration: none; font-size: 13px; }
+.rq-export:hover { border-color: var(--accent); background: var(--surface-2); }
 .rq-problems { border-color: var(--bad); margin-bottom: 20px; }
 .rq-problems ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
 
@@ -205,6 +205,11 @@ textarea.rq-in { resize: vertical; line-height: 1.45; }
 .rq-buscell:hover i { border-color: var(--accent); }
 .rq-buscell.on i { background: var(--accent); border-color: var(--accent); }
 .rq-buscell.sugg i { border-style: dashed; border-color: var(--accent); }
+.rq-buscell.warn { position: relative; border-color: #e3a008; background: #fff8e6; }
+.rq-buscell.warn i { background: #e3a008; border-color: #e3a008; }
+.rq-buscell.warn::after, .rq-warnkey { content: "!"; position: absolute; top: 2px; right: 5px; font-size: 11px; font-weight: 800; color: #b45309; }
+.rq-warnkey { position: static; display: inline-block; padding: 0 5px; border-radius: 4px; background: #fff8e6; border: 1px solid #e3a008; }
+.rq-warnitem span b { color: #b45309; }
 .rq-buscount { display: grid; place-items: center; font-size: 12px; color: var(--ink-3); }
 .rq-bus.viewing .v-out { opacity: .35; }
 .rq-bus.viewing .v-all { box-shadow: inset 0 0 0 2px var(--ok); }
@@ -291,5 +296,6 @@ textarea.rq-in { resize: vertical; line-height: 1.45; }
 @media (max-width: 1100px) {
   .rq-ovsteps { grid-template-columns: repeat(2, 1fr); }
   .rq-ovgrid, .rq-buslayout, .rq-proto { grid-template-columns: 1fr; }
+  .rq-exportrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rq-panel { grid-template-columns: 1fr; }
 }

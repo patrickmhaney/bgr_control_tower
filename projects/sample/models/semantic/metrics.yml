@@ -1,14 +1,15 @@
 # The semantic layer, part 2: metrics - the one place a measure is defined.
 #
-# The "what" of every KPI (label, description, governance meta) is compiled
-# from the requirements tool's Sample Project workspace (contract C8); the
-# "how" (type, inputs, filters) and the component metrics are written here by
-# engineers. `python -m semantic.lint` enforces the governance:
+# The definition of every KPI (label, description, owner, caveats) is the
+# business's: edited on the Studio's Requirements and Governance pages, which
+# save these same lines. The build logic (type, inputs, filters, status) and
+# the component metrics are written here by engineers. `python -m semantic.lint`
+# enforces the governance:
 #
 #   status     active (agreed) | provisional (a working definition; see provisional_reason)
 #   owner      required; TBD is allowed and stays visible
 #   role       kpi (shown on dashboards) or component (a building block)
-#   requirement  the dashboard slot in the requirements tool that asked for it
+#   requirement  the dashboard slot in the requirements that asked for it
 #
 # Which dashboard shows a metric is not here: seeds/process_metric.csv and
 # seeds/department_metric.csv own that. Metrics with no definition yet live in
@@ -65,7 +66,7 @@ metrics:
         role: kpi
         status: provisional
         owner: TBD
-        provisional_reason: Still in progress in the requirements tool.
+        provisional_reason: Its requirements interview is still in progress.
         caveats:
           - Not sure whether this is by item or by location. Cycle counts happen monthly.
         format: percent
@@ -82,7 +83,7 @@ metrics:
         role: kpi
         status: provisional
         owner: TBD
-        provisional_reason: Still in progress in the requirements tool.
+        provisional_reason: Its requirements interview is still in progress.
         format: percent
         direction: lower_is_better
         requirement: O2C-M3
@@ -98,7 +99,7 @@ metrics:
         role: kpi
         status: provisional
         owner: Procurement
-        provisional_reason: Still in progress in the requirements tool.
+        provisional_reason: Its requirements interview is still in progress.
         format: percent
         direction: higher_is_better
         requirement: P2P-M1

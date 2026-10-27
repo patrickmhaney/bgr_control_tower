@@ -1,8 +1,8 @@
 # The source systems the architecture can simulate and stage. Each has a
 # simulator (sources/simulators/<slug>.py) and a staging adapter
 # (transform/platform/models/silver/staging/<slug>/). A pack's project.yml
-# lists slugs from here; the requirements tool names a system by its name or
-# by its type, and the compiler maps either to the slug.
+# lists slugs from here; the requirements name a system the business's way
+# (project.yml business_systems), each mapped to one of these slugs.
 sage_x3: {name: Sage X3, type: ERP}
 hubspot: {name: HubSpot, type: CRM}
 netstock: {name: Netstock, type: Inventory planning}

@@ -5,7 +5,7 @@ Bluepeak Supply, a fictional distributor with three distribution centres
 generators with this pack's `scenario.yml`: a different seed, company, sites
 and volumes from Sample Project v2, and a freight platform.
 
-| System type (requirements tool) | Simulator | Notes |
+| System type (in the requirements) | Simulator | Notes |
 |---|---|---|
 | ERP | Sage X3 (`sage_x3`) | The same high-fidelity mock as every pack: CHAR padding, sentinel dates, CDC |
 | CRM | HubSpot (`hubspot`) | Cursor plus archived records; deals hand off to the ERP |

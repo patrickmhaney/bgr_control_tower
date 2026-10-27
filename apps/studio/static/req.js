@@ -16,7 +16,7 @@ const Req = (() => {
   const R = {
     data: null, screen: "overview", open: null, filter: "all", stale: false, drawerStale: false,
     pending: new Map(), timers: new Map(), chains: new Map(), history: {}, saving: 0, failed: "", other: {},
-    started: false, pages: {},
+    pages: {},
   };
   const remember = (k, v) => {
     try {
@@ -236,16 +236,35 @@ const Req = (() => {
     busy(0);
   }
 
+  // One stream for the whole page: this tab reloads from it, and other screens (Governance) listen through onChange.
+  // A hidden tab lets go of it (a browser allows a host only a few open connections) and catches up when shown.
+  const listeners = [];
+  const onChange = (fn) => listeners.push(fn);
+  let es = null, timer, sections = new Set();
+  function changed(list) {
+    list.forEach((x) => sections.add(x));
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const all = [...sections];
+      sections = new Set();
+      for (const fn of listeners) { try { fn(all); } catch (e) { console.error(e); } }
+      if (R.data) reload().then(() => { if (R.open) loadHistory(); }).catch(() => {});
+    }, 120);
+  }
   function live() {
-    const es = new EventSource("/api/requirements/events");
-    let timer;
+    if (es || document.hidden) return;
+    es = new EventSource("/api/requirements/events");
     es.onmessage = (msg) => {
       const ev = JSON.parse(msg.data);
       if (ev.project && R.data && ev.project !== R.data.project.slug) { location.reload(); return; }
-      clearTimeout(timer);
-      timer = setTimeout(() => reload().then(() => { if (R.open) loadHistory(); }).catch(() => {}), 120);
+      changed(ev.sections);
     };
   }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { es?.close(); es = null; return; }
+    live();
+    changed(["all"]);
+  });
 
   /* ---------------------------------------------------------- drawing */
   const visible = () => $("#view-req")?.classList.contains("active");
@@ -296,7 +315,7 @@ const Req = (() => {
     bar.querySelectorAll("#rq-nav button").forEach((b) => b.classList.toggle("active", b.dataset.k === R.screen));
     $("#rq-people").innerHTML = Object.values(R.data.people).map((p) => `<option value="${esc(p.name)}">`).join("");
     const last = R.data.last, undo = $("#rq-undo");
-    undo.hidden = !last;
+    undo.hidden = !last || last.undoable === false;
     if (last) undo.title = `Undo the last change: ${last.message} (${last.author}, ${rel(last.date)})`;
     busy(0);
   }
@@ -764,14 +783,14 @@ const Req = (() => {
       try { R.data = await api("/api/requirements"); }
       catch (e) { $("#rq-main").innerHTML = `<div class="panel empty-state"><b>Not available</b><p>${esc(e.message)}</p></div>`; return; }
     }
-    if (!R.started) { R.started = true; live(); }
     draw();
   }
+  live();
 
   return {
     R, show, save, flush, act, reload, draw, setScreen, openEntry, drawDrawer, entry, label, answered, done, meter, istat, mstat,
     interview, plural, person, depts, deptName, whoText, whoDept, placements, processOf, onDashboard, isProcess,
-    systems, rel, me, UNOWNED, editorOk,
+    systems, rel, me, UNOWNED, editorOk, setEditor, call, onChange,
   };
 })();
 window.Req = Req;

@@ -227,7 +227,7 @@ projects/<slug>/   a project pack: content only, no Python (v3)
   backlog.yml        placeholder and blocked metrics
   golden_answers.yml
   powerbi/ docs/     generated model and catalogue; open questions, source quirks
-semantic/          catalog generator, governance lint, rollups, C8 schema
+semantic/          catalog generator, governance lint, rollups
 serving/           semantic_service (DuckDB and T-SQL backends), cube materializer,
                    Power BI model generator, reverse loads
 apps/

@@ -50,53 +50,46 @@ def _definition(m: dict) -> dict:
     return d
 
 
-def build_catalog(service=None) -> list[dict]:
-    """Every metric, merged. `service` supplies valid dimensions from MetricFlow."""
-    from semantic.rollup import load as load_rollups
-    manifest, rollups = load_rollups(project.current().semantic_manifest)
-    cubes = {sq["name"]: sq["query_params"]["metrics"] for sq in manifest.get("saved_queries", [])}
+def _governance(m: dict) -> dict:
+    """A metric's governance and labelling fields. The same keys whether `m`
+    comes from the semantic manifest or straight from the YAML."""
+    meta = (m.get("config") or {}).get("meta") or m.get("meta") or {}
+    return {
+        "label": m.get("label") or m["name"],
+        "description": (m.get("description") or "").strip(),
+        "role": meta.get("role", "kpi"), "status": meta.get("status"),
+        "owner": meta.get("owner"), "owner_proposed": meta.get("owner_proposed"),
+        "provisional_reason": (meta.get("provisional_reason") or "").strip() or None,
+        "caveats": meta.get("caveats") or [],
+        "format": meta.get("format"), "direction": meta.get("direction"),
+        "is_data_quality": bool(meta.get("is_data_quality")),
+    }
+
+
+def _backlog_entry(b: dict) -> dict:
+    return {
+        "name": b["name"], "label": b["label"], "description": (b.get("description") or "").strip(),
+        "source": "backlog", "type": None, "role": "kpi", "status": b["status"],
+        "owner": b.get("owner"), "owner_proposed": b.get("owner_proposed"),
+        "blocked_reason": (b.get("blocked_reason") or "").strip() or None,
+        "placeholder_reason": (b.get("placeholder_reason") or "").strip() or None,
+        "unblock_requires": b.get("unblock_requires") or [],
+        "caveats": b.get("caveats") or [], "format": None, "direction": None,
+        "is_data_quality": False, "definition": None, "base_models": [],
+        "rollup": None, "cubes": [], "valid_dimensions": [],
+    }
+
+
+def _backlog() -> list[dict]:
     with open(project.current().backlog) as fh:
-        backlog = yaml.safe_load(fh)["metrics"]
+        return (yaml.safe_load(fh) or {}).get("metrics") or []
+
+
+def _link(entries: list[dict]) -> list[dict]:
+    """Where each metric is used, from the dashboard seeds."""
     process_map = _read_csv("process_metric.csv")
     dept_map = _read_csv("department_metric.csv")
-    measure_model = {ms["name"]: sm["node_relation"]["alias"]
-                     for sm in manifest["semantic_models"] for ms in sm.get("measures", [])}
-
-    out = []
-    for m in manifest["metrics"]:
-        meta = (m.get("config") or {}).get("meta") or m.get("meta") or {}
-        entry = {
-            "name": m["name"], "label": m.get("label") or m["name"],
-            "description": (m.get("description") or "").strip(),
-            "source": "metricflow", "type": m["type"],
-            "role": meta.get("role", "kpi"), "status": meta.get("status"),
-            "owner": meta.get("owner"), "owner_proposed": meta.get("owner_proposed"),
-            "provisional_reason": (meta.get("provisional_reason") or "").strip() or None,
-            "caveats": meta.get("caveats") or [],
-            "format": meta.get("format"), "direction": meta.get("direction"),
-            "is_data_quality": bool(meta.get("is_data_quality")),
-            "definition": _definition(m),
-            "rollup": rollups[m["name"]]["kind"],
-            "cubes": [c for c, ms in cubes.items() if m["name"] in ms],
-        }
-        inputs = [im["name"] for im in (m.get("type_params") or {}).get("input_measures", [])]
-        entry["base_models"] = sorted({measure_model[i] for i in inputs if i in measure_model})
-        out.append(entry)
-    for b in backlog:
-        out.append({
-            "name": b["name"], "label": b["label"], "description": b.get("description", ""),
-            "source": "backlog", "type": None, "role": "kpi", "status": b["status"],
-            "owner": b.get("owner"), "owner_proposed": b.get("owner_proposed"),
-            "blocked_reason": (b.get("blocked_reason") or "").strip() or None,
-            "placeholder_reason": (b.get("placeholder_reason") or "").strip() or None,
-            "unblock_requires": b.get("unblock_requires") or [],
-            "caveats": [], "format": None, "direction": None,
-            "is_data_quality": False, "definition": None, "base_models": [],
-            "rollup": None, "cubes": [],
-        })
-    for e in out:
-        e["valid_dimensions"] = (service.metric_dimensions(e["name"])
-                                 if service is not None and e["source"] == "metricflow" else [])
+    for e in entries:
         e["department_attributable"] = any(d.startswith("employee__department")
                                            for d in e["valid_dimensions"])
         e["processes"] = [{"process": r["process_code"], "slot": r["slot"]}
@@ -104,7 +97,45 @@ def build_catalog(service=None) -> list[dict]:
         e["departments"] = [{"department": r["department_code"], "process": r["process_code"],
                              "influence": r["influence"]}
                             for r in dept_map if r["metric_name"] == e["name"]]
-    return out
+    return entries
+
+
+def build_catalog(service=None) -> list[dict]:
+    """Every metric, merged. `service` supplies valid dimensions from MetricFlow."""
+    from semantic.rollup import load as load_rollups
+    manifest, rollups = load_rollups(project.current().semantic_manifest)
+    cubes = {sq["name"]: sq["query_params"]["metrics"] for sq in manifest.get("saved_queries", [])}
+    measure_model = {ms["name"]: sm["node_relation"]["alias"]
+                     for sm in manifest["semantic_models"] for ms in sm.get("measures", [])}
+
+    out = []
+    for m in manifest["metrics"]:
+        entry = {"name": m["name"], **_governance(m), "source": "metricflow", "type": m["type"],
+                 "definition": _definition(m), "rollup": rollups[m["name"]]["kind"],
+                 "cubes": [c for c, ms in cubes.items() if m["name"] in ms]}
+        inputs = [im["name"] for im in (m.get("type_params") or {}).get("input_measures", [])]
+        entry["base_models"] = sorted({measure_model[i] for i in inputs if i in measure_model})
+        entry["valid_dimensions"] = service.metric_dimensions(m["name"]) if service is not None else []
+        out.append(entry)
+    return _link(out + [_backlog_entry(b) for b in _backlog()])
+
+
+def refresh(catalog: list[dict]) -> list[dict]:
+    """A catalog built earlier, brought up to the files as they are now: the
+    definitions and governance from the semantic YAML, the backlog, and the
+    seeds. Formulas, cubes and dimensions stay as last compiled - they change
+    only with a dbt parse. The Studio's Governance page reads this, so an edit
+    shows at once, not after the next build."""
+    from core import requirements
+
+    pack = project.current()
+    written = {}
+    for path in requirements.semantic_files(pack)[:-1]:
+        for m in requirements.load(path).get("metrics") or []:
+            written[m["name"]] = m
+    out = [{**e, **(_governance(written[e["name"]]) if e["name"] in written else {})}
+           for e in catalog if e["source"] == "metricflow"]
+    return _link(out + [_backlog_entry(b) for b in _backlog()])
 
 
 def cube_index() -> list[dict]:

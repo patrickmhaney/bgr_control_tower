@@ -29,6 +29,15 @@ def words() -> list[str]:
     return found
 
 
+def found(text: str) -> list[str]:
+    """The blocked words in one piece of text, e.g. a new project's name."""
+    ws = words()
+    if not ws:
+        return []
+    return sorted({m.group(1).lower() for m in re.finditer(
+        r"(?<![a-z0-9])(" + "|".join(map(re.escape, ws)) + r")(?![a-z0-9])", text, re.I)})
+
+
 def _git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True).stdout
 

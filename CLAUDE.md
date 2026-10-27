@@ -46,4 +46,4 @@ The metrics are queryable through the `control-tower` MCP server (`.mcp.json`).
 
 ## Skills
 
-`.claude/skills/`: add-metric, add-source-table, swap-component, run-the-platform.
+`.claude/skills/`: build-from-requirements, add-metric, add-source-table, swap-component, run-the-platform.

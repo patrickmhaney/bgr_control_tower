@@ -1,5 +1,5 @@
-# The semantic layer, part 3: saved queries - the cubes. Compiled from the
-# requirements tool's cube bindings (contract C8). Each is a fixed set of
+# The semantic layer, part 3: saved queries - the cubes: build logic, written
+# to fit each dashboard's measures and sketch. Each is a fixed set of
 # metrics at a fixed grain; the materializer writes each one to the `marts`
 # schema and stacks them into marts.dashboard_cube for Power BI. A saved
 # query's dimensions must be valid for every metric in it.

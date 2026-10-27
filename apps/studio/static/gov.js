@@ -1,5 +1,7 @@
 /* The Governance screen: every metric, its owners, its lifecycle and its proof, read from the semantic layer.
-   Everything shown comes from /api/governance; this file only lays it out. */
+   Everything shown comes from /api/governance; this file only lays it out. A KPI's owner and description are
+   edited here through the requirements store (Req.call), the same lines the Requirements tab edits: each save
+   is a commit in the name under "Who's editing?", and either page redraws when the other saves. */
 "use strict";
 
 const Gov = (() => {
@@ -210,9 +212,11 @@ const Gov = (() => {
     const entities = m.dimensions.entities.map(([e, c]) => `<span class="dimchip">${esc(e.replace(/_/g, " "))} <b>${c}</b></span>`).join("");
     const golden = m.golden.map((g) => `<div class="grow"><span class="mono">${esc(g.id)}</span>${g.refusal ? `<span class="gstat blocked">proves a refusal</span>`
       : `<span class="faint">${g.group_by.length ? `by ${esc(g.group_by.join(", "))}` : "total"}</span>`}</div>`).join("");
-    openDrawer2(`<div class="gdrawer">
+    openDrawer2(`<div class="gdrawer" data-name="${esc(m.name)}">
       <div class="eyebrow">${m.source === "backlog" ? "Backlog metric" : m.role === "component" ? "Building block" : "KPI"} · <span class="mono nocase">${esc(m.name)}</span></div>
-      <h2>${esc(m.label)} ${pill(m.status)}</h2><p>${esc(m.description)}</p>
+      <h2>${esc(m.label)} ${pill(m.status)}</h2>${editable(m) ? `<label class="gedit"><span>Definition</span>
+        <textarea class="rq-in" id="gov-description" data-gedit="description" rows="3" placeholder="What it tells you about the business, in plain words">${esc(m.description)}</textarea></label>`
+        : `<p>${esc(m.description)}</p>`}
       ${lineage}
       <div class="gd-grid">
         <section><h4 class="mini">Governance</h4><dl>
@@ -225,7 +229,7 @@ const Gov = (() => {
           ${m.is_data_quality ? `<dt>Kind</dt><dd>Data quality metric</dd>` : ""}
         </dl></section>
         <section><h4 class="mini">Ownership</h4><dl>
-          <dt>Accountable</dt><dd>${ownerText(m)}</dd>
+          <dt>Accountable</dt><dd>${editable(m) ? ownerEdit(m) : ownerText(m)}</dd>
           <dt>Departments</dt><dd>${m.departments.map((d) => `<div><span class="infl ${esc(d.influence)}">${d.influence === "owns" ? "●" : "○"} ${esc(d.influence)}</span> ${esc(d.name)} <span class="faint">in ${esc(procName(d.process))}</span></div>`).join("") || `<span class="faint">None mapped</span>`}</dd>
           ${m.measures.length ? `<dt>Data owner</dt><dd>${esc([...new Set(m.measures.map((x) => x.owner || "–"))].join(", "))} <span class="faint">(${esc(tables.join(", "))})</span></dd>` : ""}
         </dl></section>
@@ -247,8 +251,52 @@ const Gov = (() => {
       ${m.dax ? `<h4 class="mini">Power BI measure (generated)</h4><pre class="code">${esc(m.dax)}</pre>` : ""}
       <h4 class="mini">As written in <span class="mono">${esc(m.yaml.path)}</span></h4>
       <pre class="yaml">${yamlHTML(m.yaml)}</pre>
-      <p class="faint small-note">Changing any of this is a reviewed change to that file. A changed number is a re-frozen golden answer.</p></div>`, true);
+      <p class="faint small-note">${editable(m) ? "The owner and definition above save as you type, each a commit to that file. " : ""}Anything else here is a reviewed change to that file. A changed number is a re-frozen golden answer.</p></div>`, true);
   }
+
+  /* --------------------------------------------------------------- editing */
+  // Definitions of KPIs and backlog metrics live in the requirements store; building blocks are build logic.
+  const editable = (m) => m.role === "kpi" && !!window.Req;
+  function ownerEdit(m) {
+    const roles = {};
+    for (const p of Object.values(G.data.people || {})) if (p.role) (roles[p.role] ||= []).push(p.name);
+    const who = roles[m.owner];
+    return `<input class="rq-in" id="gov-owner" data-gedit="owner" list="gov-roles" value="${esc(confirmed(m) ? m.owner : "")}" placeholder="TBD">
+      <datalist id="gov-roles">${Object.entries(roles).map(([r, names]) => `<option value="${esc(r)}">${esc(names.join(", "))}</option>`).join("")}</datalist>
+      <div class="faint tiny" id="gov-ownerwho">${who ? esc(who.join(", ")) : confirmed(m) ? "" : m.owner_proposed ? `Proposed: ${esc(m.owner_proposed)}` : "A role, so it outlasts the person. Empty is TBD."}</div>`;
+  }
+
+  const timers = {};
+  function edit(name, field, value) {
+    const m = byName(name);
+    if (!m || !Req.editorOk()) return;
+    m[field] = field === "owner" ? value.trim() || "TBD" : value;
+    if (field === "owner") {
+      const who = Object.values(G.data.people || {}).filter((p) => p.role && p.role === m.owner).map((p) => p.name);
+      const el = $("#gov-ownerwho");
+      if (el) el.textContent = who.join(", ");
+    }
+    const key = `${name}/${field}`;
+    clearTimeout(timers[key]);
+    timers[key] = setTimeout(async () => {
+      try { await Req.call("PATCH", `/api/requirements/measure/${encodeURIComponent(name)}`, { [field]: value }); }
+      catch (e) { toast(`Not saved: ${e.message}`); refresh(); }
+    }, 600);
+    render();
+  }
+
+  // A save from either page, or an edit in an editor: read the definitions again.
+  async function refresh() {
+    try { G.data = await api("/api/governance"); } catch { G.data = null; return; }
+    if (root().classList.contains("active")) render();
+    const d = $("#drawer-body .gdrawer");
+    if (d && $("#drawer").classList.contains("open") && !d.contains(document.activeElement)) openMetric(d.dataset.name);
+  }
+  document.addEventListener("DOMContentLoaded", () => window.Req?.onChange((sections) => {
+    if (!G.data || !sections.some((x) => ["measures", "people", "dashboards", "all"].includes(x))) return;
+    if (root().classList.contains("active") || $("#drawer-body .gdrawer")) refresh();
+    else G.data = null;
+  }));
 
   async function tryIt(name) {
     const out = $("#gtry-out");
@@ -277,6 +325,8 @@ const Gov = (() => {
     if (t.dataset.gown) { G.own = t.dataset.gown; $("#gown").outerHTML = ownershipHTML(); return; }
   });
   document.addEventListener("input", (e) => {
+    const g = e.target.dataset?.gedit;
+    if (g && $("#drawer").contains(e.target)) return edit(e.target.closest(".gdrawer").dataset.name, g, e.target.value);
     if (e.target.id !== "gov-search") return;
     G.search = e.target.value;
     $("#gcat-body").innerHTML = catalogTable();

@@ -14,7 +14,7 @@
     python -m ctl reset            delete everything under the data directory
     python -m ctl check-pack       the pack fills the fixed slots only (core/pack.py)
     python -m ctl requirements [--regenerate]   check requirements/; rewrite the files generated from it
-    python -m ctl preview [--changed PATH ...]   rebuild what compiled requirements changed
+    python -m ctl new-project SLUG [--name NAME]   a project in requirements only, ready for the Studio
     python -m ctl kpis             each KPI's latest full month and the one before, as JSON
 
 Dagster calls these same functions; nothing in orchestration/ holds logic of
@@ -36,7 +36,7 @@ from core.settings import settings
 
 #: Commands that write the warehouse, raw storage or dbt's target folder. They
 #: hold the pipeline lock (core/lock.py), so two runs never overlap.
-WRITES = {"sources", "ingest", "dbt", "mdm", "build", "materialize", "serve-load", "run", "reset", "preview"}
+WRITES = {"sources", "ingest", "dbt", "mdm", "build", "materialize", "serve-load", "run", "reset"}
 
 #: Everything dbt must build before MDM can run: bronze, staging, seeds. Tags
 #: come from the layer config, so they select the platform's staging adapters too.
@@ -84,39 +84,6 @@ def run_all(reconcile: bool = False) -> None:
         counts = extract(source, reconcile=reconcile)
         print(f"ingest {source:<11} {sum(counts.values()):>8,} rows")
     build()
-    materialize()
-    load_serving()
-
-
-def preview(changed: list[str]) -> None:
-    """Rebuild after the requirements tool compiled new "what" files into the pack.
-
-    A pack never built gets the whole pipeline. Otherwise only what the files
-    touch: the changed seeds and everything downstream of them, then the
-    semantic manifest, the governance lint and the cubes. Gold is never
-    rebuilt for a requirements change, because requirements never change SQL.
-    """
-    from semantic.lint import lint
-    from serving.materialize import materialize
-    from serving.reverse_load import load_serving
-    from sources import clock
-
-    if not os.path.exists(settings.warehouse_path):
-        if not os.path.exists(settings.mock_db):
-            clock.init()
-        run_all()
-        return
-    seeds = sorted({os.path.splitext(os.path.basename(c))[0] for c in changed
-                    if c.startswith("seeds/") and c.endswith(".csv")})
-    if seeds:
-        dbt("build", "--select", *[f"{s}+" for s in seeds], "--indirect-selection", "buildable")
-    # A full parse: partial parsing reorders the manifest, and the generated files follow its order.
-    dbt("parse", "--quiet", "--no-partial-parse")
-    problems = lint()
-    for p in problems:
-        print(f"lint: {p}")
-    if problems:
-        raise SystemExit(f"lint: {len(problems)} problem(s) - the preview stops here")
     materialize()
     load_serving()
 
@@ -182,8 +149,9 @@ def main() -> None:
     rq = sub.add_parser("requirements")
     rq.add_argument("--regenerate", action="store_true",
                     help="rewrite seeds/process.csv and the open questions section from requirements/")
-    pv = sub.add_parser("preview")
-    pv.add_argument("--changed", nargs="*", default=[], help="pack files the compiler changed")
+    np_ = sub.add_parser("new-project")
+    np_.add_argument("slug", help="its folder under projects/: lower case, digits and _")
+    np_.add_argument("--name", help="what the business calls it (default: from the slug)")
     sub.add_parser("kpis")
     a = p.parse_args()
     if a.project:
@@ -248,8 +216,6 @@ def _dispatch(a: argparse.Namespace) -> None:
         publish_warehouse()
     elif a.cmd == "run":
         run_all(a.reconcile)
-    elif a.cmd == "preview":
-        preview(a.changed)
     elif a.cmd == "kpis":
         import json
 
@@ -260,6 +226,15 @@ def _dispatch(a: argparse.Namespace) -> None:
         check_pack(a.slug or project.slug())
     elif a.cmd == "requirements":
         requirements(a.regenerate)
+    elif a.cmd == "new-project":
+        from core.pack import new
+
+        try:
+            pack = new(a.slug, a.name)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from None
+        print(f"new-project: made projects/{pack.slug} ({pack.name}). Commit it before editing it in the "
+              "Studio, which saves only over committed files - or make it from the Studio's New project.")
     elif a.cmd == "reset":
         if os.path.isdir(settings.data_dir):
             shutil.rmtree(settings.data_dir)

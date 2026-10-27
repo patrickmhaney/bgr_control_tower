@@ -102,7 +102,7 @@ back through the pipeline as `gold.fct_cloud_cost`.
 | C5 | Gold → semantic layer | the pack's `models/semantic/*.yml` and `backlog.yml`, the compiled `semantic_manifest.json`, `metric_catalog.json` | MetricFlow validation, `python -m semantic.lint`, the golden answers |
 | C6 | Semantic → apps and agents | the data service's OpenAPI spec and MCP tool list | `tests/conformance/test_data_service.py` |
 | C7 | Platform → serving DB and BI | one table per saved query, plus `dashboard_cube` stacking them all (what Power BI imports) | `tests/conformance/test_dashboard_cube.py`, the Power BI parity queries |
-| C8 | Requirements tool → semantic layer | the requirements spec, `semantic/requirements_spec.schema.json`: measures, dashboards, departments, processes, dimensions, the bus matrix and cubes, with people as roles ([requirements_contract.md](requirements_contract.md)) | the product-side compiler validates against the schema and writes only a pack's "what" files; check-pack, the C5 checks and the golden answers then run on them |
+| C8 | Requirements → build logic | the project's `requirements/*.yml`, one JSON Schema each in `core/requirements/schemas/`, and the questions in `core/requirements/questions.yml`; a measure's definition fields in the C5 files | `python -m ctl check-pack` (schemas and every reference between files), and the requirements store on every save |
 
 ## Layers
 
@@ -153,7 +153,7 @@ dimensions and measures; metrics build on them (simple, ratio, derived,
 cumulative); saved queries define the cubes. Governance lives in each
 metric's `config.meta`: status (`active`, or `provisional` with a reason),
 owner (TBD stays visible), caveats, format, and optionally `requirement`
-(`O2C-M1`: the dashboard slot in the requirements tool that asked for it).
+(`O2C-M1`: the dashboard slot in the project's requirements that asked for it).
 Labels are unique within a project. Metrics with no definition yet -
 `placeholder` or `blocked` - live in the pack's `backlog.yml` and return a
 reason instead of a number everywhere.
@@ -201,17 +201,6 @@ CI regenerates the first three and fails if the working tree moves. The frozen
 schemas are only ever re-frozen by hand: re-freezing is how a lost column gets
 silenced.
 
-## From requirements to a running preview
-
-The requirements tool compiles a workspace into its pack's "what" files
-(contract C8, [requirements_contract.md](requirements_contract.md)) and, when
-someone presses **Build preview**, asks this repo to rebuild what changed
-(`python -m ctl --project <slug> preview`) and report the KPIs (`ctl kpis`).
-It writes to this checkout's working tree - one branch for every workspace -
-so a preview is an ordinary diff here, gated by check-pack, the lint and the
-golden answers before anyone commits it. Numbers show in the tool only in a
-labelled preview, and here in the Studio (`?project=<slug>` opens a pack).
-
 ## Requirements in the project
 
 A project's `requirements/` holds what the business asked for, each field in
@@ -241,6 +230,35 @@ per entry from git, and Undo. It saves as you type and redraws when the files
 change, from another window or an editor (`/api/requirements/events`). The
 code is `apps/studio/static/req.js` (state, saving, the entry drawer),
 `req-pages.js` (the screens) and `req-sketch.js` (Sketches).
+
+**One measure, two views.** The Governance page reads each definition straight
+from the semantic YAML (`semantic.catalog.refresh`: formulas, cubes and
+dimensions stay as last compiled), and a KPI's owner and description are
+editable there through the same store. Either page redraws when the other
+saves; there is one copy of each field.
+
+**What the tab checks against the build.** The bus matrix marks a tick no built
+measure on that process can be grouped by (`/api/requirements/coverage`: a
+dimension code matches a semantic-layer entity or attribute, `date` is
+`metric_time`). A process dashboard with a sketch is drawn on the Dashboards
+tab as sketched (`/api/dashboards/<cube>/sketch`): headline numbers are cards,
+trends and comparisons are the page's own trend and breakdown, a table is the
+scorecard, a filter is a slicer or the period picker; a tile the cube can't
+honour says why. The Overview's exports - handbook, measure catalogue,
+measures and bus-matrix CSVs - are generated from the files
+(`core/requirements/exports.py`, `/api/requirements/export/<file>`).
+
+**From requirements to numbers.** A project can start in requirements only:
+`python -m ctl new-project <slug>` (or **New project** in the Studio's project
+picker, which also commits it) writes the platform template with no source
+systems, empty seeds and semantic files and an empty `requirements/`. Until it
+has `systems`, the pipeline tabs say it isn't built yet and CI runs its
+checks but not the pipeline. Nothing builds automatically: the Overview's "Not
+built yet" says what each measure waits for, and the build-from-requirements
+skill (`.claude/skills/`) writes the build logic for the ready ones, moves
+them from `backlog.yml` to `metrics.yml` with their definitions unchanged, and
+runs every gate. A definition edited afterwards needs no build; a changed
+number goes through the golden answers.
 
 The sample projects' requirements were converted once from the governance
 tool's database (`python -m core.requirements.convert DB --workspace <slug>

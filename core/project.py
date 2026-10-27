@@ -78,6 +78,12 @@ class Project:
     def systems(self) -> list[str]:
         return list(self.config.get("systems") or [])
 
+    @property
+    def has_pipeline(self) -> bool:
+        """Built: it has source systems to ingest. A new project starts in
+        requirements only, with nothing to run until it is built."""
+        return bool(self.systems)
+
     # -- ingestion: contract C1 and C2 files
     @property
     def specs(self) -> str:

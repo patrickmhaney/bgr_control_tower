@@ -325,6 +325,7 @@ function renderDay() {
   const c = S.state.clock;
   const busy = !!S.job;
   $("#daydot").className = "dot" + (busy ? " busy" : "");
+  if (c.pipeline === false) { $("#daydot").className = "dot idle"; $("#daytext").textContent = "Not built yet"; return; }
   $("#daytext").innerHTML = c.initialised ? `<span class="daylabel">Business day </span><b>${shortDate(c.today)}</b>${busy ? " · running" : ""}` : "Not initialized";
   if (!c.initialised) return;
   $("#bizdate").textContent = longDate(c.today);
@@ -446,6 +447,13 @@ function renderBanner() {
 function renderRun() {
   if (!S.state) return;
   renderDay();
+  const unbuilt = S.state.project.pipeline === false;
+  $("#run-unbuilt").hidden = !unbuilt;
+  if (unbuilt) {
+    $("#run-unbuilt").innerHTML = notBuiltHTML("Nothing to run yet");
+    $("#run-setup").hidden = $("#run-main").hidden = true;
+    return;
+  }
   const ready = S.state.clock.initialised || S.job;
   $("#run-setup").hidden = !!ready;
   $("#run-main").hidden = !ready;
@@ -574,12 +582,27 @@ async function swapMatcher(provider) {
   } catch (err) { toast(err.message); }
 }
 
+/* A project in requirements only has no data, definitions compiled or pipeline yet: say so, not an error. */
+function notBuiltHTML(title) {
+  return `<div class="panel empty-state notbuilt"><b>${esc(title)}</b>
+    <p>${esc(S.state.project.name)} isn't built yet. It has requirements, but no source systems, SQL or measure formulas,
+      so there is no pipeline to run and no numbers to show.</p>
+    <p>Complete the requirements first. The data team then builds the measures that are ready.</p>
+    <button class="btn primary" data-view="req">Open the requirements</button></div>`;
+}
+const UNBUILT = { gov: ["#gov-main", "No definitions compiled yet"], dash: ["#dash-main", "No dashboards yet"],
+  query: ["#query-main", "Nothing to query yet"], ask: ["#ask-main", "Nothing to ask about yet"] };
+
 function showView(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   try { localStorage.setItem("studio.view", name); } catch { /* private window */ }
+  const unbuilt = S.state?.project.pipeline === false;
+  document.querySelectorAll("#dash-nav, #query-mode").forEach((el) => { el.hidden = unbuilt; });
+  $(".dash").classList.toggle("unbuilt", unbuilt);
   if (name === "map") requestAnimationFrame(drawWires);
   else if (name === "run") renderRun();
+  else if (unbuilt && UNBUILT[name]) $(UNBUILT[name][0]).innerHTML = notBuiltHTML(UNBUILT[name][1]);
   else window.Views?.show(name);
 }
 
@@ -601,7 +624,7 @@ window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer
 /* ------------------------------------------------------------- projects */
 async function loadProjects() {
   let p = await api("/api/projects");
-  // ?project=<slug> (the requirements tool's preview link) opens that project's data and definitions.
+  // ?project=<slug> opens that project's data and definitions.
   const asked = new URLSearchParams(location.search).get("project");
   if (asked && asked !== p.current && p.projects.some((x) => x.slug === asked)) {
     p = await api("/api/project", { slug: asked });
@@ -610,8 +633,10 @@ async function loadProjects() {
   }
   const sel = $("#project");
   sel.innerHTML = p.projects.map((x) =>
-    `<option value="${esc(x.slug)}" ${x.slug === p.current ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+    `<option value="${esc(x.slug)}" ${x.slug === p.current ? "selected" : ""}>${esc(x.name)}${x.built ? "" : " (not built)"}</option>`).join("")
+    + `<option value="" disabled>──────────</option><option value="__new">New project…</option>`;
   sel.onchange = async () => {
+    if (sel.value === "__new") { sel.value = p.current; return newProject(p); }
     try {
       await api("/api/project", { slug: sel.value });
       location.reload();
@@ -620,6 +645,48 @@ async function loadProjects() {
       toast(e.message);
     }
   };
+}
+
+/* ---------------------------------------------------------- new project */
+const slugOf = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").replace(/^(?=[0-9])/, "p_").slice(0, 40);
+
+function newProject(p) {
+  openDrawer(`<div class="newproj"><div class="eyebrow">New project</div><h2>Start a project</h2>
+    <p class="muted">A project starts in requirements only: processes, dimensions, measures and sketches, with no pipeline.
+      Its folder is <span class="mono">projects/&lt;folder&gt;/</span>, made from the platform template and committed in your name.</p>
+    <form id="newproj-form">
+      <label>What the business calls it<input class="rq-in" name="name" required placeholder="e.g. Northwind Distribution" autocomplete="off"></label>
+      <label>Folder <input class="rq-in mono" name="slug" required pattern="[a-z][a-z0-9_]{1,39}" placeholder="northwind_distribution" autocomplete="off">
+        <span class="faint tiny">Lower case, digits and _. It can't change after.</span></label>
+      <label>Who's editing?<input class="rq-in" name="editor" required value="${esc(window.Req?.R.editor || "")}" placeholder="Your name"></label>
+      <div class="newproj-go"><button class="btn primary">Create the project</button><span class="faint" id="newproj-msg"></span></div>
+    </form></div>`);
+  const f = $("#newproj-form"), taken = new Set(p.projects.map((x) => x.slug));
+  let auto = true;
+  f.elements.name.focus();
+  f.elements.name.addEventListener("input", () => {
+    if (!auto) return;
+    let slug = slugOf(f.elements.name.value), base = slug, n = 2;
+    while (taken.has(slug)) slug = `${base}_${n++}`;
+    f.elements.slug.value = slug;
+  });
+  f.elements.slug.addEventListener("input", () => { auto = !f.elements.slug.value; });
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(f));
+    $("#newproj-msg").textContent = "Creating…";
+    try {
+      window.Req?.setEditor?.(d.editor);
+      const r = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json", "X-Editor": encodeURIComponent(d.editor.trim()) },
+        body: JSON.stringify({ slug: d.slug.trim(), name: d.name.trim() }) });
+      if (!r.ok) {
+        const detail = (await r.json().catch(() => ({}))).detail;
+        throw new Error(typeof detail === "string" ? detail : detail?.message || r.statusText);
+      }
+      try { localStorage.setItem("studio.view", "req"); localStorage.setItem("studio.req.screen", "overview"); } catch { /* private window */ }
+      location.reload();
+    } catch (err) { $("#newproj-msg").textContent = err.message; }
+  });
 }
 
 (async function init() {

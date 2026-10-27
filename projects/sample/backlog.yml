@@ -1,5 +1,5 @@
-# Metrics the business wants that have no definition yet. Compiled from the
-# requirements tool (contract C8).
+# Metrics the business wants that have no formula yet. The Requirements tab
+# adds them here; building one moves it to models/semantic/metrics.yml.
 #
 #   placeholder   the data exists; the business has not defined the metric
 #   blocked       the data does not exist in any source system

@@ -68,6 +68,8 @@ def _apply(sc: dict) -> None:
     global COMPANIES, SITES, SITE_CODES, COMPANY_OF_SITE, SITES_BY_COUNTRY, ITEM_CATS, CAT_WEIGHTS
     global PROD_NOUNS, PROD_ADJ, PROD_SIZE, CUST_A, CUST_B, CUST_C, FIRST, LAST, US_CITIES, CA_CITIES
     global FUNCTION_PROFILES, DEPARTMENT_OF_PROFILE, HUBSPOT_TEAMS, FREIGHT
+    if not sc:
+        return  # a project in requirements only: no sources to simulate yet
     SEED = sc["seed"]
     START = sc["start"]
     #: The day the platform is first loaded. The clock starts here.

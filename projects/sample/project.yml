@@ -1,5 +1,5 @@
-# Sample Project: the requirements tool's sample workspace (a fictional
-# distributor) on the architecture.
+# Sample Project: a fictional distributor, from its requirements to a running
+# pipeline on the architecture.
 name: Sample Project
 slug: sample
 # Source systems in use. Each needs a simulator (sources/simulators/) and a

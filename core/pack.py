@@ -20,6 +20,9 @@ rejected when it holds:
   metrics that don't exist, or a generated seed out of step with them
   (core/requirements)
 
+A project with no source systems yet (`systems: []`) is in requirements only:
+it has nothing to generate, so its scenario.yml may be empty. `new()` makes one.
+
     projects/<slug>/
       project.yml  scenario.yml  dbt_project.yml  packages.yml
       ingestion/specs/<system>.yml  ingestion/schemas/<system>.schema.yaml
@@ -33,6 +36,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
 import sys
 
 import yaml
@@ -132,11 +136,11 @@ def check(slug: str) -> list[str]:
         problems.append(f"project.yml: pinned to architecture {cfg.get('architecture')}, "
                         f"the platform is {platform_version()} - upgrading is a reviewed change")
 
-    # scenario.yml
+    # scenario.yml: required once there are sources to simulate
     scenario = _yaml(pack.scenario)
     for key in sorted(set(scenario) - SCENARIO_KEYS):
         problems.append(f"scenario.yml: unknown key {key!r}")
-    for key in sorted(SCENARIO_KEYS - OPTIONAL_SCENARIO_KEYS - set(scenario)):
+    for key in sorted(SCENARIO_KEYS - OPTIONAL_SCENARIO_KEYS - set(scenario) if systems else ()):
         problems.append(f"scenario.yml: {key!r} is required")
 
     # dbt_project.yml: the template, with only name and vars filled in
@@ -188,3 +192,104 @@ def main(slug: str) -> None:
         print(f"check-pack {slug}: {p}")
     print(f"check-pack {slug}: ok" if not problems else f"check-pack {slug}: {len(problems)} problem(s)")
     sys.exit(1 if problems else 0)
+
+
+# -------------------------------------------------------------- new project --
+
+#: What a new project's files say about themselves. It starts in requirements
+#: only; the build-from-requirements skill adds the build logic.
+_HEADERS = {
+    "people": "The people the requirements name, by id: who owns, who answers, who follows\n"
+              "up. The only file in the project with names in it; every other file refers\n"
+              "to a person by id. A metric's owner in the semantic files is a role, so\n"
+              "picking a person as owner writes their role.",
+    "processes": "Business processes, by code, in display order: the rows of the bus matrix.\n"
+                 "seeds/process.csv is generated from this file. Questions: core/requirements/questions.yml.",
+    "dimensions": "Dimensions, by code, in display order: what the business is measured by, and\n"
+                  "the columns of the bus matrix. Questions: core/requirements/questions.yml.",
+    "bus_matrix": "The bus matrix: each process and the dimensions it is analysed by.",
+    "dashboards": "Dashboards, by code, in display order: the rows of the Measures grid, and how\n"
+                  "each is used. A process dashboard (its code is a process code) takes its\n"
+                  "measures from seeds/process_metric.csv; any other lists them in `slots`.",
+    "measures": "Each measure's discovery answers, by metric name. Its label, description,\n"
+                "owner and caveats are its definition, in the semantic files\n"
+                "(models/semantic/metrics.yml, or backlog.yml until it has a formula).\n"
+                "Questions: core/requirements/questions.yml.",
+    "sketches": "Dashboard sketches, by dashboard code: tiles on a 12-column grid.\n"
+                "Tile kinds: core/requirements/questions.yml (tiles).",
+}
+
+
+def _comment(text: str) -> str:
+    return "".join(f"# {line}\n" if line else "#\n" for line in text.split("\n"))
+
+
+def new(slug: str, name: str | None = None) -> project.Project:
+    """A project folder in requirements only: the platform's dbt template,
+    empty seeds and semantic files, an empty scenario and requirements/. It
+    passes check-pack as it is; nothing is committed."""
+    from checks import blocked_words
+
+    name = " ".join((name or slug.replace("_", " ").title()).split())
+    if not re.fullmatch(r"[a-z][a-z0-9_]{1,39}", slug or ""):
+        raise ValueError("A project's folder name is lower case letters, digits and _, starting with a letter")
+    if os.path.exists(os.path.join(project.PROJECTS, slug)):
+        raise ValueError(f"There is already a project {slug!r}")
+    if blocked_words.found(f"{slug} {name}"):
+        raise ValueError("That name has a blocked word in it: the repo never names the client")
+    pack = project.Project(slug)
+    with open(os.path.join(project.PLATFORM, "project_template.yml")) as fh:
+        template = fh.read()
+    body = template[template.index("name: __project__"):].replace("__project__", slug)
+    files = {
+        "project.yml": f"# {name}: in requirements. Made by `python -m ctl new-project`; the build\n"
+                       "# logic - source systems, sample data, SQL, measure formulas - comes when\n"
+                       "# the project is built (.claude/skills/build-from-requirements).\n"
+                       f"name: {yaml.safe_dump(name).splitlines()[0]}\nslug: {slug}\n"
+                       "# Source systems in use: none until it is built. Each needs a simulator\n"
+                       "# (sources/simulators/) and a staging adapter (transform/platform/models/silver/staging/<system>/).\n"
+                       "systems: []\nmdm_provider: splink\n"
+                       "# The architecture version this project is built against (transform/platform).\n"
+                       f"architecture: {platform_version()}\n"
+                       "# Measure slots per dashboard row on the Requirements tab.\nslots: 4\n",
+        "dbt_project.yml": "# Generated from transform/platform/project_template.yml: only `name` and\n"
+                           "# `vars` may differ from it (python -m ctl check-pack).\n" + body,
+        "packages.yml": "packages:\n  - local: ../../transform/platform\n  - package: dbt-labs/dbt_utils\n"
+                        "    version: [\">=1.3.0\", \"<2.0.0\"]\n",
+        "scenario.yml": "# The synthetic sources' settings (sources/generate.py reads them). Empty\n"
+                        "# until the project has source systems: there is nothing to generate yet.\n{}\n",
+        "backlog.yml": "# Measures the business asked for that have no formula yet. The Requirements\n"
+                       "# tab adds them here; building one moves it to models/semantic/metrics.yml.\n#\n"
+                       "#   placeholder   the data exists; the business has not defined the metric\n"
+                       "#   blocked       the data does not exist in any source system\n\nmetrics: []\n",
+        "golden_answers.yml": "# Golden answers: the acceptance test every semantic engine and BI tool must\n"
+                              "# pass. None until a measure has a number; freeze them with\n"
+                              "# `python -m evaluation.golden freeze` once the project is built.\n\n"
+                              "version: 1\nas_of: null\ntolerance: 1.0e-06\nqueries: []\n",
+        "models/semantic/metrics.yml": "# The metrics: each KPI's formula and its definition. Empty until the\n"
+                                       "# first measure is built; until then they wait in backlog.yml.\n\nmetrics: []\n",
+        "models/semantic/semantic_models.yml": "# Semantic models over the gold tables: written when the project is built.\n\n"
+                                               "semantic_models: []\n",
+        "models/semantic/saved_queries.yml": "# Saved queries: one per dashboard cube. Written when the project is built.\n\n"
+                                             "saved_queries: []\n",
+        "seeds/department.csv": "department_code,department_name,display_order\nUNASSIGNED,Unassigned,99\n",
+        "seeds/process_metric.csv": "process_code,metric_name,slot,display_order\n",
+        "seeds/department_metric.csv": "department_code,process_code,metric_name,influence\n",
+        "docs/open_questions.md": f"# Open questions\n\nWhat {name}'s numbers will assume, and what reversing each costs.\n",
+        **{f"requirements/{f}.yml": _comment(_HEADERS[f]) for f in requirements.FILES},
+    }
+    try:
+        for rel, text in files.items():
+            os.makedirs(os.path.dirname(pack.path(rel)), exist_ok=True)
+            with open(pack.path(rel), "w") as fh:
+                fh.write(text)
+        requirements.regenerate(pack)
+        problems = check(slug)
+        if problems:
+            raise ValueError("The new project doesn't pass check-pack: " + "; ".join(problems))
+    except Exception:
+        import shutil
+
+        shutil.rmtree(pack.root, ignore_errors=True)
+        raise
+    return pack

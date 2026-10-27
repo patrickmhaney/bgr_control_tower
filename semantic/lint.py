@@ -14,7 +14,7 @@ runs every rule but the gold contracts on the YAML as written, with no parse:
 * metric labels are unique within the project, backlog included (dbt already
   rejects a duplicate name; nothing else stops two metrics both called "$ Sales")
 * a metric's meta uses only the governance keys; `requirement` traces it to the
-  dashboard slot that asked for it (e.g. O2C-M1, contract C8)
+  dashboard slot in the project's requirements that asked for it (e.g. O2C-M1)
 * every gold model has an enforced contract and an owner
 """
 from __future__ import annotations

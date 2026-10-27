@@ -5,7 +5,8 @@
 
 const Dash = (() => {
   const D = { pages: null, page: null, metric: null, period: "month", asof: null, filters: {}, dim: null,
-    split: false, sort: null, search: "", showAll: false, res: null };
+    split: false, sort: null, search: "", showAll: false, res: null, layout: "sketch", sk: null };
+  const sketched = () => !!D.pages && page()?.sketch && D.layout === "sketch";
   const PERIODS = [["month", "Month"], ["qtd", "QTD"], ["ytd", "YTD"], ["12m", "12M"]];
   const ALL = "__all";
   const page = () => D.pages.find((p) => p.id === D.page);
@@ -47,18 +48,28 @@ const Dash = (() => {
     if (D.asof) qs.set("asof", D.asof);
     if (D.dim) qs.set("dim", D.dim);
     if (Object.keys(D.filters).length) qs.set("filters", JSON.stringify(D.filters));
-    try { D.res = await api(`/api/dashboards/${D.page}?${qs}`); }
+    try {
+      if (sketched()) {
+        qs.delete("metric"); qs.delete("dim");
+        D.sk = await api(`/api/dashboards/${D.page}/sketch?${qs}`);
+        D.res = D.sk.base;
+      } else D.res = await api(`/api/dashboards/${D.page}?${qs}`);
+    }
     catch (e) { main.classList.remove("loading"); main.innerHTML = busyHTML(e.message); return; }
     D.metric = D.res.metric;
-    render();
+    if (sketched()) renderSketch(); else render();
     main.classList.remove("loading");
   }
+
+  const layoutSwitch = (p) => (p.sketch ? `<div class="segmented sm sk-switch" title="The sketch is requirements/sketches.yml; the standard layout shows every metric on the page.">
+    <button data-dlayout="sketch" class="${D.layout === "sketch" ? "active" : ""}">As sketched</button>
+    <button data-dlayout="standard" class="${D.layout === "standard" ? "active" : ""}">Standard</button></div>` : "");
 
   /* ------------------------------------------------------------- render */
   function render() {
     const res = D.res, p = page(), sel = metaOf(res.metric);
     const others = p.dims.filter((d) => d.id !== "metric_time__month");
-    const html = [header(p, res), filterBar(p, res, others)];
+    const html = [header(p, res), layoutSwitch(p), filterBar(p, res, others)];
     const bars = barsHTML(res, sel, others);
     const few = res.cards.length <= (bars ? 1 : 2);
     const trendPanel = trendHTML(res, sel, others, !bars && !few);
@@ -78,7 +89,10 @@ const Dash = (() => {
     if (slot && D.trendCfg) slot.innerHTML = Charts.trend({ ...D.trendCfg, width: Math.max(slot.clientWidth, 320) });
   }
   let resizing;
-  window.addEventListener("resize", () => { clearTimeout(resizing); resizing = setTimeout(drawTrend, 120); });
+  window.addEventListener("resize", () => {
+    clearTimeout(resizing);
+    resizing = setTimeout(() => { if (sketched() && D.sk && $("#view-dash").classList.contains("active")) renderSketch(); else drawTrend(); }, 120);
+  });
 
   function header(p, res) {
     const today = S.state?.clock?.today;
@@ -115,6 +129,86 @@ const Dash = (() => {
       ${slicers}
       ${Object.keys(res.filters).length ? `<button class="linkbtn" id="dash-clear">Clear filters</button>` : ""}
       <div class="fsum">${summary}</div></div>`;
+  }
+
+  /* ----------------------------------------------------- as sketched */
+  // The page laid out as the business sketched it on the Requirements tab: each tile where it was drawn,
+  // showing what it asked for. A tile the cube can't honour says why instead of guessing.
+  const UNIT = 72;
+  function renderSketch() {
+    const res = D.res, p = page(), sk = D.sk;
+    D.skTrends = [];
+    const tiles = sk.tiles.map((t, i) => {
+      const style = `grid-column:${t.x + 1} / span ${t.w};grid-row:${t.y + 1} / span ${t.h}`;
+      let body;
+      try { body = t.issue ? issueHTML(t) : tileHTML(t, i, res, sk); }
+      catch (e) { body = issueHTML({ ...t, issue: e.message }); }
+      return `<div class="sk-tile sk-${esc(t.kind)}" style="${style}" ${t.cube_dim && t.cube_dim !== "metric_time__month" ? `data-skdim="${esc(t.cube_dim)}"` : ""}>${body}</div>`;
+    }).join("");
+    const rows = Math.max(...sk.tiles.map((t) => t.y + t.h), 1);
+    $("#dash-main").innerHTML = [header(p, res), layoutSwitch(p),
+      `<div class="sk-note faint">Laid out from this dashboard's sketch on the Requirements tab (<span class="mono">requirements/sketches.yml</span>, ${esc(p.code)}).
+        Every number is the cube's, through the same templates as the standard layout and Power BI.</div>`,
+      `<div class="sk-grid" style="grid-template-rows:repeat(${rows}, minmax(${UNIT}px, auto))">${tiles}</div>`, lineage(p, res)].join("");
+    for (const [id, cfg] of D.skTrends) {
+      const slot = document.getElementById(id);
+      if (slot) slot.innerHTML = Charts.trend({ ...cfg, width: Math.max(slot.clientWidth, 260) });
+    }
+  }
+
+  const tileHead = (title, sub) => `<div class="sk-h"><b>${esc(title)}</b>${sub ? `<span class="faint">${esc(sub)}</span>` : ""}</div>`;
+  const issueHTML = (t) => `<div class="sk-issue">${tileHead(t.title || ({ kpi: "Headline number", line: "Trend", bar: "Comparison", table: "Table", filter: "Filter", text: "Note" }[t.kind]))}
+    <p>${esc(t.issue)}</p></div>`;
+
+  function tileHTML(t, i, res, sk) {
+    const m = t.measure ? metaOf(t.measure) : null;
+    if (t.kind === "text") return `${tileHead(t.title || "Note")}<p class="sk-text">${esc(t.note || "")}</p>`;
+    if (t.kind === "filter") return filterTile(t, res);
+    if (t.kind === "kpi") {
+      if (!m) return issueHTML({ ...t, issue: "No measure chosen for this headline number yet." });
+      return cardHTML(res.cards.find((c) => c.metric === t.measure), res);
+    }
+    const part = sk.parts[t.part], sel = metaOf(part.metric);
+    if (t.kind === "line") {
+      const tr = part.trend;
+      let from = tr.months.findIndex((_, k) => typeof tr.values[k] === "number" || typeof tr.prior[k] === "number");
+      if (from < 0) from = 0;
+      const id = `sk-trend-${i}`;
+      D.skTrends.push([id, { months: tr.months.slice(from), fmt: sel.fmt, partial: tr.partial, band: [res.window.start, res.window.end],
+        height: t.h * UNIT - 62, additive: sel.kind === "sum",
+        series: [{ label: "This year", values: tr.values.slice(from), area: true },
+          { label: "A year earlier", values: tr.prior.slice(from), color: "var(--ink-3)", dash: true }] }]);
+      return `${tileHead(t.title || `${sel.label} by month`, "dashed: a year earlier")}<div class="sk-chart" id="${id}">${tr.note ? `<div class="empty">${esc(tr.note)}</div>` : ""}</div>`;
+    }
+    const tb = part.table;
+    if (!tb || !tb.rows.length) return issueHTML({ ...t, issue: `${sel.label} doesn't break down on this page${sel.kind === "fixed" ? ": it is a fixed value at the cube's own grain" : ""}.` });
+    const cmp = part.comparisons.find((c) => c.key === part.first_cmp).label;
+    if (t.kind === "bar") {
+      let rows = tb.rows.slice(0, Math.max(3, t.h * 2)).map((r) => ({ label: r.label, value: r.cur[sel.id], prev: r.cmp[sel.id] }))
+        .filter((r) => typeof r.value === "number");
+      const asc = sel.kind !== "sum" && sel.better === "down";
+      rows = rows.sort((a, b) => (asc ? a.value - b.value : b.value - a.value));
+      return `${tileHead(t.title || `${sel.label} by ${tb.label.toLowerCase()}`, `${res.window.label} · tick: ${cmp.replace(/^vs /, "")}`)}
+        ${Charts.hbars({ rows, fmt: sel.fmt, better: sel.better, reference: sel.kind === "sum" ? null : tb.total.cur[sel.id], refLabel: "All",
+          selected: tb.dim in res.filters ? res.filters[tb.dim] : undefined, cmpLabel: cmp })}`;
+    }
+    const shown = [sel, ...tb.metrics.map(metaOf).filter((x) => x.id !== sel.id)].slice(0, 4);
+    return `${tileHead(t.title || `${tb.label} scorecard`, `${res.window.label} · change ${cmp}`)}
+      <div class="tablewrap"><table class="grid-table narrow"><thead><tr><th>${esc(tb.label)}</th>${shown.map((x) => `<th class="num ${x.id === sel.id ? "hl" : ""}">${esc(x.label)}</th>`).join("")}</tr></thead>
+      <tbody>${tb.rows.slice(0, 50).map((r) => `<tr data-xfilter="${esc(JSON.stringify(r.label))}"><td>${esc(r.label ?? "(blank)")}</td>
+        ${shown.map((x) => `<td class="num ${x.id === sel.id ? "hl" : ""}">${fmtNum(r.cur[x.id], x.fmt)} ${chg(r.cur[x.id], r.cmp[x.id], x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  }
+
+  function filterTile(t, res) {
+    if (t.cube_dim === "metric_time__month") {
+      return `${tileHead(t.title || "Period")}<div class="sk-period"><div class="segmented sm">${PERIODS.map(([k, l]) =>
+        `<button data-dperiod="${k}" class="${k === res.period ? "active" : ""}">${l}</button>`).join("")}</div>
+        <select id="dash-asof">${res.months.map((mo) => `<option value="${mo.value}" ${mo.value === res.asof ? "selected" : ""}>${esc(mo.label)}</option>`).join("")}</select></div>`;
+    }
+    const d = t.cube_dim, cur = d in res.filters ? JSON.stringify(res.filters[d]) : ALL, enc = (v) => esc(JSON.stringify(v));
+    return `${tileHead(t.title || t.dimension_label)}<select data-dfilter="${esc(d)}" class="${cur !== ALL ? "set" : ""}">
+      <option value="${ALL}">All ${esc(plural(t.dimension_label).toLowerCase())}</option>
+      ${(res.filter_options[d] || []).map((v) => `<option value="${enc(v)}" ${JSON.stringify(v) === cur ? "selected" : ""}>${esc(v ?? "(blank)")}</option>`).join("")}</select>`;
   }
 
   /* --------------------------------------------------------------- cards */
@@ -399,8 +493,10 @@ const Dash = (() => {
     if (gopen) return Gov.open(gopen.dataset.gopen);
     const def = e.target.closest("[data-ddef]");
     if (def) { e.stopPropagation(); return openDrawer(defHTML(metaOf(def.dataset.ddef))); }
-    const t = e.target.closest("[data-dpage], [data-dmetric], [data-dperiod], [data-dsplit], [data-dsort], [data-xfilter], button");
+    const t = e.target.closest("[data-dpage], [data-dmetric], [data-dperiod], [data-dsplit], [data-dsort], [data-xfilter], [data-dlayout], button");
     if (!t || !root().contains(t)) return;
+    if (t.dataset.dlayout) { D.layout = t.dataset.dlayout; return refresh(); }
+    if (sketched() && t.dataset.dmetric) return;
     if (t.dataset.dpage) {
       Object.assign(D, { page: t.dataset.dpage, metric: null, dim: null, filters: {}, sort: null, search: "", showAll: false, split: false });
       renderNav(); return refresh();
@@ -414,7 +510,8 @@ const Dash = (() => {
       return render();
     }
     if (t.dataset.xfilter !== undefined) {
-      const dim = D.res.table ? D.res.table.dim : D.res.breakdown?.dim;
+      const sk = t.closest("[data-skdim]");
+      const dim = sk ? sk.dataset.skdim : D.res.table ? D.res.table.dim : D.res.breakdown?.dim;
       if (dim) return setFilter(dim, JSON.parse(t.dataset.xfilter));
     }
     switch (t.id) {

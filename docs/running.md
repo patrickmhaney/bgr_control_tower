@@ -51,8 +51,8 @@ orchestrator could call:
 | `python -m ctl run` | The daily pipeline |
 | `python -m ctl powerbi` | Regenerate the Power BI model and parity queries (files in git; only when the semantic layer changes) |
 | `python -m ctl check-pack [slug]` | The pack fills the fixed slots only: no Python, the template `dbt_project.yml`, known keys, one bronze model per spec table |
-| `python -m ctl preview [--changed PATH ...]` | Rebuild what compiled requirements changed: the changed seeds and their dependents, the semantic manifest, the lint, the cubes (the whole pipeline for a pack never built) |
-| `python -m ctl kpis` | Each KPI's latest full month and the month before, as JSON (what the requirements tool's preview shows) |
+| `python -m ctl new-project SLUG [--name NAME]` | A project in requirements only, from the platform template: no source systems yet, empty seeds and semantic files, an empty `requirements/` (the Studio's New project does the same and commits it) |
+| `python -m ctl kpis` | Each KPI's latest full month and the month before, as JSON (a sanity check after a build) |
 
 ## The Studio
 

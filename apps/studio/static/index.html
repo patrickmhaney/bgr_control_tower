@@ -3,19 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dry Fit</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233e5bd8'/%3E%3Cstop offset='1' stop-color='%236d4ae0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url%28%23g%29'/%3E%3Cpath d='M6 11H14.5A6.5 6.5 0 0 1 21 17.5V20' fill='none' stroke='white' stroke-width='5'/%3E%3Crect x='4.5' y='6.5' width='3.5' height='9' rx='1.2' fill='white'/%3E%3Crect x='16.5' y='19' width='9' height='3.5' rx='1.2' fill='white'/%3E%3Cpath d='M21 24.2C21 24.2 19 26.4 19 27.6A2 2 0 0 0 23 27.6C23 26.4 21 24.2 21 24.2Z' fill='white' fill-opacity='.75'/%3E%3C/svg%3E">
+  <title>Conduit</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101828'/%3E%3Cpath d='M21.5 10.8A7.5 7.5 0 1 0 21.5 21.2' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='16' r='2.25' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/studio.css">
   <link rel="stylesheet" href="/static/req.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="brand-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3e5bd8"/><stop offset="1" stop-color="#6d4ae0"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#brand-g)"/><path d="M6 11H14.5A6.5 6.5 0 0 1 21 17.5V20" fill="none" stroke="#fff" stroke-width="5"/><rect x="4.5" y="6.5" width="3.5" height="9" rx="1.2" fill="#fff"/><rect x="16.5" y="19" width="9" height="3.5" rx="1.2" fill="#fff"/><path d="M21 24.2C21 24.2 19 26.4 19 27.6A2 2 0 0 0 23 27.6C23 26.4 21 24.2 21 24.2Z" fill="#fff" fill-opacity=".75"/></svg>
-      <span class="brand-name">Dry Fit</span>
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#101828"/><path d="M21.5 10.8A7.5 7.5 0 1 0 21.5 21.2" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.25" fill="#fff"/></svg>
+      <span class="brand-name">Conduit</span>
     </div>
     <nav class="tabs">
+      <button class="tab" data-view="process">How It Works</button>
       <button class="tab" data-view="req">Requirements</button>
+      <span class="tabsep"></span>
       <button class="tab active" data-view="map">Architecture</button>
       <button class="tab" data-view="run">Run the pipeline</button>
       <span class="tabsep"></span>
@@ -33,14 +35,87 @@
   </header>
 
   <main>
+    <!-- ======================================================= process -->
+    <section class="view" id="view-process">
+      <div class="preview-head">
+        <div>
+          <h1>How It Works</h1>
+          <p>How a reporting need goes from a business request to working numbers, and how it stays current after that.</p>
+        </div>
+      </div>
+
+      <div class="panel pr-panel">
+        <div class="pr-key">
+          <span><i class="pr-dot biz"></i>Business</span>
+          <span><i class="pr-dot data"></i>Data team</span>
+          <span><i class="pr-dot both"></i>Together</span>
+        </div>
+        <ol class="pr-flow">
+          <li class="pr-step biz">
+            <div class="pr-num">1</div>
+            <h3>Define</h3>
+            <p>Describe the business processes, the measures that matter, how to break them down, and sketch each dashboard.</p>
+            <button class="pr-where" data-view="req">Requirements</button>
+          </li>
+          <li class="pr-step both">
+            <div class="pr-num">2</div>
+            <h3>Review</h3>
+            <p>Give every measure an owner, answer open questions and agree which measures are ready to build.</p>
+            <button class="pr-where" data-view="req">Requirements</button>
+          </li>
+          <li class="pr-step data">
+            <div class="pr-num">3</div>
+            <h3>Build</h3>
+            <p>Connect the source systems, model the data and implement each measure exactly as defined.</p>
+            <button class="pr-where" data-view="map">Architecture</button>
+          </li>
+          <li class="pr-step data">
+            <div class="pr-num">4</div>
+            <h3>Test</h3>
+            <p>Check every measure against an expected answer. A number that changes is flagged and explained.</p>
+            <button class="pr-where" data-view="gov">Governance</button>
+          </li>
+          <li class="pr-step data">
+            <div class="pr-num">5</div>
+            <h3>Run</h3>
+            <p>Load the source data each business day and refresh every number and dashboard.</p>
+            <button class="pr-where" data-view="run">Run the pipeline</button>
+          </li>
+          <li class="pr-step biz">
+            <div class="pr-num">6</div>
+            <h3>Use and sign off</h3>
+            <p>Review the dashboards, compare them with trusted reports and approve each measure.</p>
+            <button class="pr-where" data-view="dash">Dashboards</button>
+          </li>
+        </ol>
+        <div class="pr-loop">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><b>Keep it current.</b> New requests and changes start again at step 1. Wording and ownership changes take
+            effect straight away; a change to how a number is calculated is reviewed by the business and the data team, then
+            rebuilt and retested.</div>
+        </div>
+      </div>
+
+      <div class="panel pr-panel">
+        <h3>The life of a measure</h3>
+        <p class="sub">The status each measure carries, shown on the Requirements and Governance pages.</p>
+        <ol class="pr-states">
+          <li><span class="gstat placeholder">placeholder</span><span>Defined by the business, not built yet.</span></li>
+          <li><span class="gstat provisional">provisional</span><span>Built and tested, not yet checked against a trusted report.</span></li>
+          <li><span class="gstat active">active</span><span>Signed off by its owner. The official number.</span></li>
+        </ol>
+        <p class="pr-aside"><span class="gstat blocked">blocked</span> The data isn't in any connected system yet. The measure waits
+          until it is.</p>
+      </div>
+    </section>
+
     <!-- ================================================== requirements -->
     <section class="view" id="view-req">
       <div class="preview-head">
         <div>
           <h1>Requirements</h1>
-          <p>What the business asked for: processes, dimensions, measures and dashboard sketches, in the project's
-            <span class="mono">requirements/</span> files. A measure's definition is the same lines the Governance page shows.
-            Changes save as you type, each one a git commit in the name under Who's editing.</p>
+          <p>The business processes to report on, how each is broken down, the measures to track and a sketch of each
+            dashboard. Changes save automatically and are recorded under your name.</p>
         </div>
       </div>
       <div class="rq-bar" id="rq-bar"></div>
@@ -85,6 +160,7 @@
 
     <!-- ====================================================== run view -->
     <section class="view" id="view-run">
+      <div id="run-unbuilt" hidden></div>
       <div id="run-setup" class="panel setup" hidden>
         <h2>Initialize</h2>
         <p>Creates the simulated Sage X3, HubSpot and Netstock data as of day 0 and runs the pipeline once.

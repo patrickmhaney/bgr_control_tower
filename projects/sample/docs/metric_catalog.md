@@ -41,7 +41,7 @@ Base models: fct_inventory_count_line.
 
 In cubes: `mart_company_monthly`, `mart_i2d`; rolls up as `ratio`.
 
-**Provisional reason.** Still in progress in the requirements tool.
+**Provisional reason.** Its requirements interview is still in progress.
 
 > Caveat: Not sure whether this is by item or by location. Cycle counts happen monthly.
 
@@ -59,7 +59,7 @@ Base models: fct_sales_order_line.
 
 In cubes: `mart_company_monthly`, `mart_o2c`; rolls up as `ratio`.
 
-**Provisional reason.** Still in progress in the requirements tool.
+**Provisional reason.** Its requirements interview is still in progress.
 
 Can be cut by: `customer__country_code`, `customer__customer_group_code`, `customer__customer_name`, `customer__first_seen_date__day`, `customer__first_seen_date__fiscal_quarter`, `customer__first_seen_date__fiscal_year`, `customer__first_seen_date__month`, `customer__first_seen_date__quarter`, `customer__first_seen_date__week`, `customer__first_seen_date__year`, `customer__industry`, `customer__payment_term_code`, `customer__primary_rep_name`, `customer__source_scope`, `employee__crm_team_name`, `employee__department_code`, `employee__department_name`, `employee__employee_name`, `employee__function_profile`, `item__best_abc_class`, `item__item_category_code`, `item__item_description`, `item__item_status`, `sales_order_line__is_cancelled`, `sales_order_line__order_date__day`, `sales_order_line__order_date__fiscal_quarter`, `sales_order_line__order_date__fiscal_year`, `sales_order_line__order_date__month`, `sales_order_line__order_date__quarter`, `sales_order_line__order_date__week`, `sales_order_line__order_date__year`, `sales_order_line__order_status`, `site__city`, `site__company_name`, `site__country_code`, `site__site_name`, and `metric_time` at day, week, month, quarter, year or fiscal grains.
 
@@ -75,7 +75,7 @@ Base models: fct_supplier_invoice_line.
 
 In cubes: `mart_company_monthly`, `mart_p2p`; rolls up as `ratio`.
 
-**Provisional reason.** Still in progress in the requirements tool.
+**Provisional reason.** Its requirements interview is still in progress.
 
 Can be cut by: `employee__crm_team_name`, `employee__department_code`, `employee__department_name`, `employee__employee_name`, `employee__function_profile`, `item__best_abc_class`, `item__item_category_code`, `item__item_description`, `item__item_status`, `site__city`, `site__company_name`, `site__country_code`, `site__site_name`, `supplier__supplier_name`, `supplier_invoice_line__invoice_date__day`, `supplier_invoice_line__invoice_date__fiscal_quarter`, `supplier_invoice_line__invoice_date__fiscal_year`, `supplier_invoice_line__invoice_date__month`, `supplier_invoice_line__invoice_date__quarter`, `supplier_invoice_line__invoice_date__week`, `supplier_invoice_line__invoice_date__year`, `supplier_invoice_line__match_result`, and `metric_time` at day, week, month, quarter, year or fiscal grains.
 
@@ -97,7 +97,7 @@ Can be cut by: `carrier__carrier_name`, `carrier__transport_mode`, `customer__co
 
 <a id="days_sales_outstanding"></a>`days_sales_outstanding` · **placeholder** · owner Finance
 
-
+How long, on average, customers take to pay us.
 
 
 **Placeholder reason.** The agreed formula needs month-end receivable balances, which the warehouse doesn't hold yet.

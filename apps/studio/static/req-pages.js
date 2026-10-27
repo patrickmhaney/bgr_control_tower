@@ -91,19 +91,6 @@
     ? ![UNOWNED, ""].includes(R.data.measures[key].definition.owner || "")
     : !!whoText(entry(kind, key).answers?.owner));
 
-  // What a measure with no number is waiting for, in words.
-  function waiting(name) {
-    const m = R.data.measures[name], d = m.definition, a = m.answers || {};
-    const out = [];
-    if (!(a.formula || "").trim()) out.push("how it's calculated (question 3)");
-    const unmapped = [...(a.sources || [])].filter((s) => !R.data.project.business_systems[s]);
-    if (unmapped.length) out.push(`${unmapped.join(", ")} connected as a source`);
-    if (d.status === "blocked") out.push("data no source system has");
-    for (const u of d.unblock_requires || []) out.push(u.replace(/\.$/, ""));
-    if (!isOwned("measure", name)) out.push("an owner");
-    return out;
-  }
-
   pages.overview = {
     draw(main) {
       const P = procs(), D = dims(), M = onGrid(), dashboards = Object.keys(R.data.dashboards);
@@ -135,13 +122,6 @@
       const unsketched = dashboards.filter((c) => !sketched.includes(c) && onDashboard(c).length);
       if (unsketched.length) need(`${unsketched.join(", ")} ${unsketched.length === 1 ? "has" : "have"} measures but no sketch.`, "sketches", "Sketch");
 
-      const backlog = Object.keys(R.data.measures).filter((n) => R.data.measures[n].definition.file === "backlog.yml");
-      const notBuilt = backlog.map((n) => {
-        const w = waiting(n), m = R.data.measures[n];
-        return `<li><div><button class="linkbtn" data-rq="open" data-k="measure" data-v="${esc(n)}">${esc(m.definition.label || n)}</button> ${mstat(m.definition.status)}
-          ${m.definition.reason ? `<div class="faint">${esc(m.definition.reason)}</div>` : ""}</div>
-          <div class="rq-wait">${w.length ? `Waiting for ${w.map(esc).join("; ")}.` : `<span class="rq-ready">Ready to build</span>`}</div></li>`;
-      }).join("");
       const problems = R.data.problems.length ? `<div class="panel rq-problems"><h3>The files have ${plural(R.data.problems.length, "problem")}</h3>
         <p class="sub">Probably from an edit made outside the Studio. Saves still work; fix these in the files.</p>
         <ul>${R.data.problems.map((p) => `<li class="mono">${esc(p)}</li>`).join("")}</ul></div>` : "";
@@ -158,11 +138,14 @@
         </div>
         <div class="rq-ovgrid">
           <div class="panel"><h3>Needs attention</h3><ul class="rq-todo">${todo.join("") || `<li class="faint">Nothing outstanding.</li>`}</ul></div>
-          <div class="panel"><h3>Not built yet</h3>
-            <p class="sub">Measures the business asked for that have no number yet, and what each is waiting for. To build the ready ones,
-              ask Claude Code to "build the measures that are ready". A definition edited later needs no build.</p>
-            <ul class="rq-notbuilt">${notBuilt || `<li class="faint">Every measure asked for has a number.</li>`}</ul></div>
-        </div>`;
+        </div>
+        <div class="panel rq-exports"><h3>Hand it round</h3>
+          <p class="sub">Generated from the files as they are now, for Confluence, SharePoint, a wiki or a spreadsheet.</p>
+          <div class="rq-exportrow">${[["handbook.md", "Handbook", "Everything, in the order the work is done"],
+            ["catalogue.md", "Measure catalogue", "Each measure's answers, by dashboard"],
+            ["measures.csv", "Measures CSV", "One row per measure"], ["bus-matrix.csv", "Bus matrix CSV", "Processes by dimensions"]]
+            .map(([f, l, s]) => `<a class="rq-export" href="/api/requirements/export/${f}${f.endsWith(".md") ? "" : "?download=1"}" target="_blank" rel="noopener">
+              <b>${esc(l)}</b><span class="faint">${esc(s)}</span></a>`).join("")}</div></div>`;
     },
   };
 
@@ -257,6 +240,32 @@
   const mnames = (list) => list.map((n) => label("measure", n)).join(", ");
   const dname = (d) => R.data.dimensions[d]?.name || d;
 
+  /* Each tick against the measure formulas: can a built measure on that process be cut by that dimension?
+     /api/requirements/coverage says what each built KPI can be grouped by, in dimension codes. */
+  const measuresOf = (p) => Object.keys(R.data.measures).filter((n) => processOf(n) === p);
+  function honoured(p, d) {
+    const cov = pages.bus.coverage;
+    if (!cov?.available) return null;
+    const built = measuresOf(p).filter((n) => n in cov.metrics);
+    if (!built.length) return null;
+    if (!cov.known.includes(d)) return { ok: false, why: `No built measure can be cut by ${dname(d)} yet: the semantic layer has no such dimension.` };
+    const good = built.filter((n) => cov.metrics[n].includes(d));
+    return good.length ? { ok: true, measures: good }
+      : { ok: false, why: `None of ${label("process", p)}'s built measures (${mnames(built)}) can be cut by ${dname(d)}.` };
+  }
+  function loadCoverage() {
+    const bus = pages.bus;
+    if (bus.coverageOf === R.data || bus.loading) return;
+    bus.loading = true;
+    const of = R.data;
+    api("/api/requirements/coverage").catch(() => ({ available: false })).then((c) => {
+      bus.loading = false;
+      bus.coverage = c;
+      bus.coverageOf = of;
+      if (R.screen === "bus") Req.draw();
+    });
+  }
+
   function tick(p, d, on) {
     const order = Object.keys(R.data.dimensions);
     const list = (R.data.bus_matrix[p] || []).filter((x) => x !== d).concat(on ? [d] : [])
@@ -265,9 +274,10 @@
   }
 
   pages.bus = {
-    view: null,
+    view: null, coverage: null, coverageOf: null, loading: false,
     draw(main) {
       const P = procs(), D = dims(), sugg = suggestions();
+      loadCoverage();
       if (this.view && !R.data.dashboards[this.view]) this.view = null;
       const v = this.view ? dashboardView(this.view) : null;
       const toolbar = `<div class="rq-toolbar">${addForm("process", "Process name", "+ Process")}${addForm("dimension", "Dimension, e.g. Customer", "+ Dimension")}
@@ -275,7 +285,7 @@
           ${Object.entries(R.data.dashboards).map(([c, d]) => `<option value="${esc(c)}" ${c === this.view ? "selected" : ""}>${esc(c)}${d.name ? ` · ${esc(d.name)}` : ""}</option>`).join("")}</select></label></div>`;
       const guide = `<div class="rq-guide"><b>The bus matrix shows what each process can be analysed by.</b> Tick a box to see that process by that
         dimension. A dimension ticked for several processes is shared, and defined once. Dashed boxes are suggestions from the breakdowns on the measures.
-        Pick a dashboard to see which filters work across all of it.</div>`;
+        A tick marked <span class="rq-warnkey">!</span> is one no built measure on that process can be cut by yet. Pick a dashboard to see which filters work across all of it.</div>`;
       if (!D.length) {
         main.innerHTML = `${guide}${toolbar}<div class="panel empty-state"><b>No dimensions yet.</b><p>Add the things the business slices its numbers by.</p>
           <div class="rq-starters">${["Date", "Customer", "Product", "Site", "Supplier", "Employee"].map((n) => `<button class="btn sm" data-rq="starter" data-k="dimension" data-v="${n}">${n}</button>`).join("")}</div></div>`;
@@ -294,10 +304,10 @@
         const sub = v ? (inView ? mnames(inView.measures) : "Not on this dashboard")
           : [whoText(x.answers?.owner), x.answers?.event ? `Records: ${x.answers.event}` : ""].filter(Boolean).join(" · ") || "No owner yet";
         const cells = D.map(([d]) => {
-          const on = ticked(p, d), s = sugg.get(`${p}:${d}`);
+          const on = ticked(p, d), s = sugg.get(`${p}:${d}`), h = on ? honoured(p, d) : null;
           const fit = !v ? "" : !inView ? "v-out" : v.all.includes(d) ? "v-all" : "";
-          const t = `${x.name || p} by ${dname(d)}`;
-          return `<button class="rq-buscell ${on ? "on" : s ? "sugg" : ""} ${fit}" data-rq="tick" data-k="${esc(p)}" data-v="${esc(d)}" aria-pressed="${on}"
+          const t = `${x.name || p} by ${dname(d)}` + (h ? (h.ok ? `: ${mnames(h.measures)} can be cut by it` : `. ${h.why}`) : "");
+          return `<button class="rq-buscell ${on ? "on" : s ? "sugg" : ""} ${h && !h.ok ? "warn" : ""} ${fit}" data-rq="tick" data-k="${esc(p)}" data-v="${esc(d)}" aria-pressed="${on}"
             title="${esc(on ? t : s ? `Suggested: ${mnames(s)} ${s.length === 1 ? "breaks" : "break"} down by ${dname(d)}` : t)}"><i></i></button>`;
         }).join("");
         return `<button class="rq-busrow ${interview(x)} ${v ? (inView ? "v-in" : "v-out") : ""}" data-rq="open" data-k="process" data-v="${esc(p)}">
@@ -329,7 +339,15 @@
   };
 
   function checksHTML(sugg) {
-    const items = [...sugg].map(([k, ms]) => suggestionItem(k, ms));
+    const items = [];
+    for (const [p] of procs()) {
+      for (const d of R.data.bus_matrix[p] || []) {
+        const h = honoured(p, d);
+        if (h && !h.ok) items.push(`<li class="rq-warnitem"><span><b>${esc(label("process", p))} by ${esc(dname(d))}</b> ${esc(h.why)}
+          Untick it, or ask for a formula that can (build logic).</span></li>`);
+      }
+    }
+    items.push(...[...sugg].map(([k, ms]) => suggestionItem(k, ms)));
     for (const [p, x] of procs()) {
       if (!(R.data.bus_matrix[p] || []).length) items.push(`<li><span>${esc(x.name || p)} has no dimensions ticked.</span></li>`);
       if (!x.answers?.event && !("event" in (x.unknown || {}))) {

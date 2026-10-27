@@ -1,10 +1,14 @@
 """The Governance screen: every metric with its definition, ownership, lifecycle and proof.
 
 Nothing here is written down twice. The catalog is semantic.catalog's (the
-one the data service, the MCP tools and the pack's docs/metric_catalog.md read); the
-measures and their tables come from the compiled manifests; the proof is the
-governance lint run live and the golden answers that name each metric; usage
-is the data service's audit log.
+one the data service, the MCP tools and the pack's docs/metric_catalog.md read),
+with each definition - label, description, owner, status, caveats - read from
+the semantic YAML as it is now, so an edit made here or on the Requirements
+tab shows at once rather than after the next dbt parse. The measures and their
+tables come from the compiled manifests; the proof is the governance lint run
+live and the golden answers that name each metric; usage is the data
+service's audit log. Owner and description are edited through the
+requirements store (core/requirements/store.py), like every other definition.
 """
 from __future__ import annotations
 
@@ -105,13 +109,22 @@ def _rules() -> list[str]:
     return [r.strip() for r in re.findall(r"^\* (.+)$", text, re.M)]
 
 
+def _people() -> dict[str, dict]:
+    """The people named in the requirements, for the owner picker: an owner is a role."""
+    from core import requirements
+
+    people = requirements.load(os.path.join(project.current().requirements, "people.yml"))
+    return {pid: {"name": p.get("name"), "role": p.get("role")} for pid, p in people.items()}
+
+
 def snapshot(service) -> dict:
+    from semantic.catalog import refresh
     from semantic.lint import lint
     from serving.powerbi import Cube, measure_dax
 
     from . import data
 
-    catalog = list(service.catalog.values())
+    catalog = refresh(list(service.catalog.values()))
     measures, uses = _measures()
     golden, usage = _golden(), _usage()
     cube = Cube()
@@ -147,6 +160,30 @@ def snapshot(service) -> dict:
     errors = lint()
     return {"metrics": metrics, "lint": {"rules": _rules(), "errors": errors},
             "golden_total": len({q["id"] for qs in golden.values() for q in qs}),
-            "processes": processes, "departments": departments,
+            "processes": processes, "departments": departments, "people": _people(),
             "measures": sorted(measures.values(), key=lambda m: (m["table"], m["name"])),
             "measure_uses": {ms: sorted(m for m, ins in uses.items() if ms in ins) for ms in measures}}
+
+
+def cuts(dimension: str, code: str) -> bool:
+    """Whether a semantic-layer dimension (customer__region, metric_time__month)
+    honours a requirements dimension code: date is time; any other code names
+    an entity (customer) or an attribute (department in employee__department_name)."""
+    if code == "date":
+        return dimension.startswith("metric_time")
+    entity, *attributes = dimension.split("__")
+    return entity == code or any(a == code or a.startswith(code + "_") for a in attributes)
+
+
+def coverage(service) -> dict:
+    """For the bus matrix: the requirements' dimensions each built KPI can be
+    grouped by, and the ones the semantic layer has at all. The Requirements
+    tab checks each tick against these, so a tick no formula can honour shows."""
+    from core import requirements
+
+    codes = list(requirements.read(project.current())["dimensions"])
+    built = {e["name"]: e.get("valid_dimensions") or [] for e in service.catalog.values()
+             if e["source"] == "metricflow" and e.get("role") == "kpi"}
+    by_metric = {name: [c for c in codes if any(cuts(d, c) for d in dims)] for name, dims in built.items()}
+    return {"available": True, "metrics": by_metric,
+            "known": sorted({c for cs in by_metric.values() for c in cs})}

@@ -36,7 +36,7 @@ from urllib.parse import unquote
 
 import yaml
 from fastapi import Body, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -244,9 +244,9 @@ def _counts() -> dict:
     out = {}
     pack = project.current()
     with open(pack.golden) as fh:
-        golden = yaml.safe_load(fh)
-    out["golden"] = len(golden["queries"])
-    out["as_of"] = str(golden["as_of"])
+        golden = yaml.safe_load(fh) or {}
+    out["golden"] = len(golden.get("queries") or [])
+    out["as_of"] = str(golden["as_of"]) if golden.get("as_of") else None
     try:
         with open(pack.semantic_manifest) as fh:
             metrics = json.load(fh)["metrics"]
@@ -301,10 +301,21 @@ def architecture():
     return content
 
 
+NOT_BUILT = ("This project isn't built yet: it has requirements, but no source systems, SQL or measure formulas. "
+             "To build the measures that are ready, ask Claude Code to build from the requirements.")
+
+
+def _built() -> None:
+    if not project.current().has_pipeline:
+        raise HTTPException(409, NOT_BUILT)
+
+
 def _clock() -> dict:
     from sources import clock
     from sources import generate as g
 
+    if not project.current().has_pipeline:
+        return {"initialised": False, "pipeline": False}
     if not os.path.exists(settings.mock_db):
         return {"initialised": False, "start": g.INITIAL_DATE.isoformat(), "end": g.TIMELINE_END.isoformat()}
     today = clock.status()["today"]
@@ -316,7 +327,8 @@ def _clock() -> dict:
 @app.get("/api/projects")
 def projects():
     return {"current": project.slug(),
-            "projects": [{"slug": s, "name": project.Project(s).name} for s in project.available()]}
+            "projects": [{"slug": s, "name": project.Project(s).name, "built": project.Project(s).has_pipeline}
+                         for s in project.available()]}
 
 
 class ProjectRequest(BaseModel):
@@ -340,6 +352,36 @@ def switch_project(req: ProjectRequest):
     return projects()
 
 
+class NewProjectRequest(BaseModel):
+    slug: str
+    name: str
+
+
+@app.post("/api/projects", status_code=201)
+def new_project(req: NewProjectRequest, x_editor: str | None = Header(None)):
+    """A project in requirements only (core/pack.py new), committed in the editor's name, then opened."""
+    from core.pack import new
+    from core.requirements.store import Store
+
+    editor = unquote(x_editor or "")
+    if not editor.strip():
+        raise HTTPException(422, {"message": "Say who's editing: the new project is committed in their name."})
+    if CURRENT or lock.holder():
+        raise HTTPException(409, data.busy_reason(bool(CURRENT)) or "Wait for the run to finish.")
+    try:
+        pack = new(req.slug.strip(), req.name)
+    except ValueError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
+    try:
+        _saving(lambda: Store(pack).created(editor))
+    except HTTPException:
+        import shutil
+
+        shutil.rmtree(pack.root, ignore_errors=True)
+        raise
+    return switch_project(ProjectRequest(slug=pack.slug))
+
+
 @app.get("/api/state")
 def state():
     # Only read the source database between jobs: the pipeline may be writing it.
@@ -348,7 +390,8 @@ def state():
         clock = _clock()
         STATE["clock"] = clock
     return {"clock": clock, "built": os.path.exists(settings.warehouse_path), "provider": STATE["provider"],
-            "project": {"slug": project.slug(), "name": project.current().name},
+            "project": {"slug": project.slug(), "name": project.current().name,
+                        "pipeline": project.current().has_pipeline},
             "results": STATE["results"], "steps": [{k: s[k] for k in ("id", "title", "lead", "node")}
                                                   | {"checks": s.get("checks", [])} for s in pipeline.STEPS],
             "job": {"id": CURRENT.id, "steps": [s["id"] for s in CURRENT.steps]} if CURRENT else None,
@@ -368,6 +411,7 @@ async def run(req: RunRequest):
         raise HTTPException(409, "A run is already in progress.")
     if lock.holder():
         raise HTTPException(409, data.busy_reason(False))
+    _built()
     unknown = [s for s in req.steps if s not in pipeline.BY_ID]
     if unknown or not (req.steps or req.reset):
         raise HTTPException(400, f"Unknown steps: {unknown}" if unknown else "Nothing to run.")
@@ -441,6 +485,7 @@ async def run_contract(cid: str, req: TestRequest):
     global CURRENT
     if CURRENT or lock.holder():
         raise HTTPException(409, data.busy_reason(bool(CURRENT)) or "Something is already running.")
+    _built()
     c = _content()["contracts"].get(cid)
     if not c or not c.get("suites"):
         raise HTTPException(404, "This contract has no tests to run.")
@@ -456,6 +501,7 @@ async def run_contract(cid: str, req: TestRequest):
 
 # ------------------------------------------------------- preview screens --
 def _readable() -> None:
+    _built()
     reason = data.busy_reason(bool(CURRENT))
     if reason:
         raise HTTPException(409, reason)
@@ -470,6 +516,7 @@ def _today() -> dt.date:
 
 @app.get("/api/dashboards")
 def dashboards():
+    _built()
     return {"pages": data.pages()}
 
 
@@ -486,6 +533,20 @@ def dashboard(name: str, metric: str | None = None, period: str = "month", asof:
         raise HTTPException(400, "Bad as-of month or filters.") from None
     _readable()
     return data.page(name, metric, period, _today(), month, chosen if isinstance(chosen, dict) else {}, dim)
+
+
+@app.get("/api/dashboards/{name}/sketch")
+def dashboard_sketch(name: str, period: str = "month", asof: str | None = None, filters: str | None = None):
+    """A page laid out as the requirements sketched it: each tile with the numbers it shows."""
+    if name not in {p["id"] for p in data.pages() if p.get("sketch")} or period not in data.PERIODS:
+        raise HTTPException(404, "No sketch for this page.")
+    try:
+        month = dt.date.fromisoformat(asof) if asof else None
+        chosen = json.loads(filters) if filters else {}
+    except ValueError:
+        raise HTTPException(400, "Bad as-of month or filters.") from None
+    _readable()
+    return data.sketch(name, period, _today(), month, chosen if isinstance(chosen, dict) else {})
 
 
 @app.get("/api/query/schema")
@@ -508,12 +569,20 @@ def query_sql(req: SqlRequest):
 
 
 _SVC = None
+_SVC_BUILT: float | None = None
 
 
 def _svc():
-    """One semantic service for the Studio, its warehouse reads taken one at a time."""
-    global _SVC
+    """One semantic service for the Studio, its warehouse reads taken one at a time. A new
+    semantic manifest (a dbt parse since) means a new service: formulas and cubes may have changed."""
+    global _SVC, _SVC_BUILT
+    path = project.current().semantic_manifest
+    built = os.path.getmtime(path) if os.path.exists(path) else None
+    if _SVC is not None and built != _SVC_BUILT:
+        _SVC = None
+        data.forget()
     if _SVC is None:
+        _SVC_BUILT = built
         from serving.semantic_service import SemanticService
 
         svc = SemanticService()
@@ -533,11 +602,28 @@ def _svc():
 @app.get("/api/governance")
 def governance_snapshot():
     """Every metric's definition, ownership, lifecycle and proof."""
+    _built()
+    if not os.path.exists(project.current().semantic_manifest):
+        raise HTTPException(409, "The semantic layer hasn't been compiled for this project yet "
+                                 "(python -m ctl dbt parse).")
     return {**governance.snapshot(_svc()), **_content()["governance"]}
+
+
+@app.get("/api/requirements/coverage")
+def requirements_coverage():
+    """What the built measures can be cut by, in the requirements' dimension codes (for the bus matrix)."""
+    pack = project.current()
+    if not pack.has_pipeline or not os.path.exists(pack.semantic_manifest):
+        return {"available": False, "metrics": {}, "known": []}
+    try:
+        return governance.coverage(_svc())
+    except Exception as exc:  # noqa: BLE001 - the matrix still works without the check
+        return {"available": False, "metrics": {}, "known": [], "reason": str(exc).splitlines()[0]}
 
 
 @app.get("/api/metrics")
 def metrics():
+    _built()
     return {"metrics": _svc().list_metrics()}
 
 
@@ -692,6 +778,20 @@ async def requirements_events():
                 yield f"data: {json.dumps(change)}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/requirements/export/{name}")
+def requirements_export(name: str, download: bool = False):
+    """The requirements as a document: the handbook, the measure catalogue, or a CSV."""
+    from core.requirements import exports
+
+    if name not in exports.FILES:
+        raise HTTPException(404, f"No such export. Exports: {', '.join(exports.FILES)}")
+    pack = project.current()
+    filename = f"{pack.slug}-{name}"
+    disposition = "attachment" if download or name.endswith(".csv") else "inline"
+    return Response(exports.render(pack, name), media_type=f"{exports.FILES[name]}; charset=utf-8",
+                    headers={"Content-Disposition": f'{disposition}; filename="{filename}"'})
 
 
 @app.get("/api/requirements/history/{kind}/{key}")

@@ -785,12 +785,29 @@ class Store:
 
         return self._save(editor, lambda: "; ".join(what), "project/settings", change)
 
+    # ---------------------------------------------------------- new project
+    def created(self, editor: str) -> list[str]:
+        """Commit a project core.pack.new() just made, in the editor's name: a
+        save goes only over committed files, so a new project starts as one."""
+        editor = self._editor(editor)
+        with self._locked():
+            files = [ln[3:] for ln in self._git("status", "--porcelain", "--untracked-files=all", "--", ".").splitlines()]
+            if not files:
+                raise Refused("There is nothing new to commit in this project.")
+            self._git("add", "--", ".")
+            self._git("commit", "--quiet", f"--author={editor} <>", "-m", f"New project {self.pack.name}",
+                      "-m", "Requirements-Entry: project/new", "--", ".")
+        return files
+
     # ---------------------------------------------------------------- undo
     def last(self) -> dict | None:
         """The newest save to this project, by anyone."""
         out = self._git("log", "-1", "-E", "--grep=^Requirements-Entry: ",
-                        "--format=%H%x1f%an%x1f%aI%x1f%s", "--", ".", check=False).strip()
-        return dict(zip(("commit", "author", "date", "message"), out.split("\x1f"))) if out else None
+                        "--format=%H%x1f%an%x1f%aI%x1f%s%x1f%b", "--", ".", check=False).strip()
+        if not out:
+            return None
+        last = dict(zip(("commit", "author", "date", "message"), out.split("\x1f")[:4]))
+        return {**last, "undoable": "Requirements-Entry: project/new" not in out}
 
     def undo(self, commit: str, editor: str) -> dict:
         """Put back the files one save changed, as a new save - only while it is
@@ -802,6 +819,8 @@ class Store:
             entry = re.search(r"^Requirements-Entry: (\S+)$", info, re.M)
             if not entry:
                 raise NotFound("That isn't a save made here.")
+            if entry.group(1) == "project/new":
+                raise Refused("Making the project isn't undone here: remove its folder in git if it isn't wanted.")
             subject = info.split("\x1f")[0]
             top = self._git("rev-parse", "--show-toplevel").strip()
             files = [p for p in self._git("show", "--format=", "--name-only", commit).splitlines() if p.strip()]
