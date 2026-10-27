@@ -247,3 +247,97 @@ def test_the_studio_api(repo):
     assert client.post("/api/requirements/dimension", json={"key": "region", "value": {"name": "Region"}},
                        headers={"X-Editor": "Jos%C3%A9"}).status_code == 201
     assert client.get("/api/requirements/history/dimension/region").json()["history"][0]["author"] == "José"
+
+
+def test_dont_know_with_no_one_named_and_the_first_answer(repo):
+    store = Store(project.current())
+    store.patch("dimension", "employee", {"unknown": {"definition": ""}}, "Dana")
+    employee = requirements.read(project.current())["dimensions"]["employee"]
+    assert employee["unknown"] == {"definition": ""} and employee["interview"] == "in_progress"
+    assert git(repo, "log", "-1", "--format=%s") == "Definition of employee: I don't know\n"
+    store.patch("dimension", "employee", {"unknown": {"definition": None}}, "Dana")
+    assert "unknown" not in requirements.read(project.current())["dimensions"]["employee"]
+    # Assigning or flagging alone doesn't start the interview.
+    store.patch("process", "H2R", {"assignee": "p2", "followup": True}, "Dana")
+    assert "interview" not in requirements.read(project.current())["processes"]["H2R"]
+
+
+def test_departments(repo):
+    store = Store(project.current())
+    store.add("department", "IT", {"name": "Information Technology"}, "Dana")
+    rows = (repo / "seeds" / "department.csv").read_text().splitlines()
+    assert rows[-2:] == ["IT,Information Technology,6", "UNASSIGNED,Unassigned,99"]
+    store.patch("department", "IT", {"name": "IT"}, "Dana")
+    assert "IT,IT,6" in (repo / "seeds" / "department.csv").read_text()
+    store.remove("department", "IT", "Dana")
+    assert "IT," not in (repo / "seeds" / "department.csv").read_text()
+    with pytest.raises(Refused, match="seeds/department_metric.csv"):
+        store.remove("department", "PURCH", "Dana")
+
+
+def test_slots_and_systems(repo):
+    store = Store(project.current())
+    store.settings({"slots": 5}, "Dana")
+    assert project.current().config["slots"] == 5
+    with pytest.raises(Refused, match="still shows"):
+        store.settings({"slots": 2}, "Dana")
+    store.settings({"business_systems": ["ERP", "CRM", "Payroll", "Inventory planning", "Freight platform",
+                                         "Spreadsheets"]}, "Dana")
+    assert project.current().config["business_systems"]["ERP"] == "sage_x3"
+    assert project.current().config["business_systems"]["Spreadsheets"] is None
+    with pytest.raises(Refused, match="unknown system"):
+        store.settings({"business_systems": ["CRM"]}, "Dana")
+
+
+def test_removing_a_dashboard_takes_its_measures_off_it(repo):
+    Store(project.current()).remove("dashboard", "P2P", "Dana")
+    assert "P2P," not in (repo / "seeds" / "process_metric.csv").read_text()
+    assert "three_way_match_rate" in requirements.definitions(project.current())
+
+
+def test_undo(repo):
+    store = Store(project.current())
+    before = (repo / "requirements" / "processes.yml").read_text()
+    store.patch("process", "R2R", {"answers": {"volume": "Monthly close"}}, "Dana")
+    last = store.last()
+    assert last["author"] == "Dana" and last["message"] == "Volume of R2R: (none) -> Monthly close"
+    out = store.undo(last["commit"], "Lee")
+    assert (repo / "requirements" / "processes.yml").read_text() == before
+    assert out["message"] == "Undo: Volume of R2R: (none) -> Monthly close"
+    assert [h["author"] for h in store.history("process", "R2R")] == ["Lee", "Dana"]
+    # A save with a newer change to the same file can't be undone on its own.
+    store.patch("process", "R2R", {"answers": {"volume": "Monthly"}}, "Dana")
+    first = store.last()["commit"]
+    store.patch("process", "H2R", {"name": "Hire to Retire (HR)"}, "Dana")
+    with pytest.raises(Conflict, match="changed since"):
+        store.undo(first, "Lee")
+    out = store.add("measure", None, {"label": "Order Fill Rate"}, "Dana", dashboard="O2C", slot="M4")
+    store.undo(store.last()["commit"], "Lee")
+    assert out["key"] not in requirements.definitions(project.current())
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_taking_a_measure_off_a_dashboard_takes_it_off_the_sketch(repo):
+    store = Store(project.current())
+    with pytest.raises(Refused, match="shows a measure once"):
+        store.place("I2D", "M4", "cost_per_shipment", "Dana")
+    store.place("I2D", "M1", None, "Dana")
+    tiles = requirements.read(project.current())["sketches"]["I2D"]
+    assert not any(t.get("measure") == "on_time_delivery_rate" for t in tiles) and len(tiles) == 10
+    assert requirements.check(project.current()) == []
+
+
+def test_the_studio_settings_and_undo_routes(repo):
+    from apps.studio.app import app
+
+    client = TestClient(app)
+    who = {"X-Editor": "Dana"}
+    assert client.put("/api/requirements/settings", json={"slots": 5}, headers=who).status_code == 200
+    assert client.get("/api/requirements").json()["project"]["slots"] == 5
+    r = client.post("/api/requirements/department", json={"key": "IT", "value": {"name": "IT"}}, headers=who)
+    assert r.status_code == 201, r.text
+    last = client.get("/api/requirements").json()["last"]
+    assert last["message"] == "Add department IT"
+    assert client.post("/api/requirements/undo", json={"commit": last["commit"]}, headers=who).status_code == 200
+    assert "IT" not in [d["department_code"] for d in client.get("/api/requirements").json()["departments"]]
+    assert client.post("/api/requirements/undo", json={"commit": "nope"}, headers=who).status_code == 404

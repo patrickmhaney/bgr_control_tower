@@ -716,6 +716,28 @@ class SlotRequest(BaseModel):
     metric: str | None = None       # None clears the slot
 
 
+class SettingsRequest(BaseModel):
+    slots: int | None = None
+    business_systems: list[str] | None = None
+
+
+@app.put("/api/requirements/settings")
+def requirements_settings(req: SettingsRequest, x_editor: str | None = Header(None)):
+    """The measure slots per dashboard, and the source systems the answers offer."""
+    changes = req.model_dump(exclude_none=True)
+    return {"files": _saving(lambda: _requirements().settings(changes, unquote(x_editor or "")))}
+
+
+class UndoRequest(BaseModel):
+    commit: str
+
+
+@app.post("/api/requirements/undo")
+def requirements_undo(req: UndoRequest, x_editor: str | None = Header(None)):
+    """Put back what one save changed, as a new save, while nothing has changed those files since."""
+    return _saving(lambda: _requirements().undo(req.commit, unquote(x_editor or "")))
+
+
 @app.put("/api/requirements/slots/{dashboard}/{slot}")
 def requirements_slot(dashboard: str, slot: str, req: SlotRequest, x_editor: str | None = Header(None)):
     return {"files": _saving(lambda: _requirements().place(dashboard, slot, req.metric, unquote(x_editor or "")))}

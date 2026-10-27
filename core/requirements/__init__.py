@@ -151,10 +151,14 @@ def definitions(pack) -> dict[str, dict]:
             meta = m if is_backlog else (m.get("config") or {}).get("meta") or {}
             if not is_backlog and meta.get("role") != "kpi":
                 continue
+            reason = next((meta[k] for k in ("blocked_reason", "placeholder_reason", "provisional_reason")
+                           if meta.get(k)), "")
             out[m["name"]] = {"file": os.path.relpath(path, pack.root), "label": m.get("label") or "",
                               "description": (m.get("description") or "").strip(),
                               "owner": meta.get("owner") or "", "status": meta.get("status"),
-                              "caveats": list(meta.get("caveats") or [])}
+                              "caveats": list(meta.get("caveats") or []),
+                              "reason": " ".join(str(reason).split()),
+                              "unblock_requires": list(meta.get("unblock_requires") or [])}
     return out
 
 

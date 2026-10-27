@@ -281,6 +281,7 @@ const Views = (() => {
   });
 
   function show(name) {
+    if (name === "req") return Req.show();
     if (name === "dash") return Dash.show();
     if (name === "gov") return Gov.show();
     if (name === "query") return showQuery();

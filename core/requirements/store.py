@@ -73,6 +73,7 @@ META_ORDER = ("role", "status", "owner", "owner_proposed", "provisional_reason",
 BACKLOG_ORDER = ("name", "label", "status", "owner", "owner_proposed", "description", "caveats",
                  "blocked_reason", "placeholder_reason", "unblock_requires")
 NO_FORMULA = "Asked for in the requirements; it has no formula yet."
+MAX_SLOTS = 12
 #: Field labels for commit messages, besides the questions' own.
 LABELS = {"name": "Name", "active": "Active", "interview": "Interview status", "assignee": "Assignee",
           "followup": "Follow-up", "followup_note": "Follow-up note", "unknown": "I don't know",
@@ -181,9 +182,10 @@ def _empty(key: str, value) -> bool:
     return value is None or value is False or value == "" or value == [] or value == {}
 
 
-def _set(m: CommentedMap, key: str, value, order: tuple[str, ...]) -> None:
-    """Set m[key] (or drop it when empty), a new key going where `order` puts it."""
-    if _empty(key, value):
+def _set(m: CommentedMap, key: str, value, order: tuple[str, ...], keep_empty: bool = False) -> None:
+    """Set m[key] (or drop it when empty, or None with `keep_empty`), a new key
+    going where `order` puts it."""
+    if value is None if keep_empty else _empty(key, value):
         m.pop(key, None)
         return
     if key in m:
@@ -346,6 +348,15 @@ class CsvRows:
         csv.writer(out, lineterminator="\n").writerow([row.get(h, "") for h in self.header])
         return out.getvalue()
 
+    def update(self, match, changes: dict) -> bool:
+        """Change the fields of every row `match` accepts. True when one changed."""
+        changed = False
+        for i, r in enumerate(self.rows):
+            new = {**r, **changes}
+            if match(r) and new != r:
+                self.rows[i], self.raw[i], changed = new, self._line(new), True
+        return changed
+
     def remove(self, match) -> int:
         keep = [(r, ln) for r, ln in zip(self.rows, self.raw) if not match(r)]
         gone = len(self.rows) - len(keep)
@@ -461,12 +472,17 @@ class Store:
             finally:
                 fcntl.flock(fh, fcntl.LOCK_UN)
 
-    def _save(self, editor: str, message, entry: str, change) -> list[str]:
-        """Run `change(edit)` as one save: lock, check, write, commit. The files
-        written. `message` may be a function, called once the change has run."""
+    @staticmethod
+    def _editor(editor: str) -> str:
         editor = " ".join((editor or "").split())
         if not editor:
             raise Refused("Say who's editing: a save is committed in their name.")
+        return editor
+
+    def _save(self, editor: str, message, entry: str, change) -> list[str]:
+        """Run `change(edit)` as one save: lock, check, write, commit. The files
+        written. `message` may be a function, called once the change has run."""
+        editor = self._editor(editor)
         with self._locked():
             edit = Edit(self.pack)
             change(edit)
@@ -474,33 +490,39 @@ class Store:
             if not texts:
                 return []
             message = message() if callable(message) else message
-            staged = self._stage(texts)
-            try:
-                texts.update(self._generated(staged))
-                dirty = [ln[3:] for ln in self._git("status", "--porcelain", "--", *texts).splitlines() if ln.strip()]
-                if dirty:
-                    raise Conflict("Someone has changed these files without committing them; commit or "
-                                   "discard those changes first: " + ", ".join(dirty), dirty)
-                before = set(problems(self.pack))
-                new = [p for p in problems(staged) if p not in before]
-                if new:
-                    raise Refused("That change was not saved: " + new[0], new)
-            finally:
-                shutil.rmtree(staged.base, ignore_errors=True)
-            old = {rel: (open(self.pack.path(rel)).read() if os.path.exists(self.pack.path(rel)) else None)
-                   for rel in texts}
-            try:
-                for rel, text in texts.items():
-                    _write(self.pack.path(rel), text)
-                self._git("add", "--", *texts)
-                self._git("commit", "--quiet", f"--author={editor} <>", "-m", message,
-                          "-m", f"Requirements-Entry: {entry}", "--", *texts)
-            except Exception:
-                for rel, text in old.items():
-                    _write(self.pack.path(rel), text)
-                self._git("reset", "--quiet", "--", *texts, check=False)
-                raise
-            return sorted(texts)
+            return self._commit(editor, message, entry, texts)
+
+    def _commit(self, editor: str, message: str, entry: str, texts: dict[str, str | None],
+                body: str | None = None) -> list[str]:
+        """Check `texts` (None removes a file) with the generated files they
+        change, write them and commit them. The lock is held."""
+        staged = self._stage(texts)
+        try:
+            texts.update(self._generated(staged))
+            dirty = [ln[3:] for ln in self._git("status", "--porcelain", "--", *texts).splitlines() if ln.strip()]
+            if dirty:
+                raise Conflict("Someone has changed these files without committing them; commit or "
+                               "discard those changes first: " + ", ".join(dirty), dirty)
+            before = set(problems(self.pack))
+            new = [p for p in problems(staged) if p not in before]
+            if new:
+                raise Refused("That change was not saved: " + new[0], new)
+        finally:
+            shutil.rmtree(staged.base, ignore_errors=True)
+        old = {rel: (open(self.pack.path(rel)).read() if os.path.exists(self.pack.path(rel)) else None)
+               for rel in texts}
+        try:
+            for rel, text in texts.items():
+                _write(self.pack.path(rel), text)
+            self._git("add", "--", *texts)
+            self._git("commit", "--quiet", f"--author={editor} <>", "-m", message,
+                      *(["-m", body] if body else []), "-m", f"Requirements-Entry: {entry}", "--", *texts)
+        except Exception:
+            for rel, text in old.items():
+                _write(self.pack.path(rel), text)
+            self._git("reset", "--quiet", "--", *texts, check=False)
+            raise
+        return sorted(texts)
 
     def _stage(self, texts: dict[str, str]) -> project.Project:
         """A copy of the project's content in a temp folder, with `texts` written over it."""
@@ -556,6 +578,7 @@ class Store:
             "department_metrics": seeds["department_metric"],
             "sketches": docs["sketches"],
             "problems": requirements.check(pack) if os.path.isdir(pack.requirements) else [],
+            "last": self.last(),
         }
 
     @staticmethod
@@ -582,7 +605,8 @@ class Store:
 
     def history(self, kind: str, key: str, limit: int = 100) -> list[dict]:
         """The saves that changed one entry, newest first, from git."""
-        self._file(kind)
+        if kind not in ("department", "project"):
+            self._file(kind)
         out = self._git("log", f"-n{limit}", "-E", f"--grep=^Requirements-Entry: {kind}/{re.escape(key)}$",
                         "--format=%H%x1f%an%x1f%aI%x1f%s", check=False)
         return [dict(zip(("commit", "author", "date", "message"), ln.split("\x1f")))
@@ -600,6 +624,8 @@ class Store:
         drops one) and `answers` and `unknown` are merged key by key; a list
         entry (a bus matrix row, a sketch) is replaced whole, and an empty one
         removed. A measure's definition fields go to its semantic file."""
+        if kind == "department":
+            return self._department(key, changes if isinstance(changes, dict) else {}, editor)
         file = self._file(kind)
         fields: list[str] = []
         before_after: list[tuple] = []
@@ -643,13 +669,16 @@ class Store:
                     sub = node.get(k) or CommentedMap()
                     sub_order = tuple(requirements.answer_fields(kind)) if k == "answers" else \
                         tuple(requirements.question_keys(kind))
+                    # An "I don't know" is kept with no one named; only None takes it away.
+                    keep = k == "unknown"
                     for sk, sv in v.items():
                         if k == "answers" and sk not in requirements.answer_fields(kind):
                             raise Refused(f"{sk!r} is not an answer to a {kind} question")
-                        if not _same(sub.get(sk), sv) and not (sk not in sub and _empty(sk, sv)):
-                            fields.append(sk)
-                            before_after.append((sk, sub.get(sk), sv))
-                        _set(sub, sk, sv, sub_order)
+                        gone = sv is None if keep else _empty(sk, sv)
+                        if (sk in sub) != (not gone) or (sk in sub and not _same(sub.get(sk), sv)):
+                            fields.append(sk if k == "answers" else "unknown")
+                            before_after.append((sk if k == "answers" else f"unknown:{sk}", sub.get(sk), sv))
+                        _set(sub, sk, sv, sub_order, keep_empty=keep)
                     if k == "unknown" and k not in node and _small(_plain(sub)):
                         sub.fa.set_flow_style()
                     _set(node, k, _plain(sub) if not len(sub) else sub, order)
@@ -659,7 +688,7 @@ class Store:
                         before_after.append((k, node.get(k), v))
                     _set(node, k, v, order)
             if kind in QUESTIONED:
-                self._interview(edit, kind, key, node, old)
+                self._interview(edit, kind, key, node, old, fields)
             if key in f.keys():
                 if not len(node) and kind == "measure":
                     f.remove(key)
@@ -670,6 +699,123 @@ class Store:
 
         written = self._save(editor, lambda: _message(kind, key, fields, before_after), f"{kind}/{key}", change)
         return {"entry": changes if kind in LIST_KINDS else self.entry(kind, key), "files": written}
+
+    # -------------------------------------------------------- departments
+    def _department(self, code: str, value: dict | None, editor: str, new: bool = False):
+        """Add, rename (`value` {"name": ...}) or remove (None) a department in
+        seeds/department.csv. A department still used anywhere - a person, an
+        owner, a step, another seed - can't be removed; the checks name where."""
+        name = " ".join(((value or {}).get("name") or "").split())
+        if value is not None and not name:
+            raise Refused("A department needs a name")
+        if new and not re.fullmatch(r"[A-Z][A-Z0-9_]*", code or ""):
+            raise Refused("A department code is capitals, digits and _, e.g. FIN")
+
+        def change(edit: Edit) -> None:
+            rows = edit.seed("department.csv")
+            here = lambda r: r["department_code"] == code  # noqa: E731
+            exists = any(here(r) for r in rows.rows)
+            if new:
+                if exists:
+                    raise Refused(f"There is already a department {code}")
+                orders = [int(r["display_order"]) for r in rows.rows if r["display_order"].isdigit()]
+                below = [o for o in orders if o < 99]
+                rows.insert_after(lambda r: int(r["display_order"] or 0) < 99,
+                                  {"department_code": code, "department_name": name,
+                                   "display_order": str(max(below, default=0) + 1)})
+                return
+            if not exists:
+                raise NotFound(f"No department {code!r}")
+            if value is not None:
+                rows.update(here, {"department_name": name})
+                return
+            for seed in sorted(os.listdir(self.pack.seeds)):
+                if seed.endswith(".csv") and seed != "department.csv":
+                    used = [r for r in requirements._seed(self.pack, seed) if code in
+                            (v for k, v in r.items() if k and "department" in k)]
+                    if used:
+                        raise Refused(f"{code} is still used in seeds/{seed}: removing it is an engineering change")
+            rows.remove(here)
+
+        what = f"Add department {code}" if new else f"Rename department {code} to {name}" if value is not None \
+            else f"Remove department {code}"
+        written = self._save(editor, what, f"department/{code}", change)
+        return written if value is None else {"key": code, "entry": {"department_name": name}, "files": written}
+
+    # ----------------------------------------------------- project settings
+    def settings(self, changes: dict, editor: str) -> list[str]:
+        """The measure slots per dashboard row (`slots`) and the systems the
+        business names (`business_systems`, a list of names; each keeps the
+        architecture system it maps to, and a new one maps to none yet), in
+        project.yml. A slot still showing a measure can't be taken away, nor a
+        system still named in an answer."""
+        unknown = set(changes) - {"slots", "business_systems"}
+        if unknown:
+            raise Refused(f"Not a project setting: {', '.join(sorted(unknown))}")
+        what = []
+
+        def change(edit: Edit) -> None:
+            f = edit.entries("project.yml")
+            if "slots" in changes:
+                n = changes["slots"]
+                if not isinstance(n, int) or not 1 <= n <= MAX_SLOTS:
+                    raise Refused(f"A dashboard has 1 to {MAX_SLOTS} measure slots")
+                used = [p for p in requirements.placements(self.pack, requirements.read(self.pack)["dashboards"])
+                        if int(p["slot"][1:]) > n]
+                if used:
+                    raise Refused(f"{used[0]['dashboard']} {used[0]['slot']} still shows {used[0]['metric']}: "
+                                  "clear it first")
+                f.put("slots", n) if "slots" in f.keys() else f.add("slots", n)
+                what.append(f"Measure slots: {n}")
+            if "business_systems" in changes:
+                names = [" ".join(str(x).split()) for x in changes["business_systems"] or []]
+                names = list(dict.fromkeys(x for x in names if x))
+                current = self.pack.config.get("business_systems") or {}
+                node = f.node("business_systems") if "business_systems" in f.keys() else CommentedMap()
+                for gone in [k for k in node if k not in names]:
+                    del node[gone]
+                for x in names:
+                    if x not in node:
+                        node[x] = current.get(x)
+                if "business_systems" in f.keys():
+                    f.put("business_systems", node)
+                else:
+                    f.add("business_systems", node)
+                what.append("Source systems: " + ", ".join(names))
+
+        return self._save(editor, lambda: "; ".join(what), "project/settings", change)
+
+    # ---------------------------------------------------------------- undo
+    def last(self) -> dict | None:
+        """The newest save to this project, by anyone."""
+        out = self._git("log", "-1", "-E", "--grep=^Requirements-Entry: ",
+                        "--format=%H%x1f%an%x1f%aI%x1f%s", "--", ".", check=False).strip()
+        return dict(zip(("commit", "author", "date", "message"), out.split("\x1f"))) if out else None
+
+    def undo(self, commit: str, editor: str) -> dict:
+        """Put back the files one save changed, as a new save - only while it is
+        still the newest change to each of them."""
+        editor = self._editor(editor)
+        with self._locked():
+            commit = self._git("rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}", check=False).strip()
+            info = self._git("show", "-s", "--format=%s%x1f%B", commit, check=False) if commit else ""
+            entry = re.search(r"^Requirements-Entry: (\S+)$", info, re.M)
+            if not entry:
+                raise NotFound("That isn't a save made here.")
+            subject = info.split("\x1f")[0]
+            top = self._git("rev-parse", "--show-toplevel").strip()
+            files = [p for p in self._git("show", "--format=", "--name-only", commit).splitlines() if p.strip()]
+            texts: dict[str, str | None] = {}
+            for p in files:
+                newest = self._git("log", "-1", "--format=%H", "--", os.path.join(top, p)).strip()
+                rel = os.path.relpath(os.path.join(top, p), self.pack.root)
+                if newest != commit:
+                    raise Conflict(f"{rel} has changed since, so this can't be undone on its own.", [rel])
+                r = subprocess.run(["git", "show", f"{commit}^:{p}"], cwd=top, capture_output=True, text=True)
+                texts[rel] = r.stdout if r.returncode == 0 else None
+            message = subject[len("Undo: "):] if subject.startswith("Undo: ") else f"Undo: {subject}"
+            written = self._commit(editor, message, entry.group(1), texts, body=f"This reverts commit {commit}.")
+        return {"entry": entry.group(1), "message": message, "files": written}
 
     def _define(self, edit: Edit, name: str, current: dict, changes: dict, fields: list, before_after: list) -> None:
         """A measure's definition fields, in metrics.yml (meta for owner and caveats) or backlog.yml."""
@@ -697,9 +843,14 @@ class Store:
             _set(target, k, v, order)
         f.put(name, node)
 
-    def _interview(self, edit: Edit, kind: str, key: str, node: CommentedMap, old: dict) -> None:
+    def _interview(self, edit: Edit, kind: str, key: str, node: CommentedMap, old: dict, fields: list) -> None:
         """"Complete" means every question is answered: refuse it otherwise, and
-        reopen a complete entry when an answer is taken away."""
+        reopen a complete entry when an answer is taken away. The first answer
+        to an entry not started moves it to in progress; assigning or flagging
+        it doesn't."""
+        if _empty("interview", node.get("interview")) and "interview" not in fields \
+                and set(fields) - {"assignee", "followup", "followup_note", "notes", "process", "active"}:
+            _set(node, "interview", "in_progress", ORDER[kind])
         entry = _plain(node)
         definition = None
         if kind == "measure":
@@ -721,6 +872,8 @@ class Store:
             dashboard: str | None = None, slot: str | None = None):
         """A new entry. A new measure is named from its label (`value["label"]`),
         starts in backlog.yml with no formula, and can be put in a dashboard slot."""
+        if kind == "department":
+            return self._department(key, value if isinstance(value, dict) else {}, editor, new=True)
         file = self._file(kind)
         if kind == "measure":
             label = (value or {}).get("label", "").strip() if isinstance(value, dict) else ""
@@ -757,8 +910,11 @@ class Store:
     def remove(self, kind: str, key: str, editor: str) -> list[str]:
         """Take an entry out. Anything still referring to it refuses the save,
         and says where - except what is only its own: a process's bus matrix
-        row, a dashboard's sketch, a backlog measure's answers and slots. A
+        row, a dashboard's sketch and the measures shown on it (not the
+        measures themselves), a backlog measure's answers and slots. A
         measure with a formula is an engineering change, not removed here."""
+        if kind == "department":
+            return self._department(key, None, editor)
         file = self._file(kind)
 
         def change(edit: Edit) -> None:
@@ -782,6 +938,8 @@ class Store:
             own = {"process": "bus_matrix", "dashboard": "sketches"}.get(kind)
             if own and key in edit.requirements(own).keys():
                 edit.requirements(own).remove(key)
+            if kind == "dashboard" and os.path.exists(self.pack.path("seeds/process_metric.csv")):
+                edit.seed("process_metric.csv").remove(lambda r: r["process_code"] == key)
 
         return self._save(editor, f"Remove {kind} {key}", f"{kind}/{key}", change)
 
@@ -809,6 +967,10 @@ class Store:
         dashboards = edit.requirements("dashboards")
         if dashboard not in dashboards.keys():
             raise NotFound(f"No dashboard {dashboard!r}")
+        shown = {p["slot"]: p["metric"] for p in requirements.placements(self.pack, requirements.read(self.pack)["dashboards"])
+                 if p["dashboard"] == dashboard}
+        if metric is not None and metric in shown.values() and shown.get(slot) != metric:
+            raise Refused(f"{dashboard} already shows {metric}: a dashboard shows a measure once")
         if dashboard in requirements.read(self.pack)["processes"]:
             rows = edit.seed("process_metric.csv")
             here = lambda r: r["process_code"] == dashboard and r["slot"] == slot  # noqa: E731
@@ -821,19 +983,26 @@ class Store:
                 rows.insert_after(lambda r: r["process_code"] == dashboard,
                                   {"process_code": dashboard, "metric_name": metric, "slot": slot,
                                    "display_order": slot[1:]})
-            return
-        d = dashboards.node(dashboard)
-        slots = d.get("slots") or CommentedMap()
-        if metric is None:
-            slots.pop(slot, None)
-        elif slots.get(slot) not in (None, metric):
-            raise Refused(f"{dashboard} {slot} already shows {slots[slot]}")
         else:
-            slots[slot] = metric
-            ordered = CommentedMap(sorted(slots.items(), key=lambda kv: int(kv[0][1:])))
-            slots = ordered
-        _set(d, "slots", slots if len(slots) else None, ORDER["dashboard"])
-        dashboards.put(dashboard, d)
+            d = dashboards.node(dashboard)
+            slots = d.get("slots") or CommentedMap()
+            if metric is None:
+                slots.pop(slot, None)
+            elif slots.get(slot) not in (None, metric):
+                raise Refused(f"{dashboard} {slot} already shows {slots[slot]}")
+            else:
+                slots[slot] = metric
+                slots = CommentedMap(sorted(slots.items(), key=lambda kv: int(kv[0][1:])))
+            _set(d, "slots", slots if len(slots) else None, ORDER["dashboard"])
+            dashboards.put(dashboard, d)
+        # A measure taken off a dashboard comes off its sketch's tiles too; the tiles stay.
+        gone = shown.get(slot) if metric is None else None
+        sketches = edit.requirements("sketches")
+        if gone and dashboard in sketches.keys():
+            tiles = sketches.get(dashboard)
+            if any(t.get("measure") == gone for t in tiles):
+                sketches.put(dashboard, [{k: v for k, v in t.items() if not (k == "measure" and v == gone)}
+                                         for t in tiles])
 
 
 def metric_name(label: str) -> str:
@@ -862,6 +1031,11 @@ def _message(kind: str, key: str, fields: list[str], before_after: list[tuple]) 
     names = list(dict.fromkeys(labels.get(f, f) for f in fields)) or ["Nothing"]
     if len(before_after) == 1:
         k, old, new = before_after[0]
+        if k.startswith("unknown:"):
+            q = labels.get(k[len("unknown:"):], k)
+            if new is None:
+                return f"{q} of {key}: answered, no longer unknown"
+            return f"{q} of {key}: I don't know" + (f" (ask {_short(new) or 'someone'})" if new else "")
         a, b = _short(old), _short(new)
         if a is not None and b is not None:
             return f"{labels.get(k, k)} of {key}: {a} -> {b}"

@@ -230,6 +230,22 @@ changed through its own lines (every other line byte for byte), the result
 checked in a staged copy (schemas, references, the semantic lint on the YAML)
 before anything is written, then one local git commit in the editor's name.
 It refuses to save over a file with uncommitted changes, and never pushes.
+Besides entries it edits departments (`seeds/department.csv`), the measure
+slots and source systems in `project.yml`, and undoes a save while it is still
+the newest change to its files.
+
+The Studio's **Requirements** tab (left of Architecture) is where they are
+edited: Overview, Processes, Bus matrix, Measures, Sketches and Ownership,
+plus People, Source systems, "Who's editing?" (the commit author), a history
+per entry from git, and Undo. It saves as you type and redraws when the files
+change, from another window or an editor (`/api/requirements/events`). The
+code is `apps/studio/static/req.js` (state, saving, the entry drawer),
+`req-pages.js` (the screens) and `req-sketch.js` (Sketches).
+
+The sample projects' requirements were converted once from the governance
+tool's database (`python -m core.requirements.convert DB --workspace <slug>
+--project <slug>`). Its `COLUMNS` table lists every column of that database
+with its home here or why it was dropped.
 
 ## Running it
 
