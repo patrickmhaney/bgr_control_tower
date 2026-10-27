@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dashboards.schema.json",
+  "title": "requirements/dashboards.yml",
+  "description": "Dashboards, the rows of the Measures grid, by code, in display order. A process dashboard (its code is a process code) takes its measures from seeds/process_metric.csv; any other dashboard lists them in slots.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/code"},
+  "additionalProperties": {
+    "type": "object", "additionalProperties": false,
+    "properties": {
+      "name": {"$ref": "common.schema.json#/$defs/text"},
+      "audience": {"$ref": "common.schema.json#/$defs/text"},
+      "decisions": {"$ref": "common.schema.json#/$defs/text"},
+      "cadence": {"$ref": "common.schema.json#/$defs/text"},
+      "access": {"$ref": "common.schema.json#/$defs/text"},
+      "slots": {
+        "description": "Slot (M1, M2, ...) -> metric name. A metric defined on another dashboard is shown here, not redefined.",
+        "type": "object",
+        "propertyNames": {"pattern": "^M[1-9][0-9]*$"},
+        "additionalProperties": {"$ref": "common.schema.json#/$defs/metric"}
+      }
+    }
+  }
+}

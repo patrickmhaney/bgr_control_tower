@@ -2,7 +2,8 @@
 
     python -m semantic.lint          # exit 1 on any violation
 
-Checks the compiled manifests (run `python -m ctl dbt parse` first):
+Checks the compiled manifests (run `python -m ctl dbt parse` first). `lint_source()`
+runs every rule but the gold contracts on the YAML as written, with no parse:
 
 * every KPI has an owner (TBD is allowed, and stays visible), a role, a status
   in {active, provisional}, and a provisional_reason when provisional
@@ -38,23 +39,55 @@ REQUIREMENT = re.compile(r"[A-Z0-9]+-M[1-9][0-9]*")
 
 
 def lint() -> list[str]:
-    errors: list[str] = []
     pack = project.current()
     with open(pack.semantic_manifest) as fh:
         sm = json.load(fh)
     with open(pack.manifest) as fh:
         manifest = json.load(fh)
-    with open(pack.backlog) as fh:
-        backlog = yaml.safe_load(fh)["metrics"]
-    in_cubes = {m for sq in sm.get("saved_queries", []) for m in sq["query_params"]["metrics"]}
+    errors = measure_errors(sm["semantic_models"]) + definition_errors(pack, sm["metrics"], sm.get("saved_queries", []))
 
-    for s in sm["semantic_models"]:
+    for node in manifest["nodes"].values():
+        if node["resource_type"] != "model" or node["config"].get("schema") != "gold":
+            continue
+        if not node["config"].get("contract", {}).get("enforced"):
+            errors.append(f"gold model {node['name']}: contract must be enforced (C4)")
+        if not (node["config"].get("meta") or {}).get("owner"):
+            errors.append(f"gold model {node['name']}: meta.owner is required")
+    return errors
+
+
+def lint_source(pack=None) -> list[str]:
+    """The same rules on the YAML as written, with no dbt parse: every rule but
+    the gold contracts, which need the manifest. The Studio runs this before
+    it saves a semantic file; `lint()` stays the gate in `make lint` and CI."""
+    pack = pack or project.current()
+    found: dict[str, list] = {"semantic_models": [], "metrics": [], "saved_queries": []}
+    for f in sorted(os.listdir(pack.semantic_dir)):
+        if f.endswith(".yml"):
+            with open(os.path.join(pack.semantic_dir, f)) as fh:
+                doc = yaml.safe_load(fh) or {}
+            for key, items in found.items():
+                items += doc.get(key) or []
+    return measure_errors(found["semantic_models"]) + definition_errors(pack, found["metrics"], found["saved_queries"])
+
+
+def measure_errors(semantic_models: list[dict]) -> list[str]:
+    errors = []
+    for s in semantic_models:
         for ms in s.get("measures", []):
             if ms["agg"].lower() not in AGGS:
                 errors.append(f"measure {ms['name']}: aggregation {ms['agg']!r} is not allowed")
             if not re.fullmatch(r"[a-z_][a-z0-9_]*", ms.get("expr") or ms["name"]):
                 errors.append(f"measure {ms['name']}: expr must be a bare column - put arithmetic in the fact")
+    return errors
 
+
+def definition_errors(pack, metrics: list[dict], saved_queries: list[dict]) -> list[str]:
+    """Governance of every metric and backlog entry, and the seeds that name them."""
+    errors: list[str] = []
+    with open(pack.backlog) as fh:
+        backlog = yaml.safe_load(fh)["metrics"]
+    in_cubes = {m for sq in saved_queries for m in sq["query_params"]["metrics"]}
     names = set()
     labels: dict[str, str] = {}
 
@@ -64,7 +97,7 @@ def lint() -> list[str]:
             errors.append(f"metric {name}: label {label!r} is already used by {labels[key]}")
         labels.setdefault(key, name)
 
-    for m in sm["metrics"]:
+    for m in metrics:
         names.add(m["name"])
         meta = (m.get("config") or {}).get("meta") or {}
         where = f"metric {m['name']}"
@@ -106,14 +139,6 @@ def lint() -> list[str]:
             for row in csv.DictReader(fh):
                 if row["metric_name"] not in names:
                     errors.append(f"{seed}: {row['metric_name']!r} is not in the metric catalog")
-
-    for node in manifest["nodes"].values():
-        if node["resource_type"] != "model" or node["config"].get("schema") != "gold":
-            continue
-        if not node["config"].get("contract", {}).get("enforced"):
-            errors.append(f"gold model {node['name']}: contract must be enforced (C4)")
-        if not (node["config"].get("meta") or {}).get("owner"):
-            errors.append(f"gold model {node['name']}: meta.owner is required")
     return errors
 
 

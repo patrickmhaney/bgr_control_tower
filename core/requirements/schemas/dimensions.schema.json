@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dimensions.schema.json",
+  "title": "requirements/dimensions.yml",
+  "description": "Dimensions: what the business is measured by, by code, in display order.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/dimension"},
+  "additionalProperties": {
+    "type": "object", "required": ["name"],
+    "$ref": "common.schema.json#/$defs/workflow",
+    "unevaluatedProperties": false,
+    "properties": {
+      "name": {"$ref": "common.schema.json#/$defs/text"},
+      "answers": {"$ref": "answers.schema.json#/$defs/dimension"},
+      "notes": {"$ref": "common.schema.json#/$defs/text"}
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# The people the requirements name, by id: who owns, who answers, who follows
+# up. The only file in the project with names in it; every other file refers
+# to a person by id. A metric's owner in the semantic files is a role, so
+# picking a person as owner writes their role.
+
+p1:
+  name: Logistics Lead
+  role: Operations
+  department: OPS
+p2:
+  name: Finance Controller
+  role: Finance
+  department: FIN
+p3:
+  name: Sales Operations Lead
+  role: Sales
+  department: SALES
+p4:
+  name: Purchasing Manager
+  role: Procurement
+  department: PURCH

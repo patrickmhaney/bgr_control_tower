@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.schema.json",
+  "title": "Shared pieces of the requirements files",
+  "$defs": {
+    "text": {"type": "string", "maxLength": 4000},
+    "code": {
+      "description": "A process, dashboard or department code: capitals and digits, e.g. O2C.",
+      "type": "string", "pattern": "^[A-Z][A-Z0-9]*$"
+    },
+    "department": {"description": "A department_code in seeds/department.csv.", "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "dimension": {"description": "A dimension code, e.g. customer.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "metric": {"description": "A metric name: set from its label when created, never changed after.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "person": {"description": "A person's id in people.yml.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "who": {
+      "description": "A person, a department, or a note naming someone outside the list.",
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "properties": {
+        "person": {"$ref": "#/$defs/person"},
+        "department": {"$ref": "#/$defs/department"},
+        "note": {"$ref": "#/$defs/text"}
+      }
+    },
+    "step": {
+      "description": "One step of a process, done by a department or a person in one system.",
+      "type": "object", "additionalProperties": false, "required": ["name"],
+      "properties": {
+        "name": {"$ref": "#/$defs/text"},
+        "department": {"$ref": "#/$defs/department"},
+        "person": {"$ref": "#/$defs/person"},
+        "system": {"type": "string"}
+      }
+    },
+    "workflow": {
+      "description": "Where the interview stands. Shared by processes, dimensions and measures.",
+      "type": "object",
+      "properties": {
+        "interview": {"enum": ["not_started", "in_progress", "complete"], "default": "not_started"},
+        "assignee": {"$ref": "#/$defs/person"},
+        "followup": {"type": "boolean", "default": false},
+        "followup_note": {"$ref": "#/$defs/text"},
+        "unknown": {
+          "description": "Questions answered \"I don't know\": question key -> who might know.",
+          "type": "object", "additionalProperties": {"$ref": "#/$defs/text"}
+        }
+      }
+    }
+  }
+}

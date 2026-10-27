@@ -1,7 +1,5 @@
 # Sample Project: the requirements tool's sample workspace (a fictional
-# distributor) compiled onto the architecture. Its system types map to the
-# architecture's simulators: ERP -> Sage X3, CRM -> HubSpot, Inventory
-# planning -> Netstock, Freight platform -> freight. Payroll has none yet.
+# distributor) on the architecture.
 name: Sample Project
 slug: sample
 # Source systems in use. Each needs a simulator (sources/simulators/) and a
@@ -10,3 +8,13 @@ systems: [sage_x3, hubspot, netstock, freight]
 mdm_provider: splink
 # The architecture version this pack is built and proven against (transform/platform).
 architecture: 3.0.0
+# The requirements: measure slots per dashboard row, and the systems the
+# business names in its answers, each with the architecture system it maps to
+# (none yet for Payroll: it has no simulator).
+slots: 4
+business_systems:
+  ERP: sage_x3
+  CRM: hubspot
+  Payroll: null
+  Inventory planning: netstock
+  Freight platform: freight

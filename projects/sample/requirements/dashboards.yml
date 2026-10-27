@@ -1,0 +1,30 @@
+# Dashboards, by code, in display order: the rows of the Measures grid, and how
+# each is used. A process dashboard (its code is a process code) takes its
+# measures from seeds/process_metric.csv; any other lists them in `slots`.
+
+O2C:
+  name: Order to Cash
+P2P:
+  name: Procure to Pay
+I2D:
+  name: Inventory to Delivery
+  audience: The logistics team and the operations director.
+  decisions: Which carriers to review, and which customers need a call about a late order.
+  cadence: The Monday operations meeting, and daily for late shipments.
+  access: "Carrier rates are confidential: customer service shouldn't see the cost tiles."
+R2R:
+  name: Record to Report
+H2R:
+  name: Hire to Retire
+
+# Operations reads three processes. Two of its measures are defined on the
+# process dashboards and shown here; Supplier On-Time Rate is its own.
+OPS:
+  name: Operations
+  audience: The operations director and the site managers.
+  decisions: Where to add staff or stock. Which carriers and suppliers to review.
+  cadence: The monthly operations review.
+  slots:
+    M1: on_time_delivery_rate
+    M2: cost_per_order
+    M3: supplier_on_time_rate

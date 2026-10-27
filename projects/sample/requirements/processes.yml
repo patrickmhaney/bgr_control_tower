@@ -1,0 +1,75 @@
+# Business processes, by code, in display order: the rows of the bus matrix.
+# seeds/process.csv is generated from this file. Questions: core/requirements/questions.yml.
+
+O2C:
+  name: Order to Cash
+  interview: complete
+  assignee: p2
+  answers:
+    purpose: Turns customer orders into cash. Every sale and every receivable starts here.
+    boundaries: Starts when a customer places an order. Ends when their payment is applied to the invoice.
+    steps:
+      - {name: Take the order, department: SALES, system: CRM}
+      - {name: Check credit, department: FIN, system: ERP}
+      - {name: "Pick, pack and ship", department: OPS, system: ERP}
+      - {name: Invoice, department: FIN, system: ERP}
+      - {name: Collect payment, department: FIN, system: ERP}
+    event: One line on a customer order, and later one line on its invoice.
+    systems: [CRM, ERP]
+    volume: About 1,800 order lines a day. Month-end is twice as busy.
+    decisions: Which customers to chase for payment. Whether to extend credit. Which late orders to expedite.
+    pain_points: Order changes are agreed by email, so the ERP is often a day behind.
+    owner: {person: p2}
+    priority: now
+
+P2P:
+  name: Procure to Pay
+  interview: in_progress
+  assignee: p4
+  followup: true
+  unknown: {volume: Purchasing Manager}
+  answers:
+    purpose: Buys stock and services and pays suppliers on time.
+    boundaries: Starts with a purchase requisition. Ends when the supplier is paid.
+    steps:
+      - {name: Raise purchase order, department: PURCH, system: ERP}
+      - {name: Receive goods, department: OPS, system: ERP}
+      - {name: Match invoice, department: FIN, system: ERP}
+      - {name: Pay supplier, department: FIN, system: ERP}
+    event: One line on a purchase order.
+    systems: [ERP]
+    decisions: Which suppliers to keep. When to pay to take early-payment discounts.
+    pain_points: Invoices that don't match the order are fixed by hand in AP.
+    owner: {person: p4}
+    priority: next
+
+I2D:
+  name: Inventory to Delivery
+  interview: complete
+  assignee: p1
+  answers:
+    purpose: Keeps the right stock in each warehouse and gets orders to customers when promised.
+    boundaries: Starts when stock is planned for a site. Ends when the customer confirms delivery.
+    steps:
+      - {name: Plan stock, department: OPS, system: Inventory planning}
+      - {name: Pick and pack, department: OPS, system: ERP}
+      - {name: Ship, department: OPS, system: Freight platform}
+      - {name: Confirm delivery, department: CUSTSVC, system: Freight platform}
+    event: One shipment, and each delivery confirmation from the carrier.
+    systems: [Inventory planning, ERP, Freight platform]
+    volume: About 600 shipments a day from three sites.
+    decisions: Which carriers to review. Where to hold safety stock. Which customers need a call about a late order.
+    pain_points_none: true
+    owner: {person: p1}
+    priority: now
+
+R2R:
+  name: Record to Report
+  interview: in_progress
+  answers:
+    purpose: Closes the books each month and produces the financial statements.
+    systems: [ERP]
+    owner: {department: FIN}
+
+H2R:
+  name: Hire to Retire

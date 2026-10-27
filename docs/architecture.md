@@ -21,7 +21,10 @@ golden answers), its synthetic-data settings (`scenario.yml`) and its SQL
 transform/platform/        dbt package every pack depends on: macros, the staging
                            adapter per source system, project_template.yml
 projects/<slug>/
-  project.yml              name, systems in use, MDM provider, the architecture version it pins
+  project.yml              name, systems in use, MDM provider, the architecture version it pins;
+                           slots per dashboard and the business's system names
+  requirements/            what the business asked for (optional): people, processes, dimensions,
+                           bus matrix, dashboards, measures' answers, sketches
   scenario.yml             seed, dates, volumes, companies, sites, name pools
   ingestion/specs|schemas  contracts C1 and C2
   dbt_project.yml          the platform template: only name and vars differ
@@ -208,6 +211,25 @@ It writes to this checkout's working tree - one branch for every workspace -
 so a preview is an ordinary diff here, gated by check-pack, the lint and the
 golden answers before anyone commits it. Numbers show in the tool only in a
 labelled preview, and here in the Studio (`?project=<slug>` opens a pack).
+
+## Requirements in the project
+
+A project's `requirements/` holds what the business asked for, each field in
+one file: people (the only file with names), processes, dimensions, the bus
+matrix, dashboards, each measure's discovery answers, and dashboard sketches.
+A measure's definitions - label, description, owner, caveats - stay in the
+semantic files, the same lines the Governance page shows. The files' JSON
+Schemas and the question sets the screens render from are in
+`core/requirements/`; check-pack validates the files and every reference
+between them. `seeds/process.csv` and a marked section of
+`docs/open_questions.md` are generated from them
+(`python -m ctl requirements --regenerate`).
+
+The Studio writes them through `core/requirements/store.py`: one entry
+changed through its own lines (every other line byte for byte), the result
+checked in a staged copy (schemas, references, the semantic lint on the YAML)
+before anything is written, then one local git commit in the editor's name.
+It refuses to save over a file with uncommitted changes, and never pushes.
 
 ## Running it
 

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "processes.schema.json",
+  "title": "requirements/processes.yml",
+  "description": "Business processes, by code, in display order. seeds/process.csv is generated from this file.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/code"},
+  "additionalProperties": {
+    "type": "object", "required": ["name"],
+    "$ref": "common.schema.json#/$defs/workflow",
+    "unevaluatedProperties": false,
+    "properties": {
+      "name": {"$ref": "common.schema.json#/$defs/text"},
+      "active": {"description": "is_active in seeds/process.csv.", "type": "boolean", "default": true},
+      "answers": {"$ref": "answers.schema.json#/$defs/process"},
+      "notes": {"$ref": "common.schema.json#/$defs/text"}
+    }
+  }
+}

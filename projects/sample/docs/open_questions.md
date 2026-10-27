@@ -16,3 +16,26 @@ pack is compiled from it (contract C8), so most answers change there, not here.
 | 8 | Cost Per Shipment: late carrier invoices | Invoiced shipments only, so recent months restate as invoices arrive | `fct_shipment` | A caveat, or an accrual for uninvoiced shipments |
 | 9 | Payroll | No simulator in the architecture yet | `project.yml` | A payroll simulator and staging adapter |
 | 10 | Fiscal calendar | Fiscal = calendar | var `fiscal_year_start_month` | A var |
+
+<!-- requirements:start - generated from requirements/ on every save; edit the answers, not this section -->
+
+## Asked in the requirements
+
+Answered "I don't know" in the Requirements tab, with who might know.
+
+| Item | Question | Who might know |
+|---|---|---|
+| Process Procure to Pay (`P2P`) | Volume | Purchasing Manager |
+| Dimension Product (`item`) | Roll-ups | Purchasing Manager |
+| Measure Inventory Accuracy (`inventory_accuracy`) | Calculation | Finance Controller |
+| Measure Return Rate (`return_rate`) | Source systems | Sales Operations Lead |
+
+Flagged for follow-up.
+
+| Item | Note |
+|---|---|
+| Process Procure to Pay (`P2P`) | - |
+| Dimension Product (`item`) | - |
+| Measure Cost Per Order (`cost_per_order`) | Which costs count? Freight only, or warehouse labour too. Ask the Finance Controller. |
+
+<!-- requirements:end -->

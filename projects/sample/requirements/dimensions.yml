@@ -1,0 +1,69 @@
+# Dimensions, by code, in display order: what the business is measured by, and
+# the columns of the bus matrix. Questions: core/requirements/questions.yml.
+
+date:
+  name: Date
+  interview: complete
+  answers:
+    definition: "The calendar and our fiscal calendar: days, fiscal weeks, months, quarters and years."
+    identifier: The date itself.
+    attributes: Fiscal week, fiscal month, quarter, working day, holiday.
+    hierarchy: Day → fiscal week → fiscal month → quarter → fiscal year.
+    systems: [ERP]
+    history: as_is
+    quality_none: true
+    owner: {department: FIN}
+
+customer:
+  name: Customer
+  interview: complete
+  answers:
+    definition: Any company that has placed an order with us in the last five years.
+    identifier: Customer number in the ERP. The CRM uses its own account ID, matched by hand.
+    attributes: Name, segment, account manager, payment terms, account tier, region.
+    hierarchy: Customer → account tier → region.
+    systems: [ERP]
+    history: as_was
+    history_note: Region and account manager. Name changes can overwrite.
+    quality: Some customers exist twice under slightly different names.
+    owner: {person: p3}
+
+item:
+  name: Product
+  interview: in_progress
+  followup: true
+  unknown: {hierarchy: Purchasing Manager}
+  answers:
+    definition: Anything we sell or stock, down to the individual SKU.
+    identifier: Item number in the ERP.
+    attributes: Description, product family, brand, unit of measure, weight.
+    systems: [ERP]
+    history: as_was
+    owner: {department: OPS}
+
+site:
+  name: Site
+  interview: in_progress
+  answers:
+    definition: A warehouse or branch that holds stock or ships orders.
+    identifier: Site code, e.g. DAL1.
+    hierarchy: Site → region.
+    systems: [ERP]
+    owner: {person: p1}
+
+supplier:
+  name: Supplier
+  interview: in_progress
+  answers:
+    definition: A company we buy goods or services from.
+
+carrier:
+  name: Carrier
+  interview: in_progress
+  answers:
+    definition: A freight company that moves our shipments.
+    systems: [Freight platform]
+    owner: {person: p1}
+
+employee:
+  name: Employee

@@ -26,6 +26,9 @@ dependencies = [
     "mcp>=1.10",
     "pyyaml>=6",
     "pyarrow>=17",
+    # The requirements files: edited in place (comments and order kept), checked by JSON Schema.
+    "ruamel-yaml>=0.18",
+    "jsonschema>=4",
 ]
 
 [project.optional-dependencies]
@@ -53,7 +56,7 @@ include = ["core*", "ctl*", "sources*", "ingestion*", "mdm*", "semantic*", "serv
            "apps*", "orchestration*", "evaluation*", "checks*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yml", "*.yaml", "*.sh", "static/*"]
+"*" = ["*.yml", "*.yaml", "*.sh", "static/*", "*.schema.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

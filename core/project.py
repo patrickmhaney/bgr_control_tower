@@ -53,9 +53,12 @@ def current() -> Project:
 @dataclass(frozen=True)
 class Project:
     slug: str
+    #: The folder that holds the project; None is projects/. The requirements
+    #: store points one at a staged copy to check a save before writing it.
+    base: str | None = None
 
     def path(self, *parts: str) -> str:
-        return os.path.join(PROJECTS, self.slug, *parts)
+        return os.path.join(self.base or PROJECTS, self.slug, *parts)
 
     @property
     def root(self) -> str:
@@ -121,6 +124,11 @@ class Project:
     def dbt_name(self) -> str:
         with open(self.path("dbt_project.yml")) as fh:
             return yaml.safe_load(fh)["name"]
+
+    # -- requirements: what the business asked for (core/requirements)
+    @property
+    def requirements(self) -> str:
+        return self.path("requirements")
 
     # -- governance, proof and generated files
     @property

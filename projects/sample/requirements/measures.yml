@@ -1,0 +1,103 @@
+# Each measure's discovery answers, by metric name. Its label, description,
+# owner and caveats are its definition, in the semantic files
+# (models/semantic/metrics.yml, or backlog.yml until it has a formula).
+# Questions: core/requirements/questions.yml.
+
+on_time_delivery_rate:
+  interview: complete
+  assignee: p1
+  answers:
+    formula: >-
+      Shipments delivered on or before the promised date, divided by all
+      delivered shipments. Measured against the customer's requested date, not
+      the carrier's estimate.
+    sources: [Freight platform, ERP]
+    target: 95% on time, set by the Logistics Lead each year. Kept in the scorecard header.
+    report: "Yes, reviewed every Monday. Trusted: weekly logistics scorecard (Excel, Operations shared drive)."
+    breakdowns: >-
+      By customer, carrier, ship-from site and week. Customers roll up to
+      account tier. Lowest level: individual shipment.
+    dimensions: [date, customer, carrier, site]
+    time: Delivery date. Fiscal weeks and months. Week to date, MTD and prior year.
+    refresh: daily
+    refresh_why: Late shipments are chased the next morning.
+    restatement: >-
+      Yes. Carriers confirm deliveries up to five days late, so the last two
+      weeks are recalculated daily.
+    sme: {person: p1}
+
+cost_per_shipment:
+  interview: complete
+  assignee: p1
+  answers:
+    formula: Total carrier charges (freight, fuel surcharge, accessorials) divided by shipments.
+    sources: [Freight platform]
+    target_none: true
+    report_none: true
+    breakdowns: "By carrier, lane and month. Lowest level: individual shipment."
+    dimensions: [date, carrier]
+    time: Ship date. Calendar months. Month and prior month.
+    refresh: weekly
+    restatement: Yes. Carrier invoices can arrive a month late; the month is restated when they do.
+    sme: {person: p1}
+
+inventory_accuracy:
+  interview: in_progress
+  assignee: p1
+  unknown: {formula: Finance Controller}
+  answers:
+    sources: [ERP, Inventory planning]
+    dimensions: [item, site]
+    sme: {person: p1}
+
+days_sales_outstanding:
+  interview: complete
+  assignee: p2
+  answers:
+    formula: Accounts receivable divided by credit sales, times days in the period.
+    sources: [ERP]
+    target: Under 45 days, set by the CFO in the annual budget.
+    report: "Yes, in the monthly finance review. Trusted: month-end close pack, AR tab."
+    breakdowns_same: true
+    dimensions: [date, customer]
+    time: Month-end balance date. Fiscal months. Month, YTD and prior year.
+    refresh: monthly
+    restatement_none: true
+    sme: {person: p2}
+
+cost_per_order:
+  interview: in_progress
+  assignee: p3
+  followup: true
+  followup_note: Which costs count? Freight only, or warehouse labour too. Ask the Finance Controller.
+  answers:
+    formula: Fulfilment cost divided by orders shipped.
+    sources: [Freight platform, ERP]
+    dimensions: [customer, carrier]
+
+return_rate:
+  interview: in_progress
+  unknown: {sources: Sales Operations Lead}
+
+three_way_match_rate:
+  interview: in_progress
+  assignee: p4
+  answers:
+    formula: Invoices matching PO and receipt within tolerance, divided by all invoices.
+    sources: [ERP]
+    report: AP exceptions report.
+    breakdowns: By supplier and buyer, monthly.
+    dimensions: [supplier, employee, date]
+    refresh: weekly
+    sme: {person: p4}
+
+# On the Operations dashboard only, so its process is named here.
+supplier_on_time_rate:
+  interview: in_progress
+  assignee: p1
+  process: P2P
+  answers:
+    formula: PO lines received on or before the promised date, divided by all PO lines received.
+    sources: [ERP]
+    breakdowns: By supplier, site and month.
+    dimensions: [supplier, site, date]

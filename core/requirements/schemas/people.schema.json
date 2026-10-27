@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "people.schema.json",
+  "title": "requirements/people.yml",
+  "description": "The people the requirements name, by id. The only file in a project with names in it.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/person"},
+  "additionalProperties": {
+    "type": "object", "additionalProperties": false, "required": ["name"],
+    "properties": {
+      "name": {"type": "string", "minLength": 1},
+      "role": {"description": "What a metric's owner shows: picking this person as owner writes their role.", "type": "string"},
+      "email": {"type": "string"},
+      "department": {"$ref": "common.schema.json#/$defs/department"}
+    }
+  }
+}

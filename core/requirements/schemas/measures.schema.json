@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "measures.schema.json",
+  "title": "requirements/measures.yml",
+  "description": "Each measure's discovery answers, by metric name. Its label, description, owner and caveats live in the semantic files (models/semantic/ or backlog.yml), not here.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/metric"},
+  "additionalProperties": {
+    "type": "object",
+    "$ref": "common.schema.json#/$defs/workflow",
+    "unevaluatedProperties": false,
+    "properties": {
+      "answers": {"$ref": "answers.schema.json#/$defs/measure"},
+      "process": {
+        "description": "The process it belongs to, for a measure on no process dashboard. Otherwise its row in seeds/process_metric.csv says.",
+        "$ref": "common.schema.json#/$defs/code"
+      }
+    }
+  }
+}

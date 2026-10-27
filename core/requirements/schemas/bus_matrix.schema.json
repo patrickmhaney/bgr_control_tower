@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bus_matrix.schema.json",
+  "title": "requirements/bus_matrix.yml",
+  "description": "The ticked boxes: each process code and the dimension codes it is analysed by.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/code"},
+  "additionalProperties": {
+    "type": "array", "uniqueItems": true,
+    "items": {"$ref": "common.schema.json#/$defs/dimension"}
+  }
+}

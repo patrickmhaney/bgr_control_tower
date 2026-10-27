@@ -31,9 +31,11 @@ import os
 import sys
 import time
 import uuid
+from typing import Annotated
+from urllib.parse import unquote
 
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -642,3 +644,100 @@ async def ask(req: AskRequest):
             yield json.dumps(event, default=str) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ----------------------------------------------------------- requirements --
+# The project's requirements and definitions, through the store
+# (core/requirements/store.py). Every save names its editor in the X-Editor
+# header (URL-encoded, so any name fits) and becomes one commit.
+
+
+def _requirements():
+    from core.requirements.store import Store
+
+    return Store(project.current())
+
+
+def _saving(fn):
+    from core.requirements.store import Refused
+
+    try:
+        return fn()
+    except Refused as exc:
+        raise HTTPException(exc.status, {"message": str(exc), "problems": exc.problems}) from None
+
+
+@app.get("/api/requirements")
+def requirements_snapshot():
+    """Everything the Requirements tab shows, each measure joined with its definition."""
+    return _requirements().snapshot()
+
+
+@app.get("/api/requirements/events")
+async def requirements_events():
+    """Server-sent events naming the sections whose files changed, whoever changed them."""
+    from core.requirements.store import Watcher
+
+    async def stream():
+        watcher = Watcher(project.current())
+        yield ": watching\n\n"
+        while True:
+            await asyncio.sleep(0.5)
+            if project.slug() != watcher.pack.slug:
+                watcher = Watcher(project.current())
+                change = {"project": project.slug(), "files": [], "sections": ["all"]}
+            else:
+                change = watcher.poll()
+            if change:
+                yield f"data: {json.dumps(change)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/requirements/history/{kind}/{key}")
+def requirements_history(kind: str, key: str):
+    """The saves that changed one entry, newest first."""
+    return {"history": _saving(lambda: _requirements().history(kind, key))}
+
+
+class AddRequest(BaseModel):
+    key: str | None = None          # a code; a person's id and a measure's name are made for you
+    value: dict | list | None = None  # a new measure's value holds its label
+    position: int | None = None
+    dashboard: str | None = None    # a new measure's slot
+    slot: str | None = None
+
+
+class MoveRequest(BaseModel):
+    position: int
+
+
+class SlotRequest(BaseModel):
+    metric: str | None = None       # None clears the slot
+
+
+@app.put("/api/requirements/slots/{dashboard}/{slot}")
+def requirements_slot(dashboard: str, slot: str, req: SlotRequest, x_editor: str | None = Header(None)):
+    return {"files": _saving(lambda: _requirements().place(dashboard, slot, req.metric, unquote(x_editor or "")))}
+
+
+@app.patch("/api/requirements/{kind}/{key}")
+def requirements_patch(kind: str, key: str, changes: Annotated[dict | list, Body()],
+                       x_editor: str | None = Header(None)):
+    return _saving(lambda: _requirements().patch(kind, key, changes, unquote(x_editor or "")))
+
+
+@app.post("/api/requirements/{kind}", status_code=201)
+def requirements_add(kind: str, req: AddRequest, x_editor: str | None = Header(None)):
+    return _saving(lambda: _requirements().add(kind, req.key, req.value, unquote(x_editor or ""),
+                                               req.position, req.dashboard, req.slot))
+
+
+@app.post("/api/requirements/{kind}/{key}/move")
+def requirements_move(kind: str, key: str, req: MoveRequest, x_editor: str | None = Header(None)):
+    return {"files": _saving(lambda: _requirements().move(kind, key, req.position, unquote(x_editor or "")))}
+
+
+@app.delete("/api/requirements/{kind}/{key}")
+def requirements_remove(kind: str, key: str, x_editor: str | None = Header(None)):
+    return {"files": _saving(lambda: _requirements().remove(kind, key, unquote(x_editor or "")))}

@@ -13,6 +13,7 @@
     python -m ctl powerbi          regenerate the Power BI model and parity queries (files in git)
     python -m ctl reset            delete everything under the data directory
     python -m ctl check-pack       the pack fills the fixed slots only (core/pack.py)
+    python -m ctl requirements [--regenerate]   check requirements/; rewrite the files generated from it
     python -m ctl preview [--changed PATH ...]   rebuild what compiled requirements changed
     python -m ctl kpis             each KPI's latest full month and the one before, as JSON
 
@@ -178,6 +179,9 @@ def main() -> None:
     sub.add_parser("reset")
     c = sub.add_parser("check-pack")
     c.add_argument("slug", nargs="?", help="default: the project in use")
+    rq = sub.add_parser("requirements")
+    rq.add_argument("--regenerate", action="store_true",
+                    help="rewrite seeds/process.csv and the open questions section from requirements/")
     pv = sub.add_parser("preview")
     pv.add_argument("--changed", nargs="*", default=[], help="pack files the compiler changed")
     sub.add_parser("kpis")
@@ -254,10 +258,31 @@ def _dispatch(a: argparse.Namespace) -> None:
         from core.pack import main as check_pack
 
         check_pack(a.slug or project.slug())
+    elif a.cmd == "requirements":
+        requirements(a.regenerate)
     elif a.cmd == "reset":
         if os.path.isdir(settings.data_dir):
             shutil.rmtree(settings.data_dir)
         print(f"Removed {settings.data_dir}")
+
+
+def requirements(regenerate: bool) -> None:
+    """Check a project's requirements/ (core/requirements). The Studio keeps the
+    generated files in step on every save; --regenerate does it after an edit
+    made by hand, for the engineer to commit with that edit."""
+    from core import requirements as rq
+
+    pack = project.current()
+    if not os.path.isdir(pack.requirements):
+        raise SystemExit(f"{pack.slug} has no requirements/ yet")
+    if regenerate:
+        for rel in rq.regenerate(pack):
+            print(f"requirements: rewrote {rel}")
+    problems = rq.check(pack)
+    for p in problems:
+        print(f"requirements: {p}")
+    print("requirements: ok" if not problems else f"requirements: {len(problems)} problem(s)")
+    sys.exit(1 if problems else 0)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,282 @@
+# The questions asked about every business process, dimension and measure:
+# one definition, which the Studio's Requirements screens render from and
+# core/requirements checks answers against. Wording from the governance tool.
+#
+# Every question but the name can be answered "I don't know" (the entry's
+# `unknown`, with who might know), and an entry is complete when every question
+# is answered or unknown.
+#
+# Per question:
+#   key        the answer's key in the entry's `answers`
+#   label      short, for exports and the change history
+#   title      the question as asked;  why: a hint under it
+#   type       text | textarea | choice | systems | steps | who | dimensions
+#              (systems: names from project.yml business_systems;
+#               who: {person: <id in people.yml>, department: <code>, note: <text>};
+#               dimensions: codes in dimensions.yml)
+#   choices    [value, label, hint] for a choice
+#   box        a tick that answers the question by itself, e.g. "Nothing major"
+#   other      a second field that also answers it
+#   note       free text alongside, never needed for an answer
+#   home       the answer lives outside `answers`: the entry's name, or a
+#              measure's label, description and owner in the semantic files
+#   unknown    false: can't be "I don't know"
+
+process:
+  - key: name
+    label: Name
+    home: name
+    unknown: false
+    type: text
+    title: Process name
+    why: What the business calls it.
+    placeholder: e.g. Order to Cash
+  - key: purpose
+    label: Purpose
+    type: textarea
+    title: What does it do, and why does it matter?
+    placeholder: e.g. Turns customer orders into cash. Every sale starts here.
+  - key: boundaries
+    label: Start and end
+    type: textarea
+    title: What starts it, and what ends it?
+    placeholder: e.g. Starts when a customer places an order. Ends when their payment is applied.
+  - key: steps
+    label: Steps
+    type: steps
+    title: What are the main steps, and who does each?
+    why: Five to eight is plenty. The department doing each step becomes a lane in the swimlane.
+  - key: event
+    label: What it records
+    type: textarea
+    title: What's the smallest thing it records?
+    why: Reports can add up from this but never go below it. It sets the level of detail the warehouse keeps.
+    placeholder: e.g. One line on a customer order.
+  - key: systems
+    label: Systems
+    type: systems
+    title: Which systems does it run in?
+    why: Pick every one that applies.
+    other: {key: systems_other, type: text, placeholder: Another system}
+  - key: volume
+    label: Volume
+    type: text
+    title: How often does it happen, and roughly how many?
+    why: A rough number is fine.
+    placeholder: e.g. About 2,000 order lines a day, busiest at month-end.
+  - key: decisions
+    label: Decisions it supports
+    type: textarea
+    title: Which decisions depend on it?
+    why: What people decide or act on using it. Dashboards should support these.
+    placeholder: e.g. Which customers to chase for payment. Which late orders to expedite.
+  - key: pain_points
+    label: Pain points
+    type: textarea
+    title: What's hard about it today?
+    box: {key: pain_points_none, label: Nothing major}
+    placeholder: e.g. Order changes are agreed by email, so the ERP is often behind.
+  - key: owner
+    label: Owner
+    type: who
+    title: Who owns it?
+    why: Accountable for how it runs and for the data it creates.
+  - key: priority
+    label: Priority
+    type: choice
+    title: When should the warehouse cover it?
+    choices:
+      - [now, Now, The first release]
+      - [next, Next, The release after]
+      - [later, Later, Not planned yet]
+
+dimension:
+  - key: name
+    label: Name
+    home: name
+    unknown: false
+    type: text
+    title: Name
+    why: "Something the business is measured by: customer, product, site, employee."
+    placeholder: e.g. Customer
+  - key: definition
+    label: Definition
+    type: textarea
+    title: What is it, in the business's words?
+    placeholder: e.g. Any company that has placed an order with us in the last five years.
+  - key: identifier
+    label: How one is identified
+    type: textarea
+    title: How do you tell one from another?
+    why: The number or code that identifies one, and whether it differs between systems.
+    placeholder: e.g. Customer number in the ERP. The CRM has its own account ID.
+  - key: attributes
+    label: Described by
+    type: textarea
+    title: What do you describe it by?
+    why: The details you filter, group or label by.
+    placeholder: e.g. Name, segment, account manager, payment terms, region.
+  - key: hierarchy
+    label: Roll-ups
+    type: textarea
+    title: How does it roll up?
+    box: {key: hierarchy_none, label: It doesn't roll up}
+    placeholder: e.g. Customer → account tier → region.
+  - key: systems
+    label: Master system
+    type: systems
+    title: Which system holds the master copy?
+    why: Where it's created and corrected.
+    other: {key: systems_other, type: text, placeholder: Another system}
+  - key: history
+    label: When it changes
+    type: choice
+    title: When something about it changes, what should past reports show?
+    why: For example, a customer moves from the East region to the West.
+    choices:
+      - [as_was, As it was, Last year's sales stay in East]
+      - [as_is, As it is now, Last year's sales move to West]
+      - [both, Both, Chosen per report]
+    note: {key: history_note, placeholder: "Optional: which details this applies to"}
+  - key: quality
+    label: Known data problems
+    type: textarea
+    title: Any known data problems?
+    why: Duplicates, gaps, the same thing typed different ways.
+    box: {key: quality_none, label: No known problems}
+    placeholder: e.g. Some customers exist twice under slightly different names.
+  - key: owner
+    label: Owner
+    type: who
+    title: Who owns it?
+    why: Approves changes to its definition and gets data errors fixed at the source.
+
+measure:
+  - key: name
+    label: Name
+    home: label
+    unknown: false
+    type: text
+    title: Measure name
+    why: The name people in the business know it by.
+  - key: definition
+    label: Definition
+    home: description
+    type: textarea
+    title: What does this measure tell you about the business and how is it defined?
+    why: In plain words. This becomes its glossary entry.
+  - key: formula
+    label: Calculation
+    type: textarea
+    title: How is this measure calculated?
+    why: A formula, or describe it in words. Two reasonable definitions can give very different numbers.
+  - key: sources
+    label: Source systems
+    type: systems
+    title: Which source application(s) are the system of record for each input to this calculation?
+    why: Pick every one you think it touches. Guessing is fine; we confirm it on our side.
+    other:
+      key: source_other
+      type: text
+      placeholder: Another system, a spreadsheet, a vendor portal… Note which input comes from where.
+  - key: target
+    label: Benchmark or target
+    type: textarea
+    title: Does it have a benchmark, target, or threshold? If so, who sets it, and where is it currently kept?
+    why: So the dashboard can show the number against the goal it's measured by.
+    box: {key: target_none, label: No benchmark, target or threshold}
+  - key: report
+    label: Trusted report
+    type: textarea
+    title: >-
+      Is this measure currently used by the business and is it a trusted source
+      for validation testing? If available, please share the trusted report or
+      spreadsheet.
+    why: We test the new numbers against it, so you can trust them from day one.
+    box: {key: report_none, label: Not used today, or no trusted report to test against}
+  - key: breakdowns
+    label: Breakdowns
+    type: textarea
+    title: Which dimensional rollups do you need to see it by? What's the lowest level of detail you need?
+    why: >-
+      For example by product, customer, region, rolling up to product family or
+      territory. This tells us what the data model has to support.
+    box: {key: breakdowns_same, label: Same breakdowns as the current report}
+    other: {key: dimensions, type: dimensions}
+  - key: time
+    label: Date and periods
+    type: textarea
+    title: >-
+      Which date drives it, and do you use fiscal or calendar periods? Which time
+      rollups or comparisons do you need (MTD, YTD, Prior Year, etc.)?
+    why: For example order date or ship date, fiscal months, with MTD and prior year.
+  - key: refresh
+    label: Refresh
+    type: choice
+    title: How often should this number refresh (Daily, Weekly, Monthly, etc.)?
+    why: Match it to how often the number is checked or acted on. We size the pipeline to fit.
+    choices:
+      - [monthly, Monthly, After month-end close]
+      - [weekly, Weekly, Once a week]
+      - [daily, Daily, Fresh each morning]
+      - [intraday, Intraday, Several times a day]
+    note: {key: refresh_why, placeholder: "Optional: when is this number usually reviewed? e.g. Monday ops meeting"}
+  - key: restatement
+    label: Changes to past numbers
+    type: textarea
+    title: Can past numbers change after the fact? If so, how should that be handled?
+    why: >-
+      For example late invoices, returns or reclassifications. Decide whether
+      history is restated or kept as first reported.
+    box: {key: restatement_none, label: "No, past numbers don't change"}
+  - key: owner
+    label: Definition owner
+    home: owner
+    type: who
+    title: Who owns the definition and approves changes to it?
+    why: When a definition question comes up, this is who decides. It doesn't have to be you.
+  - key: sme
+    label: Subject matter expert
+    type: who
+    title: Who is the subject matter expert to contact for questions?
+    why: The person who knows how the number works day to day. It can be the owner.
+
+# A dashboard's use, asked on its sketch. Not part of any entry's completeness.
+dashboard:
+  - key: audience
+    label: Audience
+    type: textarea
+    title: Who uses it?
+    placeholder: e.g. The logistics team and the operations director.
+  - key: decisions
+    label: Decisions
+    type: textarea
+    title: What do they decide with it?
+    placeholder: e.g. Which carriers to review. Which customers to call about late orders.
+  - key: cadence
+    label: Cadence
+    type: textarea
+    title: When do they look at it?
+    placeholder: e.g. The Monday operations meeting, and daily for exceptions.
+  - key: access
+    label: Access
+    type: textarea
+    title: Should anyone not see some of it?
+    placeholder: "e.g. Carrier rates are confidential: hide cost tiles from customer service."
+
+# Interview status: are the questions answered? Not the metric status in the
+# semantic files (placeholder, blocked, provisional, active), which says
+# whether the number can be trusted.
+interview:
+  - [not_started, Not started]
+  - [in_progress, In progress]
+  - [complete, Complete]
+
+# Sketch tiles on a 12-column grid: kind, label, default width and height.
+tiles:
+  - [kpi, Headline number, 3, 2]
+  - [line, Trend, 6, 3]
+  - [bar, Comparison, 6, 3]
+  - [table, Table, 6, 3]
+  - [filter, Filter, 3, 1]
+  - [text, Note, 3, 2]

@@ -1,0 +1,20 @@
+# Dashboard sketches, by dashboard code: tiles on a 12-column grid.
+# Tile kinds: core/requirements/questions.yml (tiles).
+
+I2D:
+  - {kind: filter, x: 0, y: 0, w: 3, h: 1, dimension: date}
+  - {kind: filter, x: 3, y: 0, w: 3, h: 1, dimension: customer}
+  - {kind: filter, x: 6, y: 0, w: 3, h: 1, dimension: carrier}
+  - kind: text
+    x: 9
+    y: 0
+    w: 3
+    h: 3
+    title: Late shipments
+    note: Each late shipment links to its record in the freight platform, so it can be chased from here.
+  - {kind: kpi, x: 0, y: 1, w: 3, h: 2, measure: on_time_delivery_rate}
+  - {kind: kpi, x: 3, y: 1, w: 3, h: 2, measure: cost_per_shipment}
+  - {kind: kpi, x: 6, y: 1, w: 3, h: 2, measure: inventory_accuracy}
+  - {kind: line, x: 0, y: 3, w: 6, h: 3, measure: on_time_delivery_rate, title: On-time delivery by week}
+  - {kind: bar, x: 6, y: 3, w: 6, h: 3, measure: on_time_delivery_rate, dimension: carrier}
+  - {kind: table, x: 0, y: 6, w: 12, h: 3, measure: on_time_delivery_rate, dimension: customer, title: Late shipments by customer}

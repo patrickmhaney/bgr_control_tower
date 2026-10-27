@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sketches.schema.json",
+  "title": "requirements/sketches.yml",
+  "description": "Dashboard sketches: each dashboard code and its tiles on a 12-column grid.",
+  "type": "object",
+  "propertyNames": {"$ref": "common.schema.json#/$defs/code"},
+  "additionalProperties": {
+    "type": "array",
+    "items": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "x", "y", "w", "h"],
+      "properties": {
+        "kind": {"enum": ["kpi", "line", "bar", "table", "filter", "text"]},
+        "x": {"type": "integer", "minimum": 0, "maximum": 11},
+        "y": {"type": "integer", "minimum": 0},
+        "w": {"type": "integer", "minimum": 1, "maximum": 12},
+        "h": {"type": "integer", "minimum": 1},
+        "title": {"$ref": "common.schema.json#/$defs/text"},
+        "measure": {"$ref": "common.schema.json#/$defs/metric"},
+        "dimension": {"$ref": "common.schema.json#/$defs/dimension"},
+        "note": {"$ref": "common.schema.json#/$defs/text"}
+      }
+    }
+  }
+}

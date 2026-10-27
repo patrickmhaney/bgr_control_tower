@@ -16,6 +16,9 @@ rejected when it holds:
   and staging adapter in the architecture
 * an architecture pin that differs from the platform version
 * a spec table with no bronze model, or a bronze model with no spec table
+* requirements/ files that break their schemas or refer to codes, people or
+  metrics that don't exist, or a generated seed out of step with them
+  (core/requirements)
 
     projects/<slug>/
       project.yml  scenario.yml  dbt_project.yml  packages.yml
@@ -24,6 +27,7 @@ rejected when it holds:
       models/gold/  models/semantic/*.yml
       seeds/*.csv|yml  tests/*.sql  backlog.yml  golden_answers.yml
       powerbi/ (generated)  docs/*.md  dashboards.yml (optional)
+      requirements/*.yml (optional; core/requirements lists the files)
 """
 from __future__ import annotations
 
@@ -33,12 +37,12 @@ import sys
 
 import yaml
 
-from core import project
+from core import project, requirements
 
 #: Top-level entries a pack may hold. dbt and git leave the ignored ones behind.
 TOP = {"project.yml", "scenario.yml", "dbt_project.yml", "packages.yml", "package-lock.yml",
        "ingestion", "models", "seeds", "tests", "backlog.yml", "golden_answers.yml", "powerbi",
-       "docs", "dashboards.yml", "README.md"}
+       "docs", "dashboards.yml", "README.md", "requirements"}
 IGNORED = {"target", "dbt_packages", "logs", ".user.yml", ".DS_Store", "__pycache__"}
 #: Where each kind of file may live, relative to the pack.
 ALLOWED = [
@@ -49,9 +53,11 @@ ALLOWED = [
     "models/gold/*.sql", "models/gold/*.yml",
     "models/semantic/*.yml",
     "seeds/*.csv", "seeds/*.yml", "tests/*.sql", "docs/*.md",
-    "powerbi/*",
+    "powerbi/*", "requirements/*",
 ]
-PROJECT_KEYS = {"name", "slug", "systems", "mdm_provider", "architecture", "description"}
+PROJECT_KEYS = {"name", "slug", "systems", "mdm_provider", "architecture", "description",
+                "slots", "business_systems"}
+MAX_SLOTS = 12
 PROJECT_REQUIRED = {"name", "slug", "systems", "architecture"}
 
 
@@ -117,6 +123,11 @@ def check(slug: str) -> list[str]:
     systems = set(cfg.get("systems") or [])
     for s in sorted(systems - known_systems()):
         problems.append(f"project.yml: system {s!r} has no simulator and staging adapter in the architecture")
+    for name, system in (cfg.get("business_systems") or {}).items():
+        if system is not None and system not in systems:
+            problems.append(f"project.yml: business system {name!r} maps to {system!r}, which is not in systems")
+    if "slots" in cfg and not (isinstance(cfg["slots"], int) and 1 <= cfg["slots"] <= MAX_SLOTS):
+        problems.append(f"project.yml: slots must be a whole number from 1 to {MAX_SLOTS}")
     if str(cfg.get("architecture")) != platform_version():
         problems.append(f"project.yml: pinned to architecture {cfg.get('architecture')}, "
                         f"the platform is {platform_version()} - upgrading is a reviewed change")
@@ -164,6 +175,10 @@ def check(slug: str) -> list[str]:
         problems.append(f"models/bronze/{m}.sql: missing - one bronze model per spec table")
     for m in sorted(bronze - expected):
         problems.append(f"models/bronze/{m}.sql: no spec table behind it")
+
+    # requirements: an optional slot, checked against its schemas and the rest of the pack
+    if os.path.isdir(pack.requirements):
+        problems += requirements.check(pack)
     return problems
 
 
